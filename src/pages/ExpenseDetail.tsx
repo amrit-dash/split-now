@@ -33,6 +33,7 @@ import { usePageTitle } from '@/lib/brand'
 import { HistoryCard, TrashedBanner, TrustBadges, TrustPanel, useUndoableDelete } from '@/components/Trust'
 import { labelOf, memberIdOfUid } from '@/lib/shortNames'
 import { handlersOf, isReceived, sharesOf } from '../../shared/received'
+import { MagnifyingGlassIcon } from '@/components/icons'
 
 export default function ExpenseDetail() {
   const { groupId, expenseId } = useParams()
@@ -59,7 +60,7 @@ export default function ExpenseDetail() {
     return (
       <>
         <PageHeader title="Expense" back={group ? `/groups/${group.id}` : '/groups'} />
-        <Empty emoji="🔍" title="Expense not found">
+        <Empty icon={MagnifyingGlassIcon} title="Expense not found">
           {group ? 'It may have been deleted for good.' : 'You may no longer be in this group.'}
           {group && (
             <Link to={`/groups/${group.id}`} replace className="btn-secondary mx-auto mt-4 w-fit">

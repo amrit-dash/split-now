@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { findMark, type Part, type Scene as SceneData, type Screen } from '@/lib/help-scenes'
+import { findMark, type Part, type PartItem, type Scene as SceneData, type Screen } from '@/lib/help-scenes'
+import { UiIcon } from '@/components/UiIcon'
 
 /**
  * One main feature's scene in Help (src/lib/help-scenes.ts): a small phone showing the screen
@@ -95,6 +96,12 @@ function Parts({ screen, mark, step, still }: { screen: Screen; mark?: string; s
   )
 }
 
+/** An item's picture: the interface icon as the app draws it, or the emoji the person chose. */
+function ItemFace({ it, size, className = '' }: { it: PartItem; size: number; className?: string }) {
+  if (it.glyph) return <UiIcon name={it.glyph} size={size} className="shrink-0" />
+  return it.icon ? <span className={className}>{it.icon}</span> : null
+}
+
 /** A part is "on" when its step is the one playing: it reacts the way the real control does. */
 function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; step: number; still: boolean }) {
   const on = !!mark && p.mark === mark
@@ -156,7 +163,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
               {...(it.mark ? { 'data-mark': it.mark } : {})}
               className={`flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 text-[0.6rem] font-semibold shadow-sm dark:bg-ink-800 ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500' : ''}`}
             >
-              <span className="text-base">{it.icon}</span>
+              <ItemFace it={it} size={16} className="text-base" />
               {it.label}
             </div>
           ))}
@@ -173,7 +180,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
               className={`flex items-center gap-1.5 rounded-lg px-0.5 py-1 text-[0.65rem] ${it.mark && it.mark === mark ? 'ring-2 ring-brand-500' : ''} ${on && !still ? 'animate-[help-in_0.4s_ease-out_both]' : ''}`}
               style={on && !still ? { animationDelay: `${i * 120}ms` } : undefined}
             >
-              <span>{it.icon}</span>
+              <ItemFace it={it} size={12} />
               <span className="truncate">{it.label}</span>
             </div>
           ))}
@@ -230,7 +237,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
             className={`press-hold relative flex h-14 w-14 items-center justify-center rounded-full bg-fill text-xl text-on-fill shadow-lg ${ring}`}
             data-press={on && !still ? 'down' : 'idle'}
           >
-            🔒
+            <UiIcon name="lock" size={22} />
           </div>
           <div className="text-muted text-[0.55rem]">{p.label}</div>
           {on && !still && (
@@ -249,14 +256,18 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
     case 'faceid':
       return (
         <div {...tag} className="flex flex-col items-center gap-1 py-3 text-[0.7rem] font-semibold">
-          <span className={`text-3xl ${still ? '' : 'animate-[help-press_1.4s_ease-out_0.3s_both]'}`}>🙂</span>
+          <span className={`text-brand-600 dark:text-brand-300 ${still ? '' : 'animate-[help-press_1.4s_ease-out_0.3s_both]'}`}>
+            <UiIcon name="faceId" size={30} />
+          </span>
           {p.label}
         </div>
       )
     case 'locked':
       return (
         <div {...tag} className={`flex items-center gap-2 rounded-xl bg-white px-2 py-2 text-[0.65rem] shadow-sm dark:bg-ink-800 ${ring}`}>
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-200 dark:bg-ink-700">🔒</span>
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-200 dark:bg-ink-700">
+            <UiIcon name="lock" size={13} />
+          </span>
           <span className="font-mono tracking-wider">{p.label}</span>
           <span className="ml-auto">🦊🐼</span>
         </div>
@@ -335,7 +346,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
                 {...(it.mark ? { 'data-mark': it.mark } : {})}
                 className={`flex flex-col items-center text-[0.5rem] ${it.on || (it.mark && it.mark === mark) ? 'font-bold text-brand-600 dark:text-brand-300' : 'text-muted'}`}
               >
-                <span className="text-sm">{it.icon}</span>
+                <ItemFace it={it} size={14} className="text-sm" />
                 {it.label}
               </span>
             ),

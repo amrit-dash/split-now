@@ -13,6 +13,7 @@ import { HintText } from '@/components/Hint'
 import { Empty, PageHeader } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { handlersOf } from '../../shared/received'
+import { MagnifyingGlassIcon } from '@/components/icons'
 
 /** "owes ₹300" / "gets back ₹200" / "settled", from a balance (+ is owed to them). */
 const standing = (v: number, cur: string) => (v > 0 ? `gets back ${formatMoney(v, cur)}` : v < 0 ? `owes ${formatMoney(-v, cur)}` : 'settled')
@@ -46,7 +47,7 @@ export default function GroupMoney() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Money received" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !b)

@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Plus, ScanLine, Users } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { ReceiptIcon, ScanIcon, UsersThreeIcon } from '@/components/icons'
 
 import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
@@ -63,7 +64,7 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         className="flex w-full items-center gap-3 accent-live rounded-3xl bg-gradient-to-r from-fill to-fill-to p-4 text-left text-on-fill shadow-lg shadow-fill/25 transition active:scale-[0.98]"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-on-fill/15" aria-hidden>
-          <Plus size={26} strokeWidth={2.6} />
+          <ReceiptIcon size={26} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold">Add expense</span>
@@ -72,8 +73,8 @@ export function CreateSheet({ open, onClose, groupId }: { open: boolean; onClose
         <ChevronRight size={20} className="shrink-0 text-on-fill/80" aria-hidden />
       </button>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Tile icon={<Users size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
-        <Tile icon={<ScanLine size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
+        <Tile icon={<UsersThreeIcon size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
+        <Tile icon={<ScanIcon size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
       </div>
       {quickAdd && !showQuickAdd && !quickOpen && (
         <button

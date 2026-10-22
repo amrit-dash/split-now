@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { StyledIcon } from './Icon'
+import type { PhIcon } from './icons'
 import { useBack } from '@/hooks/useBack'
 import type { BackConfig } from '@/lib/back'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
@@ -57,12 +59,11 @@ export function PageHeader({
   )
 }
 
-export function Empty({ emoji, title, children }: { emoji: string; title: string; children?: ReactNode }) {
+/** An empty or not-found screen: a large picture (an icon from ./icons), a title and an optional line. */
+export function Empty({ icon, title, children }: { icon: PhIcon; title: string; children?: ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-10 text-center">
-      <div className="mb-3 text-5xl" aria-hidden>
-        {emoji}
-      </div>
+      <StyledIcon icon={icon} size={52} kind="feature" className="mb-3 text-brand-500 dark:text-brand-300" />
       <h2 className="text-lg font-bold">{title}</h2>
       {children && <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{children}</div>}
     </div>

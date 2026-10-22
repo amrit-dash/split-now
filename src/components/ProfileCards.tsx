@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
-import { Camera, Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Loader2 } from 'lucide-react'
+import { ArrowsClockwiseIcon, CameraIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { AccountEmails } from '@/components/AccountEmails'
 import { useMe } from '@/hooks/auth'
@@ -63,7 +64,7 @@ export function AccountCard({
             className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-600 shadow ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-300 dark:ring-ink-700"
             aria-hidden
           >
-            <Camera size={13} />
+            <CameraIcon size={13} />
           </span>
         </button>
         <button
@@ -240,7 +241,7 @@ export function RatesField({ base, hint, children }: { base: string; hint?: Hint
           data-testid="rates-button"
           className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
         >
-          <RefreshCw size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
+          <ArrowsClockwiseIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
           Refresh
         </button>
       </div>

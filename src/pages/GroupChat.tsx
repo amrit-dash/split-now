@@ -42,6 +42,7 @@ import { DayHeader, type MessageCtx, MessageRow, UnreadLine, UpdatesPill } from 
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
 import { Collapsible } from '@/components/Collapsible'
 import { openOnce } from '@/lib/vault-open'
+import { MagnifyingGlassIcon } from '@/components/icons'
 
 /** Kept in every look: who can read the chat (people who join later too) is a privacy point. */
 const CHAT_START_HINT: Hint = {
@@ -256,7 +257,7 @@ export default function GroupChat() {
   if (group === null)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (group && group.type === 'personal') return <Navigate to={`/groups/${groupId}`} replace />

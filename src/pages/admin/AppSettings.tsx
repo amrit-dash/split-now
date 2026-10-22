@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { compareSemver, isSemver, MAINTENANCE_FALLBACK, MAX_MESSAGE, semverOf, type AnnouncementLevel, type Signups } from '@/lib/flags'
 import { localISODate } from '@/lib/id'
+import { ICON_STYLE_INFO, ICON_STYLES, type IconStyle } from '@/lib/icon-style'
 import { LOOK_INFO, LOOKS, type Look } from '@/lib/look'
 import { Collapsible } from '@/components/Collapsible'
 import { Loading, Segmented } from '@/components/Misc'
@@ -230,6 +231,18 @@ export default function AppSettings() {
         <p className="text-muted mt-2 text-xs" aria-live="polite">
           {LOOK_INFO[cfg.look].hint} The default for everyone; each person can pick their own in Settings → Preferences. The admin console always shows
           everything.
+        </p>
+      </div>
+      <h3 className="mb-2 mt-5 px-1 font-bold">Icons</h3>
+      <div className="card p-4" data-testid="admin-icons">
+        <Segmented<IconStyle>
+          label="Icon style for everyone"
+          value={cfg.icons}
+          onChange={(icons) => set({ icons })}
+          options={ICON_STYLES.map((v) => ({ value: v, label: ICON_STYLE_INFO[v].label }))}
+        />
+        <p className="text-muted mt-2 text-xs" aria-live="polite">
+          {ICON_STYLE_INFO[cfg.icons].hint} The default for everyone; each person can pick their own in Settings → Preferences.
         </p>
       </div>
       <ChangedBy at={saved.updatedAt} by={saved.updatedBy} />

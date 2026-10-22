@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react'
-import { ChevronRight, Loader2, Sparkles } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
+import { SparkleIcon } from '@/components/icons'
 import { applyUpdate, getUpdate, profileRowShown, subscribeUpdate } from '@/lib/app-update'
 
 /**
@@ -22,7 +23,7 @@ export function UpdateRow() {
       data-testid="profile-update"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white" aria-hidden>
-        {updating ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />}
+        {updating ? <Loader2 size={19} className="animate-spin" /> : <SparkleIcon size={19} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block">New version ready</span>

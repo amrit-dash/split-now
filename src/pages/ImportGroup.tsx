@@ -20,6 +20,8 @@ import { IconPickerField, SuggestionRow, TypeSuggestion } from '@/components/Ico
 import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
 import { activeMembers } from '@/lib/members'
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
+import { StyledIcon } from '@/components/Icon'
+import { UsersThreeIcon } from '@/components/icons'
 
 /** 'me' | an existing member id of the target group | 'new' (a new placeholder) */
 type Target = string
@@ -408,11 +410,7 @@ export default function ImportGroup() {
                     {
                       value: 'new',
                       label: 'A new group',
-                      icon: (
-                        <span className="text-lg" aria-hidden>
-                          ✨
-                        </span>
-                      ),
+                      icon: <StyledIcon icon={UsersThreeIcon} size={22} className="text-brand-600 dark:text-brand-300" />,
                       hint: 'Create it from this file',
                     },
                     ...targets.map((g) => ({

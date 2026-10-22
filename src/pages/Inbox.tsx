@@ -66,6 +66,9 @@ import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
+import { StyledIcon } from '@/components/Icon'
+import type { PhIcon } from '@/components/icons'
+import { BellIcon, CheckCircleIcon } from '@/components/icons'
 
 type Tab = 'sort' | 'updates'
 const HANDLED_FIRST = 15
@@ -340,7 +343,7 @@ function ToSort({
       )}
       {nothing && (
         <>
-          <Quiet emoji="✨" title="All sorted">
+          <Quiet icon={CheckCircleIcon} title="All sorted">
             Captured payments, expenses waiting for your OK and payments to confirm show up here.
           </Quiet>
           {/* A promo, not a decision: hidden in the Minimal look. */}
@@ -935,12 +938,10 @@ function Section({ title, hint, children }: { title: string; hint?: string | Hin
   )
 }
 
-function Quiet({ emoji, title, children }: { emoji: string; title: string; children: React.ReactNode }) {
+function Quiet({ icon, title, children }: { icon: PhIcon; title: string; children: React.ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-8 text-center">
-      <div className="mb-2 text-4xl" aria-hidden>
-        {emoji}
-      </div>
+      <StyledIcon icon={icon} size={44} kind="feature" className="mb-2 text-brand-500 dark:text-brand-300" />
       <h2 className="font-bold">{title}</h2>
       <p className="text-muted mt-1 text-sm">{children}</p>
     </div>
@@ -1019,7 +1020,7 @@ function Updates({
 
   if (all.length === 0 && !more)
     return (
-      <Quiet emoji="🔔" title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
+      <Quiet icon={BellIcon} title={cleared.clearedAt ? 'All caught up' : 'No updates yet'}>
         Expenses, payments, imports and new members in your groups show here. New ones from friends get a dot.
       </Quiet>
     )

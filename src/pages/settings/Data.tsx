@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Download, FileUp, Loader2, UserX } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
+import { DownloadSimpleIcon, FileArrowUpIcon, UserMinusIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { buildLabel } from '@/lib/flags'
 import { useAllGroupData } from '@/hooks/data'
@@ -78,7 +79,7 @@ export default function Data() {
             />
           </div>
           <button type="button" className="btn-secondary w-full" onClick={exportCsv} disabled={busy || !chosen} data-testid="export-csv">
-            {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />} Export as CSV
+            {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <DownloadSimpleIcon size={18} aria-hidden />} Export as CSV
           </button>
           <HintText hint={EXPORT_HINT} />
         </div>
@@ -90,7 +91,7 @@ export default function Data() {
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
           aria-hidden
         >
-          <FileUp size={19} />
+          <FileArrowUpIcon size={19} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Import from Splitwise</span>
@@ -113,7 +114,7 @@ export default function Data() {
         data-testid="settings-delete-account"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300" aria-hidden>
-          <UserX size={19} />
+          <UserMinusIcon size={19} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Delete my account</span>

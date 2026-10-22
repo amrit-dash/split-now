@@ -13,6 +13,7 @@ import { usePageTitle } from '@/lib/brand'
 import { Empty, Loading } from '@/components/Misc'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
+import { LinkIcon } from '@/components/icons'
 
 export default function Join() {
   const { code = '' } = useParams()
@@ -52,7 +53,7 @@ export default function Join() {
   if (invite === null) {
     return (
       <div className="mx-auto max-w-md px-4 pt-20">
-        <Empty emoji="🔗" title="Invite not found">
+        <Empty icon={LinkIcon} title="Invite not found">
           The link may be mistyped, or the group was deleted. Ask for a new link, or go home.
           <div className="mt-4">
             <Link to="/" className="btn-secondary btn-sm">

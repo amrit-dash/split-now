@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Lock } from 'lucide-react'
+import { LockIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useGroups } from '@/hooks/data'
@@ -129,7 +129,7 @@ export default function Vault() {
         <div className="space-y-4" data-testid="vault-off" data-view={view}>
           <div className="card space-y-2 p-4 text-sm">
             <p className="flex items-center gap-2 font-semibold">
-              <Lock size={16} aria-hidden /> Private groups are off
+              <LockIcon size={16} aria-hidden /> Private groups are off
             </p>
             {view === 'stopped' ? (
               <p className="text-muted" data-testid="vault-stopped">
@@ -144,7 +144,7 @@ export default function Vault() {
             <p className="text-muted">You can still be added to a private group. It opens with its own pattern and your passkey.</p>
           </div>
           <button type="button" className="btn-primary w-full" disabled={busy || !status.serverReady} onClick={() => void turnOn()} data-testid="vault-turn-on">
-            <Lock size={18} aria-hidden /> Turn on private groups
+            <LockIcon size={18} aria-hidden /> Turn on private groups
           </button>
           {!status.serverReady && (
             <p className="text-muted px-1 text-xs" role="status">

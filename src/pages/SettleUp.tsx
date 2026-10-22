@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, CheckCheck, ChevronDown, Clock, Copy, ExternalLink, ImagePlus, QrCode as QrIcon, X } from 'lucide-react'
+import { ArrowDown, Camera, CheckCheck, ChevronDown, Clock, Copy, ExternalLink, ImagePlus, Lightbulb, QrCode as QrIcon, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { ChequeIcon } from '@/components/ChequeIcon'
@@ -38,6 +38,7 @@ import { Select } from '@/components/Select'
 import { DateField } from '@/components/DateField'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
+import { ConfettiIcon, MagnifyingGlassIcon } from '@/components/icons'
 
 /** Under "Waive the rest": the waived part is recorded, so it stops counting as owed. */
 const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed for this.', tier: 'key' }
@@ -227,7 +228,7 @@ export default function SettleUp() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Settle up" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !group) return <Loading />
@@ -1008,7 +1009,7 @@ export function SettleWithPerson() {
     return (
       <>
         <PageHeader title="Settle up" back="/settle" />
-        <Empty emoji="🎉" title="Nothing left to settle">
+        <Empty icon={ConfettiIcon} title="Nothing left to settle">
           You’re all square with this person.{' '}
           <Link to="/settle" className="font-semibold text-brand-600 dark:text-brand-300">
             Back to Balances
@@ -1217,8 +1218,8 @@ export function SettleWithPerson() {
                 hint={{
                   full: (
                     <>
-                      <span aria-hidden>💡 </span>You owe each other in different groups. Those cancel out, so they’re cleared in full and only{' '}
-                      {fmt(plan.payment)} changes hands.
+                      <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
+                      You owe each other in different groups. Those cancel out, so they’re cleared in full and only {fmt(plan.payment)} changes hands.
                     </>
                   ),
                   short: `Debts in other groups cancel out: only ${fmt(plan.payment)} changes hands.`,

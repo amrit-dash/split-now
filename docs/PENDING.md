@@ -10,10 +10,11 @@ remove an item when its release merges, and add anything left half-done.
 - [x] + inside a group: tap goes straight to Add expense for that group (the group stays changeable: owner left it to us); press and hold opens the Create sheet.
 - [x] Create sheet: Quick add first, "or", Add expense, then New group + Scan. Settle up and Live table tiles removed.
 - [x] Group expenses: the quick-filter pill row moves into Sort and filter as a collapsible "Quick filters" section (folded, its choice in the header). Below search, pills only for what is applied (sort, show, paid by, dates, quick filters), each tap-to-remove; badge count and Clear stay.
-- [ ] Live table icon: rethink (a table with people round it, or a serving dome); the fork and knife is a stand-in.
+- [x] Live table icon: two people at a table with a serving dome (custom, Phosphor grid), used on every Live table entry point.
 - [ ] Design pass with the new design skills: motion, polish and UX fixes across screens, alongside the icons.
 - [ ] Help: smoother scene motion (pointer, step transitions, sheets), every scene and line matching 9.0.0's UI, and new sections for anything new.
-- [ ] Icons: new modern set for the tab bar; every emoji used as UI chrome (Help, Settings, Profile, notes; not group/expense icons) becomes an icon from one set; Preferences switch Outline / Filled, with an admin default.
+- [x] Icons: Phosphor for the tab bar, Profile, Settings, Help, Create sheet, empty screens; UI-chrome emoji replaced; Preferences → Icons Outline / Filled with an admin default (config/app.icons).
+- [ ] Icons, later: the rest of the screens (group, expense, settle up) still use lucide line icons; move them to Phosphor screen by screen if the owner wants Filled to reach them.
 
 ## Voice and Quick add (owner's decisions, 22 Oct 2026; 9.0.0 or 9.1.0 decided after the owner's next feature)
 

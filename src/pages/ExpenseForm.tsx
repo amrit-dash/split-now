@@ -15,6 +15,7 @@ import { Empty } from '@/components/Misc'
 import { type Hint, HintText } from '@/components/Hint'
 import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
+import { MagnifyingGlassIcon, UsersThreeIcon } from '@/components/icons'
 
 const SPLIT_HINT: Hint = {
   full: 'Out to eat? Scan the bill and everyone taps what they had, no group needed.',
@@ -118,14 +119,14 @@ export default function ExpenseForm() {
   if (group === null && editGroupId)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="This group doesn’t exist or you’re not a member" />
+        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
       </div>
     )
   if (!group) return <FormSkeleton />
   if (expenseId && !existing)
     return (
       <div className="mx-auto max-w-lg px-4 pt-[calc(var(--safe-top)+2rem)]">
-        <Empty emoji="🔍" title="Expense not found" />
+        <Empty icon={MagnifyingGlassIcon} title="Expense not found" />
       </div>
     )
 
@@ -179,7 +180,7 @@ function NoGroups() {
       >
         <X size={24} aria-hidden />
       </button>
-      <Empty emoji="👀" title="Create a group first">
+      <Empty icon={UsersThreeIcon} title="Create a group first">
         Expenses live inside a group, a 1:1 friend, or your personal wallet.
         <div className="mt-4 flex justify-center gap-2">
           <button type="button" className="btn-primary" onClick={() => nav('/groups/new?next=add')}>

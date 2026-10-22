@@ -34,6 +34,7 @@ import { splashHoldMs } from './lib/splash'
 import { setAiScan } from './lib/ai'
 import { startAppearanceSync } from './lib/appearance-sync'
 import { GroupDataProvider } from './hooks/groupData'
+import { IconStyleProvider } from './components/Icon'
 import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
@@ -261,7 +262,7 @@ export default function App() {
   // UpdatePrompt is mounted exactly once, outside the auth switch, so the service worker is
   // registered (and its hourly update timer started) a single time.
   return (
-    <>
+    <IconStyleProvider>
       <UpdatePrompt />
       <ViewportReadout />
       {hold !== 'off' && <Splash leaving={hold === 'leaving'} />}
@@ -318,7 +319,7 @@ export default function App() {
           <AppRoutes cfg={cfg} admin={admin} />
         </ErrorBoundary>
       )}
-    </>
+    </IconStyleProvider>
   )
 }
 

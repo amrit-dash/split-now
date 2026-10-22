@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Download, MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react'
+import { Check, ChevronRight, MoreVertical, PlusSquare, Share, X } from 'lucide-react'
+import { DeviceMobileIcon, DownloadSimpleIcon } from '@/components/icons'
 import { useAllGroupData } from '@/hooks/data'
 import { countVisit, dismissInstall, installMethod, isInstallDismissed, shouldOfferInstall, type InstallMethod } from '@/lib/install'
 import { useSwipeDismiss } from '@/hooks/useSwipeDismiss'
@@ -100,7 +101,7 @@ export function IOSInstallSteps() {
       </li>
       <li className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-2xl dark:bg-brand-900/40" aria-hidden>
-          ✅
+          <Check size={20} strokeWidth={2.5} />
         </span>
         <span>
           Tap <b>Add</b>. Split Now then opens full-screen from your home screen, and can send you notifications.
@@ -132,7 +133,7 @@ export function MenuInstallSteps({ method }: { method: Exclude<InstallMethod, 'p
         </li>
         <li className="flex items-center gap-3">
           <span className={`${STEP} text-2xl`} aria-hidden>
-            ✅
+            <Check size={20} strokeWidth={2.5} />
           </span>
           <span>
             Click <b>Add</b>. Split Now opens in its own window from the Dock and Launchpad.
@@ -161,7 +162,7 @@ export function MenuInstallSteps({ method }: { method: Exclude<InstallMethod, 'p
       </li>
       <li className="flex items-center gap-3">
         <span className={`${STEP} text-2xl`} aria-hidden>
-          ✅
+          <Check size={20} strokeWidth={2.5} />
         </span>
         <span>
           {android
@@ -202,7 +203,7 @@ export function InstallRow({ className = 'card', testId = 'install-row' }: { cla
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300"
           aria-hidden
         >
-          {phone ? <Smartphone size={19} /> : <Download size={19} />}
+          {phone ? <DeviceMobileIcon size={19} /> : <DownloadSimpleIcon size={19} />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block">Install Split Now {phone ? 'on this phone' : 'on this computer'}</span>
@@ -253,7 +254,7 @@ function InstallBar({ hint, onDone, className, wrap = false }: { hint: string; o
       data-testid="install-banner-install"
     >
       <span className="inline-flex items-center gap-1.5">
-        <Download size={16} aria-hidden /> Install
+        <DownloadSimpleIcon size={16} aria-hidden /> Install
       </span>
     </button>
   )

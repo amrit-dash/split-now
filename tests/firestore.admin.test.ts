@@ -152,6 +152,11 @@ describe('config/app', () => {
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, look: 'compact' }))
     await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, look: 2 }))
     await assertFails(setDoc(doc(as('alice'), 'config/app'), { ...appConfig, look: 'minimal' }))
+    // The default icon style (src/lib/icon-style.ts): outline or filled
+    for (const icons of ['outline', 'filled']) await assertSucceeds(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, icons }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, icons: 'duotone' }))
+    await assertFails(setDoc(doc(as('boss'), 'config/app'), { ...appConfig, icons: true }))
+    await assertFails(setDoc(doc(as('alice'), 'config/app'), { ...appConfig, icons: 'filled' }))
   })
 })
 

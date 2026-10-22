@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, UtensilsCrossed } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
 import { useAllGroupData } from '@/hooks/data'
 import { useTodayRates } from '@/hooks/useFx'
@@ -48,6 +48,7 @@ import { CategoryBreakdown, GroupBars, PaceChart, PaidShare, TimeChart } from '@
 import { FiltersPanel } from '@/components/insights/Filters'
 import { Detail, type Hint, HintText, InfoTip } from '@/components/Hint'
 import { CountUp } from '@/components/insights/motion'
+import { ChartDonutIcon } from '@/components/icons'
 
 export default function Insights() {
   usePageTitle('Insights')
@@ -173,7 +174,7 @@ export default function Insights() {
   const turnHint =
     view.turn && view.one ? (
       <p className="text-muted mt-3 text-xs" data-testid="insights-whose-turn">
-        <span aria-hidden>🍽️ </span>
+        <UtensilsCrossed size={13} className="mb-0.5 mr-1 inline" aria-hidden />
         {turnLine(view.turn, view.one.me)} <HintText hint={TURN_HINT} as="span" className="" />
         <InfoTip hint={TURN_HINT} label="About whose turn" />
       </p>
@@ -196,7 +197,7 @@ export default function Insights() {
       />
 
       {head.count === 0 ? (
-        <Empty emoji="📊" title="Nothing to chart yet">
+        <Empty icon={ChartDonutIcon} title="Nothing to chart yet">
           No expenses match these filters. Try a longer date range or fewer filters.
         </Empty>
       ) : (

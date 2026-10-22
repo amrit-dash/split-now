@@ -66,6 +66,8 @@ import { LiveBadge, Loading, PageHeader, formatRange } from '@/components/Misc'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
 import { SwipeRow } from '@/components/SwipeRow'
+import { StyledIcon } from '@/components/Icon'
+import { SuitcaseRollingIcon } from '@/components/icons'
 
 const IOS_SHORTCUT_URL = (import.meta.env.VITE_IOS_SHORTCUT_URL as string | undefined)?.trim() || undefined
 const ANDROID_MACRO_URL = (import.meta.env.VITE_ANDROID_MACRO_URL as string | undefined)?.trim() || undefined
@@ -455,11 +457,7 @@ export default function AutoCaptureSetup() {
             <ScopeOption
               selected={!scope}
               onSelect={() => update({ group: undefined }, true)}
-              icon={
-                <span className="text-xl" aria-hidden>
-                  🧳
-                </span>
-              }
+              icon={<StyledIcon icon={SuitcaseRollingIcon} size={22} className="text-brand-600 dark:text-brand-300" />}
               title="All my trips"
               // The trips below always show their dates, so this row keeps a line in every look too ('key', shortest in Minimal).
               detail={{

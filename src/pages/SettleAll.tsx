@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCheck, ChevronRight, Lock, Plus, Users } from 'lucide-react'
+import { CheckCheck, ChevronRight, Lightbulb, Lock, Plus, Users } from 'lucide-react'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
@@ -427,7 +427,8 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
           hint={{
             full: (
               <>
-                💡 You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
+                <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
+                You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
               </>
             ),
             short: (

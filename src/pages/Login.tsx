@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Loader2, Mail, QrCode, UserPlus } from 'lucide-react'
+import { ChevronLeft, Loader2, Mail, UserPlus } from 'lucide-react'
 import { repo } from '@/data'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
@@ -11,6 +11,7 @@ import { emailProblem } from '@/lib/account'
 import { signupsClosedText, signupsOpen } from '@/lib/flags'
 import { applyIconTint } from '@/lib/accent'
 import { usePageTitle } from '@/lib/brand'
+import { LiveTableIcon } from '@/components/icons'
 
 export default function Login() {
   usePageTitle('Sign in')
@@ -324,7 +325,7 @@ export default function Login() {
               className="btn w-full bg-transparent text-white ring-1 ring-inset ring-white/30 hover:bg-white/5 active:bg-white/10"
               data-testid="login-table"
             >
-              <QrCode size={18} className="text-duo-300" aria-hidden /> Join a live table with its code
+              <LiveTableIcon size={18} className="text-duo-300" aria-hidden /> Join a live table with its code
             </a>
           </div>
         )}

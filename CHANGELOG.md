@@ -9,6 +9,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Sign-in screen: Install Split Now puts its button beside the words where there's room (a computer, a wide phone) and under them only on a narrow phone, with the ✕ at the top corner. Before, the button always sat under the words, which looked out of place on a computer.
 - Group balances: suggested payments that come to you are now green, and only the ones you pay are red. Before, every row was red, even money owed to you.
 - Opening a link or reloading no longer jumps the new screen to where another screen was scrolled.
+- Icons: a new, rounder icon set for the tab bar, Profile, Settings, Help, the Create sheet and empty screens, and the emoji that stood in for icons there (Help's cards and rows, empty screens, a few notices) are icons now. Group and expense icons, categories and AI pictures stay as they are. Before, these places mixed line icons with emoji.
+- Settings → Preferences → **Icons**: Outline (line icons) or Filled (solid icons); Default follows what Split Now sets, which an admin picks in Admin → App. The tab you are on is always solid, so it stands out in either style. It follows you to your other devices.
+- Live table's tab has its own icon: two people at a table with a serving dome between them. Before, it borrowed a fork and knife.
+
 - App icon: the logo inside the icon is larger and bolder, so it reads clearly in the Dock, on the Home Screen and in the browser tab. Before, it looked small inside its tile, most of all on a Mac. Reinstall or wait for the browser to refresh an installed icon.
 - Sheets: the title and ✕ stay at the top while a long sheet scrolls. Before, they scrolled away with it.
 - Group expenses: Involving me and the category chips moved into **Sort and filter** as **Quick filters**, and Sort by starts folded, showing the order picked. Under the search, a pill with a small icon shows each sort or filter that's on ("Biggest first", "Paid by Rohan", "2 Oct – 4 Oct"); tap one to turn it off. Before, a row of chips always sat under the search.

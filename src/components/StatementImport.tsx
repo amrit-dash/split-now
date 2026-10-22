@@ -29,6 +29,8 @@ import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip } from './Hint'
+import { StyledIcon } from '@/components/Icon'
+import { FileTextIcon } from '@/components/icons'
 
 interface Row {
   id: string
@@ -323,7 +325,7 @@ export function StatementImport() {
               className="mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-3xl text-on-fill shadow-lg"
               aria-hidden
             >
-              📜
+              <StyledIcon icon={FileTextIcon} size={32} kind="feature" />
             </div>
             <div className="flex items-center justify-center">
               <h2 className="font-bold">Add expenses from a statement</h2>
