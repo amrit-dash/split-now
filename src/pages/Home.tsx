@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { WhatsNewBanner } from '@/components/WhatsNewBanner'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, FileUp, Inbox, Lock, Plus, Ticket } from 'lucide-react'
 import { useMe } from '@/hooks/auth'
@@ -22,6 +21,7 @@ import { Avatar } from '@/components/Avatar'
 import { Aurora } from '@/components/Aurora'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { CardSkeleton, ListSkeleton, Skeleton } from '@/components/Skeleton'
+import { useScrolled } from '@/components/Misc'
 import { formatDate } from '@/lib/locale'
 import { dayPart, greeting, headerBalance, helloFor, topCounterparties, type DayPart } from '@/lib/greeting'
 import { isLiveTrip } from '@/lib/capture'
@@ -51,6 +51,8 @@ export default function Home() {
   const header = useRef<HTMLElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const scrolledPast = useScrolledPast(card, header)
+  // The hairline under the pinned header shows once the page has scrolled at all (PageHeader does the same).
+  const scrolled = useScrolled()
   if (!data) return <HomeSkeleton />
   const groupsById = Object.fromEntries(data.map((d) => [d.group.id, d.group]))
   const active = data.filter((d) => !d.group.archived)
@@ -111,12 +113,11 @@ export default function Home() {
 
   return (
     <div>
-      <WhatsNewBanner />
       {/* Pinned: the greeting, Inbox and Profile stay while the page scrolls under them. Once the
           balance card has gone up behind it, the greeting's first line says the balance instead. */}
       <header
         ref={header}
-        className={`sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-3 flex items-center justify-between gap-3 bg-slate-50/85 px-4 pb-3 pt-[calc(var(--safe-top)+1.5rem)] backdrop-blur-xl transition-shadow dark:bg-ink-950/85 ${scrolledPast ? 'shadow-sm shadow-slate-900/5 dark:shadow-black/30' : ''}`}
+        className={`sticky top-[var(--banner-h,0px)] z-30 -mx-4 mb-3 flex items-center justify-between gap-3 border-b bg-slate-50/92 px-4 pb-3 pt-[calc(var(--safe-top)+1.5rem)] backdrop-blur-xl transition-colors dark:bg-ink-950/92 ${scrolled ? 'border-slate-900/[0.07] dark:border-white/[0.07]' : 'border-transparent'}`}
         data-testid="home-greeting"
       >
         <Greeting salutation={hello.salutation} name={hello.name} part={part} balance={scrolledPast ? pinned : null} />

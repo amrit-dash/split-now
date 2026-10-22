@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTrackNav } from '@/hooks/useBack'
 import { useScrollMemory } from '@/hooks/useScrollMemory'
 import { usePriceCurrency } from '@/hooks/usePriceCurrency'
@@ -356,14 +356,6 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               }
             />
             <Route
-              path="groups/:groupId/settle"
-              element={
-                <LiveGroupOnly>
-                  <SettleUp />
-                </LiveGroupOnly>
-              }
-            />
-            <Route
               path="groups/:groupId/money"
               element={
                 <LiveGroupOnly>
@@ -388,7 +380,6 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               }
             />
             <Route path="settle" element={<SettleAll />} />
-            <Route path="settle/with/:key" element={<SettleWithPerson />} />
             <Route path="friends" element={<Navigate to="/settle" replace />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
@@ -406,6 +397,26 @@ function AppRoutes({ cfg, admin }: { cfg: AppConfig; admin: boolean }) {
               <LiveGroupOnly>
                 <ExpenseForm />
               </LiveGroupOnly>
+            }
+          />
+          {/* Settle up is a form with its button pinned at the bottom: full screen like Add expense, so
+              the tab bar and + never sit over the Record button. */}
+          <Route
+            path="groups/:groupId/settle"
+            element={
+              <LiveGroupOnly>
+                <FullScreen>
+                  <SettleUp />
+                </FullScreen>
+              </LiveGroupOnly>
+            }
+          />
+          <Route
+            path="settle/with/:key"
+            element={
+              <FullScreen>
+                <SettleWithPerson />
+              </FullScreen>
             }
           />
           <Route
@@ -709,4 +720,9 @@ function useSplashHold(): 'on' | 'leaving' | 'off' {
     }
   }, [ms])
   return state
+}
+
+/** A full-screen form (no tab bar): the page column Layout gives its screens; the form's pinned action keeps clear of the home indicator itself. */
+function FullScreen({ children }: { children: ReactNode }) {
+  return <div className="mx-auto min-h-dvh max-w-lg px-4">{children}</div>
 }

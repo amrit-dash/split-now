@@ -8,7 +8,7 @@ import { computeGroupData, memberOrder, useAllGroupData, useExpenses, useGroup, 
 import { useOcr } from '@/hooks/useOcr'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
 import type { MemberProfile } from '@/data/repo'
-import { centsToInput, currencySymbol, formatMoney, fromHundredths } from '@/lib/money'
+import { centsToInput, currencySymbol, formatMoney, fromHundredths, groupedInput } from '@/lib/money'
 import { isSettled } from '@/lib/members'
 import { isIOS, isUpiId, methodFor, methodLabel, payOptions, roundSuggestions, settleMethods, type PayOption } from '@/lib/payments'
 import { matchMember, parsePaymentScreenshot, type ParsedPayment } from '@/lib/ocr-parse'
@@ -244,7 +244,7 @@ export default function SettleUp() {
   const payeeName = payee?.displayName ?? group.members[to]?.name
   const toMe = to === d.me
   const suggestions = owed ? roundSuggestions(owed, cur) : []
-  const big = amount !== undefined && centsToInput(amount, cur).length > 7
+  const big = amount !== undefined && groupedInput(amount, cur).length > 7
   // Paying in the recipient's currency: on when they collect in it, until switched by hand.
   const converting = !!otherCur && !!rate && (payIn ?? prefersOther)
   const due = validAmount ? amount : 0
@@ -341,13 +341,18 @@ export default function SettleUp() {
         <PersonSelect label="Recipient" value={to} onChange={setTo} order={order.filter((x) => x !== from)} group={group} name={name} />
 
         <div className="mt-5 flex items-baseline justify-center gap-2">
-          <span className="text-2xl font-bold text-muted" aria-hidden>
+          {/* Sized with the amount, as on Add expense (AmountCard). */}
+          <span
+            className={`text-muted font-extrabold leading-none tracking-tight ${currencySymbol(cur).length > 2 ? 'text-3xl' : big ? 'text-4xl' : 'text-5xl'}`}
+            aria-hidden
+          >
             {currencySymbol(cur)}
           </span>
           <MoneyInput
             bare
+            grouped
             id="settle-amount"
-            className={`w-full min-w-0 max-w-[15rem] rounded-lg bg-transparent text-center font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${big ? 'text-4xl' : 'text-5xl'}`}
+            className={`w-auto min-w-[3ch] max-w-[15rem] rounded-lg bg-transparent text-center [field-sizing:content] font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${big ? 'text-4xl' : 'text-5xl'}`}
             placeholder={centsToInput(0, cur)}
             aria-label={`Amount in ${cur}`}
             aria-invalid={amountError ? true : undefined}
@@ -553,12 +558,15 @@ export default function SettleUp() {
         </div>
       )}
 
-      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy} data-testid="settle-record">
-        <ChequeIcon size={22} />{' '}
-        {conv && conv.cleared > 0 && conv.status !== 'over'
-          ? `Record ${formatMoney(conv.paid, conv.cur)} (clears ${formatMoney(conv.cleared, cur)})`
-          : `Record ${validAmount ? formatMoney(amount, cur) : 'payment'}`}
-      </button>
+      {/* Pinned to the bottom of the screen (full screen, no tab bar), so Record is always in reach. */}
+      <div className="pinned-action sticky bottom-0 z-20 -mx-4 mt-5 bg-gradient-to-t from-slate-50 from-70% to-slate-50/0 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4 dark:from-ink-950 dark:to-ink-950/0">
+        <button type="submit" className="btn-primary w-full" disabled={busy} data-testid="settle-record">
+          <ChequeIcon size={22} />{' '}
+          {conv && conv.cleared > 0 && conv.status !== 'over'
+            ? `Record ${formatMoney(conv.paid, conv.cur)} (clears ${formatMoney(conv.cleared, cur)})`
+            : `Record ${validAmount ? formatMoney(amount, cur) : 'payment'}`}
+        </button>
+      </div>
     </form>
   )
 }
@@ -1103,7 +1111,7 @@ export function SettleWithPerson() {
     }
   }
 
-  const big = amount !== undefined && centsToInput(amount, cur).length > 7
+  const big = amount !== undefined && groupedInput(amount, cur).length > 7
 
   return (
     <form
@@ -1136,13 +1144,17 @@ export function SettleWithPerson() {
         ) : (
           <>
             <div className="mt-3 flex items-baseline justify-center gap-2">
-              <span className="text-muted text-2xl font-bold" aria-hidden>
+              <span
+                className={`text-muted font-extrabold leading-none tracking-tight ${currencySymbol(cur).length > 2 ? 'text-3xl' : big ? 'text-4xl' : 'text-5xl'}`}
+                aria-hidden
+              >
                 {currencySymbol(cur)}
               </span>
               <MoneyInput
                 bare
+                grouped
                 id="settle-person-amount"
-                className={`w-full min-w-0 max-w-[15rem] rounded-lg bg-transparent text-center font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${tooMuch ? 'neg' : ''} ${big ? 'text-4xl' : 'text-5xl'}`}
+                className={`w-auto min-w-[3ch] max-w-[15rem] rounded-lg bg-transparent text-center [field-sizing:content] font-extrabold tabular-nums outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 ${tooMuch ? 'neg' : ''} ${big ? 'text-4xl' : 'text-5xl'}`}
                 placeholder={centsToInput(0, cur)}
                 aria-label={`Total amount in ${cur}`}
                 aria-invalid={tooMuch || undefined}
@@ -1313,25 +1325,28 @@ export function SettleWithPerson() {
         </div>
       </div>
 
-      <button type="submit" className="btn-primary mt-5 w-full" disabled={busy || tooMuch || (!even && value <= 0)} data-testid="settle-person-confirm">
-        {even ? (
-          <>
-            <CheckCheck size={18} aria-hidden /> Clear {n} groups
-          </>
-        ) : (
-          <>
-            <ChequeIcon size={22} /> Record {value > 0 ? fmt(value) : 'payment'}
-          </>
-        )}
-      </button>
-      <p className="text-muted mt-2 text-center text-xs">
-        {recordCount > 0 && (
-          <>
-            Records a settlement in {recordCount} group{recordCount === 1 ? '' : 's'}
-            {plan.clearsAll ? ', clearing every one' : ''}.
-          </>
-        )}
-      </p>
+      {/* Pinned to the bottom of the screen (full screen, no tab bar), so Record is always in reach. */}
+      <div className="pinned-action sticky bottom-0 z-20 -mx-4 mt-5 bg-gradient-to-t from-slate-50 from-70% to-slate-50/0 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4 dark:from-ink-950 dark:to-ink-950/0">
+        <button type="submit" className="btn-primary w-full" disabled={busy || tooMuch || (!even && value <= 0)} data-testid="settle-person-confirm">
+          {even ? (
+            <>
+              <CheckCheck size={18} aria-hidden /> Clear {n} groups
+            </>
+          ) : (
+            <>
+              <ChequeIcon size={22} /> Record {value > 0 ? fmt(value) : 'payment'}
+            </>
+          )}
+        </button>
+        <p className="text-muted mt-2 text-center text-xs">
+          {recordCount > 0 && (
+            <>
+              Records a settlement in {recordCount} group{recordCount === 1 ? '' : 's'}
+              {plan.clearsAll ? ', clearing every one' : ''}.
+            </>
+          )}
+        </p>
+      </div>
     </form>
   )
 }

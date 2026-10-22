@@ -114,7 +114,7 @@ export function VaultLock({ group, back = '/groups' }: { group: Group; back?: st
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <div className="input text-muted !py-2.5 pl-10">Search expenses and notes</div>
+            <div className="input text-muted !py-2.5 pl-10">Search expenses</div>
           </div>
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300">
             <ArrowDownUp size={18} />

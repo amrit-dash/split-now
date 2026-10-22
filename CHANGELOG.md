@@ -6,6 +6,20 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- After an update, **Updated · What's new** shows on whichever screen the app opens on (updating from Profile reloads on Profile), a second after it loads. Before, it showed only on Home, so it was easy to miss. On Add expense, Settle up and other forms it waits for the next screen with the tab bar.
+- Settle up is full screen, like Add expense, with **Record** pinned at the bottom. Before, the tab bar and + sat over the form and the Record button was hidden under them.
+- Settle up's amount reads "4,500.00" with its currency symbol at the same size, as on Add expense. Before, it showed "4500.00" beside a small symbol.
+- Sheets slide down when they close, however they close (✕, Escape, tapping outside, Done). Before, only a drag animated and every other way made them vanish at once. A short flick down now closes one too.
+- Switches between a few choices (the group's tabs, Sort, Preferences): one highlight slides to the option you pick, each option is easier to tap, and with four options each one fits its name. Before, "Expenses" spilled past its highlight.
+- Pinned headers are a little more solid, with a thin line under them once the page has scrolled, so what scrolls under them doesn't show through.
+- Group search says **Search expenses**, so it fits on a small phone. Before, it was cut to "Search expenses and r". It still finds notes.
+- Dark mode: the empty amount and the description on Add expense are easier to read.
+- Reduce motion: sheets and notices fade out quickly instead of vanishing.
+- Notices fade and drop slightly as they go.
+- Activity: a foreign-currency amount reads "$72.00 · ₹6,056.64". Before, it was "($72.00 (₹6,056.64))", brackets inside brackets. Older entries show the new way too.
+- Groups: **New group** at the top is a labelled button. Before, a round + there looked like a second copy of the tab bar's +.
+- Add expense: with Today or Yesterday picked, the date box shows just its calendar, so the date isn't said twice ("22 Oct" beside Today).
+
 - Sign-in screen: Install Split Now puts its button beside the words where there's room (a computer, a wide phone) and under them only on a narrow phone, with the ✕ at the top corner. Before, the button always sat under the words, which looked out of place on a computer.
 - Group balances: suggested payments that come to you are now green, and only the ones you pay are red. Before, every row was red, even money owed to you.
 - Opening a link or reloading no longer jumps the new screen to where another screen was scrolled.

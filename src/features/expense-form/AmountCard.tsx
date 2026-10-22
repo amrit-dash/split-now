@@ -8,7 +8,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { centsToInput, currencySymbol } from '@/lib/money'
 import type { Action, Draft, Errors } from '@/lib/expense-draft'
 import { draftEmoji } from '@/lib/expense-draft'
-import { addDaysISO, type Suggestion } from '@/lib/recents'
+import { addDaysISO, quickDay, type Suggestion } from '@/lib/recents'
 import { todayISO } from '@/lib/id'
 import { DateField } from '@/components/DateField'
 import { MoneyInput } from '@/components/MoneyInput'
@@ -114,7 +114,7 @@ export function AmountCard({
         <div className="min-w-0 flex-1">
           <input
             id="expense-description"
-            className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg"
+            className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-slate-500 dark:placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg"
             placeholder={draft.category !== 'other' && !draft.description ? cat.label : 'What was it for?'}
             aria-label="Description"
             aria-invalid={errors.description ? true : undefined}
@@ -179,7 +179,7 @@ export function AmountCard({
         <MoneyInput
           bare
           id="expense-amount"
-          className="w-full min-w-0 rounded-lg bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 dark:placeholder:text-slate-600"
+          className="w-full min-w-0 rounded-lg bg-transparent text-5xl font-extrabold tabular-nums tracking-tight outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500 dark:placeholder:text-slate-500"
           placeholder={centsToInput(0, draft.cur)}
           aria-label={`Amount in ${draft.cur}`}
           aria-invalid={errors.amount ? true : undefined}
@@ -211,9 +211,11 @@ export function AmountCard({
       )}
       {/* Date chips keep their size; Attach takes what's left (icon only on the narrowest phones). */}
       <div className="mt-4 flex gap-1.5">
+        {/* With Today or Yesterday picked, the box is just its calendar icon: the chip already says the date. */}
         <DateField
-          aria-label="Date"
-          className="!w-auto shrink-0 !py-2 text-sm"
+          aria-label={quickDay(draft.date, today) ? `Date: ${quickDay(draft.date, today) === 'today' ? 'today' : 'yesterday'}. Pick another` : 'Date'}
+          iconOnly={!!quickDay(draft.date, today)}
+          className={`!w-auto shrink-0 !py-2 text-sm ${quickDay(draft.date, today) ? 'min-w-11 justify-center' : ''}`}
           value={draft.date}
           onChange={(v) => dispatch({ type: 'date', date: v || todayISO() })}
         />

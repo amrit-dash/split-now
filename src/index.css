@@ -311,8 +311,17 @@ html[data-banner] { --safe-top: 0px; }
 @utility safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Stop motion rather than speed it up: infinite animations would otherwise flicker. */
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  /* Stop motion rather than speed it up: infinite animations would otherwise flicker, and nothing
+     slides, grows or moves (transforms, sizes, positions change at once). A short fade is not
+     motion, so opacity alone still transitions, capped at 150ms: a sheet or toast going away
+     fades instead of vanishing. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity !important;
+    transition-duration: 150ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Horizontal scrollers that should still scroll but not show a bar (icon pickers, chip rows). */
@@ -468,6 +477,8 @@ html[data-capture-alert] .install-banner { display: none; }
    indicator elsewhere, above any banner showing). Newest at the bottom; see Toast.tsx. */
 .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 1rem); }
 html[data-nav] .toast-stack { bottom: var(--lane); }
+/* A full-screen form's pinned action (Settle up): toasts rise above it instead of covering it. */
+html:not([data-nav]):has(.pinned-action) .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 5.5rem); }
 html[data-nav]:has(.install-banner, .whats-new-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
 @keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
