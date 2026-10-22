@@ -10,6 +10,7 @@ import {
   plain,
   relatedOf,
   searchHelp,
+  sectionsFor,
   SHOT_ACCENTS,
   shotSrc,
   STORY_ANIM_MS,
@@ -78,6 +79,42 @@ describe('the guide’s content', () => {
   })
   it('“Try it” links are app paths', () => {
     for (const s of SECTIONS) if (s.open) expect(s.open.to).toMatch(/^\/[a-z/-]*$/)
+  })
+})
+
+describe('Simple’s guide and Advanced’s', () => {
+  it('Advanced shows every section; Simple leaves out the ones for features it hides, in order', () => {
+    expect(sectionsFor('advanced', SECTIONS)).toEqual(SECTIONS)
+    const simple = sectionsFor('simple', SECTIONS)
+    expect(simple).toEqual(SECTIONS.filter((s) => !s.advanced))
+    expect(simple.some((s) => s.advanced)).toBe(false)
+    const hidden = SECTIONS.filter((s) => s.advanced).map((s) => s.id)
+    // docs/SIMPLE_MODE.md: Automation, approvals settings, merging, Money received, wallets, Animations, Admin
+    for (const id of ['auto-capture-setup', 'capture-keys', 'approvals', 'merge-people', 'money-received', 'personal-wallet', 'animations', 'admin-console'])
+      expect(hidden, id).toContain(id)
+    // What arrives for someone still shows in Simple, and so do the mode's own section and Earn Pro
+    for (const id of ['approve-expense', 'captured-payment', 'confirm-payment', 'private-groups', 'live-table', 'simple-advanced', 'earn-pro'])
+      expect(
+        simple.some((s) => s.id === id),
+        id,
+      ).toBe(true)
+  })
+  it('Simple’s front page has no empty chapter, and Earn Pro ends the guide', () => {
+    const g = guideLayout(CHAPTERS, sectionsFor('simple', SECTIONS))
+    expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
+    expect(SECTIONS[SECTIONS.length - 1].id).toBe('earn-pro')
+  })
+  it('Simple’s Related links leave out the sections it hides', () => {
+    const simple = sectionsFor('simple', SECTIONS)
+    const add = simple.find((s) => s.id === 'add-expense')!
+    expect(relatedOf(add, simple).some((s) => s.id === 'money-received')).toBe(false)
+    expect(relatedOf(add, SECTIONS).some((s) => s.id === 'money-received')).toBe(true)
+  })
+  it('the guide has no dashes used as punctuation', () => {
+    for (const s of SECTIONS) {
+      const all = [s.title, s.summary, ...(s.steps ?? []).map((x) => x.text), ...(s.story?.beats ?? []), ...s.points].join(' ')
+      expect(all, s.id).not.toMatch(/[—–]| - /)
+    }
   })
 })
 

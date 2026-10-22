@@ -4,6 +4,7 @@
  * scenes in src/features/help/. Pure: no React, no storage.
  */
 
+import type { Mode } from './mode'
 import type { UiIconName } from './ui-icons'
 
 export type ChapterId = 'start' | 'groups' | 'expenses' | 'receipts' | 'settle' | 'capture' | 'private' | 'account'
@@ -42,6 +43,11 @@ export interface HelpSection {
   core?: boolean
   /** not listed on the guide's front page (it is reached from links: What's new, Related); search still finds it */
   unlisted?: boolean
+  /**
+   * only in Advanced's guide: its feature is one Simple hides (docs/SIMPLE_MODE.md). Absent: both
+   * modes show it. What arrives for someone (an expense to approve, a captured payment) stays in Simple.
+   */
+  advanced?: true
   /** the icon on its card and row (src/lib/ui-icons.ts) */
   icon?: UiIconName
   steps?: HelpStep[]
@@ -155,6 +161,15 @@ export function guideLayout(
       .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !s.story) }))
       .filter((c) => c.sections.length),
   }
+}
+
+/**
+ * The guide a mode shows: Advanced has every section; Simple leaves out the ones for features it
+ * hides, so its guide (and its search, front page and Related links, given this list) only talks
+ * about what the person can see. Order is kept.
+ */
+export function sectionsFor(mode: Mode, sections: HelpSection[]): HelpSection[] {
+  return mode === 'advanced' ? sections : sections.filter((s) => !s.advanced)
 }
 
 /** Related sections that exist, in the order given (a link to one not written yet is left out). */
