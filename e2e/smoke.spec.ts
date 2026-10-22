@@ -2443,7 +2443,7 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   await expect(caption).toHaveText(first ?? '')
   const steps = await page.getByTestId('help-step').count()
   for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
-  await expect(page.getByTestId('help-next')).toContainText('Again')
+  await expect(page.getByTestId('help-next')).toHaveAttribute('aria-label', 'Back to the first step')
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
 })

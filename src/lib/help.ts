@@ -191,6 +191,20 @@ export function guideLayout(
 }
 
 /**
+ * The guide in reading order, as its front page lists it: How it works, the main features, then
+ * each chapter. nextInGuide is the section after `id` in it (null after the last one, or for a
+ * section the guide doesn't list), for the Up next card at the end of a section.
+ */
+export function guideOrder(chapters: Chapter[], sections: HelpSection[]): HelpSection[] {
+  const g = guideLayout(chapters, sections)
+  return [...g.stories, ...g.core, ...g.chapters.flatMap((c) => c.sections)]
+}
+export function nextInGuide(id: string, order: HelpSection[]): HelpSection | null {
+  const i = order.findIndex((s) => s.id === id)
+  return i < 0 ? null : (order[i + 1] ?? null)
+}
+
+/**
  * The guide a mode shows: Advanced has every section; Simple leaves out the ones for features it
  * hides, so its guide (and its search, front page and Related links, given this list) only talks
  * about what the person can see. Order is kept.

@@ -6,6 +6,8 @@ import {
   pickStory,
   clampStep,
   guideLayout,
+  guideOrder,
+  nextInGuide,
   type HelpShot,
   markBox,
   nextStep,
@@ -334,5 +336,21 @@ describe('Help main features', () => {
       const { core } = guideLayout(CHAPTERS, sectionsFor(mode, SECTIONS))
       expect(core.length % 2).toBe(0)
     }
+  })
+})
+
+describe('Up next', () => {
+  it('follows the front page: How it works, the main features, then the chapters; nothing after the last', async () => {
+    const { SECTIONS, CHAPTERS } = await import('./help-content')
+    for (const mode of ['simple', 'advanced'] as const) {
+      const shown = sectionsFor(mode, SECTIONS)
+      const order = guideOrder(CHAPTERS, shown)
+      const g = guideLayout(CHAPTERS, shown)
+      expect(order[0].id).toBe(g.stories[0].id)
+      expect(nextInGuide(g.stories.at(-1)!.id, order)?.id).toBe(g.core[0].id)
+      expect(nextInGuide(order.at(-1)!.id, order)).toBeNull()
+      expect(new Set(order.map((s) => s.id)).size).toBe(order.length)
+    }
+    expect(nextInGuide('not-a-section', [])).toBeNull()
   })
 })

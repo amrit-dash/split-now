@@ -7,7 +7,7 @@ import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
-import { countedSections, guideLayout, type HelpSection, pickStory, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
+import { countedSections, guideLayout, guideOrder, type HelpSection, nextInGuide, pickStory, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
 import { EMPTY_HELP_PROGRESS, helpProgress, withDone } from '@/lib/help-progress'
 import { ProCelebration } from '@/features/help/ProCelebration'
 import { repo } from '@/data'
@@ -340,6 +340,7 @@ function SectionPage({ id }: { id: string }) {
       </div>
     )
   const related = relatedOf(s, shown)
+  const next = nextInGuide(s.id, guideOrder(CHAPTERS, shown))
   // Finished: saved once the account's progress has loaded (never over a list not seen yet).
   const finish = () => setFinished(true)
   return (
@@ -384,6 +385,18 @@ function SectionPage({ id }: { id: string }) {
             ))}
           </div>
         </section>
+      )}
+      {/* On to the next section in the guide's order, so reading on doesn't mean going back each time (owner). */}
+      {next && (
+        <Link to={`/help/${next.id}`} replace className="card flex min-h-16 items-center gap-3 p-4 transition active:scale-[0.99]" data-testid="help-up-next">
+          <span className="min-w-0 flex-1">
+            <span className="label block">Up next</span>
+            <span className="block truncate font-semibold">{next.title}</span>
+          </span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill" aria-hidden>
+            <ArrowRight size={18} />
+          </span>
+        </Link>
       )}
     </div>
   )

@@ -26,13 +26,14 @@ export function StoryPlayer({ kind, beats, onLast }: { kind: StoryKind; beats: s
               type="button"
               onClick={() => p.go(n)}
               aria-current={n === p.step ? 'step' : undefined}
-              className={`flex min-h-11 w-full items-start gap-3 rounded-2xl px-2 py-2 text-left text-sm leading-5 transition-colors duration-200 ${n === p.step ? 'bg-brand-50 dark:bg-brand-900/30' : 'text-muted'}`}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm leading-5 transition-colors duration-200 ${n === p.step ? 'bg-brand-50 dark:bg-brand-900/30' : 'text-muted'}`}
               data-testid="help-beat"
             >
-              {/* The dot in a box one line tall, so it sits on the first line's middle however many lines follow. */}
-              <span className="flex h-5 shrink-0 items-center" aria-hidden>
-                <span className={`h-2 w-2 rounded-full transition-colors duration-200 ${n === p.step ? 'bg-fill' : 'bg-slate-300 dark:bg-ink-700'}`} />
-              </span>
+              {/* The dot centred on the row, with room before it. */}
+              <span
+                className={`ml-0.5 h-2 w-2 shrink-0 rounded-full transition-colors duration-200 ${n === p.step ? 'bg-fill' : 'bg-slate-300 dark:bg-ink-700'}`}
+                aria-hidden
+              />
               <StepText text={b} />
             </button>
           </li>
