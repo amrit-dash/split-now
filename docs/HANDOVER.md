@@ -9,7 +9,7 @@ holds no secrets; it is only context.
 - **Production:** 8.8.1 (released 22 Oct 2026: shaded magenta backgrounds keyed out of drawn
   pictures). `main` = production.
 - **Batch:** `batch/v9`, the next release, **9.0.0** (the owner chose the major). 25+ commits on
-  top of `main`, all checks green at `cec5e3c`+ (lint, typecheck:all, 2269 unit tests, rules,
+  top of `main`, all checks green at the branch tip (lint, typecheck:all, 2270 unit tests, rules,
   88/88 e2e). Not released: the owner says "release" when the batch is ready.
 - **Stray branch:** `origin/batch/v9-yikjey` was made by an earlier cloud attempt; it is fully
   contained in `batch/v9` (checked with `git merge-base --is-ancestor`). Delete it:
@@ -37,6 +37,7 @@ See `CHANGELOG.md` → `## Unreleased` for the person-facing list. In short:
   layout at 360 px, Help prefetched on idle and precached.
 - Design fixes: sheets slide away, Settle up full screen, sliding Segmented, stronger pinned
   headers, What's new banner on any tab-bar screen, balances colours, scroll memory fix, and more.
+- Two-tone icons on colour: the current tab (Outline style) and icons inside accent buttons get a soft fill under the line (`DUO` in `scripts/icon-art.mjs`, `.icon-duo` in index.css, `tabIconLook`); the tab bar is 98% opaque so buttons don't show through.
 - App icon: larger, bolder mark. Sign-in install bar: button beside the words on wide screens.
 
 ## What's left for 9.0.0 (owner's open asks)

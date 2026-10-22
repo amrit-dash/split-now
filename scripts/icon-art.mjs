@@ -340,7 +340,37 @@ function jsx(markup) {
 // The Profile and Settings rows draw Solar's 1.5 lines at 2, so they read as firmly as the text beside them.
 const thicker = (markup, where) => (where.startsWith('Row') || where === 'HandCoinsIcon' ? markup.replace(/stroke-width="1\.5"/g, 'stroke-width="2"') : markup)
 
+/*
+ * Two-tone where an icon sits on colour: the tab you're on and the icons inside primary (accent
+ * gradient) buttons get a soft fill under their line, like the lifebuoy and Claim. The fill is in
+ * the line drawing but hidden (`.icon-duo`, index.css) until such a place shows it, so these icons
+ * stay plain line icons everywhere else. Owner, 22 Oct 2026.
+ */
+const DUO = new Set([
+  'HomeIcon',
+  'GroupsIcon',
+  'LiveTableIcon',
+  'InsightsIcon',
+  'ProfileIcon',
+  'AddIcon',
+  'DownloadIcon',
+  'KeyIcon',
+  'ImageAddIcon',
+  'CameraIcon',
+  'BellIcon',
+  'WalletIcon',
+  'ShieldIcon',
+  'ShareIcon',
+  'MemberAddIcon',
+  'LockIcon',
+  'LinkIcon',
+  'ChecksIcon',
+])
+
 const art = (ref, kind, where) => {
+  if (kind === 'line' && DUO.has(where) && !ref.startsWith('~') && !ref.startsWith('solar:')) {
+    return jsx(slim(`<g class="icon-duo" opacity=".3">${body('fluent', `${ref}-24-filled`)}</g>${body('fluent', `${ref}-24-regular`)}`, where))
+  }
   // A Fluent drawing as a Help picture: its fill at half tone under its line (Outline), or its
   // fill (Filled), so it paints like the Solar duotone around it.
   if (ref.startsWith('fluent:')) {

@@ -10,6 +10,7 @@ import {
   isIconStyleChoice,
   resolveIconStyle,
   resolveIconStyleChoice,
+  tabIconLook,
 } from './icon-style'
 
 describe('resolveIconStyle', () => {
@@ -52,5 +53,14 @@ describe('iconVariant', () => {
   it('the place you are is solid in either style', () => {
     expect(iconVariant('outline', true)).toBe('solid')
     expect(iconVariant('filled', true)).toBe('solid')
+  })
+})
+
+describe('tabIconLook', () => {
+  it('the current tab is two-tone in Outline and solid in Filled; the rest follow the style', () => {
+    expect(tabIconLook('outline', true)).toEqual({ solid: false, duo: true })
+    expect(tabIconLook('filled', true)).toEqual({ solid: true, duo: false })
+    expect(tabIconLook('outline', false)).toEqual({ duo: false })
+    expect(tabIconLook('filled', false)).toEqual({ duo: false })
   })
 })

@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useLongPress } from '@/hooks/useLongPress'
 import { groupOfPath, plusTap } from '@/lib/plus-target'
+import { tabIconLook } from '@/lib/icon-style'
 import { useAllGroupData } from '@/hooks/data'
 import { useInbox } from '@/hooks/useInbox'
 import { applyIconTint } from '@/lib/accent'
@@ -20,7 +21,7 @@ import { InsightsIcon, HomeIcon, LiveTableIcon, ProfileIcon, GroupsIcon } from '
 
 // Live table has the slot Insights had (Insights is a row in Profile now); with live tables
 // switched off for everyone, Insights takes its place back, so the bar never has a hole.
-// Fluent icons, solid on the current tab in either icon style.
+// Fluent icons; the current tab is two-tone in Outline and solid in Filled (tabIconLook).
 const tabsFor = (liveTables: boolean) =>
   [
     { to: '/', icon: HomeIcon, label: 'Home', end: true },
@@ -105,7 +106,7 @@ export function Layout() {
         {/* The bar, with a round notch cut out for the + button (mask in index.css). */}
         <div
           aria-hidden
-          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/95 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/5 dark:bg-ink-900/95"
+          className="nav-notch absolute inset-0 border-t border-slate-200/70 bg-white/[0.98] backdrop-blur-3xl backdrop-saturate-150 dark:border-white/5 dark:bg-ink-900/[0.98]"
         />
         {/* A faint wash of the accent across the bar, left to right, brighter towards the top: it
             ties the bar to the + button's glow without competing with it. Same notch mask. */}
@@ -139,12 +140,13 @@ export function Layout() {
               >
                 {({ isActive }) => (
                   <>
-                    {/* Active: icon and label in a deeper shade of the accent, the solid icon and a slight lift
+                    {/* Active: icon and label in a deeper shade of the accent, two-tone (Outline) or solid (Filled) and a slight lift
                         (no box behind the tab: owner's request 32); the swap is instant, a tab is tapped
                         too often to animate it. Inactive stays a readable grey. A press dips the icon. */}
                     <t.icon
                       size={24}
-                      solid={isActive || undefined}
+                      solid={tabIconLook(iconStyle, isActive).solid}
+                      data-duo={tabIconLook(iconStyle, isActive).duo || undefined}
                       className={`transition-transform duration-150 ease-out motion-safe:group-active:scale-[0.96] ${isActive ? '-translate-y-px' : ''}`}
                       aria-hidden
                     />

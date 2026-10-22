@@ -452,6 +452,11 @@ html:has(.install-banner) .whats-new-banner { display: none; }
    the accent's gradient, the + button's colours, deep in light and soft in dark. The drawings
    say fill/stroke="currentColor"; here that becomes the icon's own gradient (--art). Their soft
    layer keeps Solar's half opacity, so it reads as a tint of the same gradient. */
+/* Two-tone icons (scripts/icon-art.mjs DUO): the soft fill under the line shows only on the tab
+   you're on and inside accent buttons; everywhere else the icon is its plain line. */
+.icon-duo { display: none; }
+[data-duo] .icon-duo, .btn-primary .icon-duo, .accent-live .icon-duo { display: inline; }
+
 .feature-art {
   --art-from: var(--color-brand-600);
   --art-to: var(--color-duo-500);

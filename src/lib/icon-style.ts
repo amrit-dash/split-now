@@ -42,3 +42,13 @@ export type IconVariant = 'line' | 'solid'
 export function iconVariant(style: IconStyle, active = false): IconVariant {
   return active || style === 'filled' ? 'solid' : 'line'
 }
+
+/**
+ * How a tab-bar icon draws. The tab you're on stands out in either style: two-tone (its line
+ * with a soft fill under it, like the lifebuoy) in Outline, solid in Filled. The others follow
+ * the style. Owner, 22 Oct 2026.
+ */
+export function tabIconLook(style: IconStyle, active: boolean): { solid?: boolean; duo: boolean } {
+  if (!active) return { duo: false }
+  return style === 'filled' ? { solid: true, duo: false } : { solid: false, duo: true }
+}

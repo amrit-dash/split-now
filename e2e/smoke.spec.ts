@@ -410,10 +410,14 @@ test('Preferences → Icons: Filled turns the tab bar icons solid, Outline bring
   await page.goto('/')
   const nav = page.getByRole('navigation', { name: 'Main' })
   const groupsIcon = nav.getByRole('link', { name: 'Groups' }).locator('svg')
-  // Outline by default; the current tab (Home) is solid in either style.
+  // Outline by default; the current tab (Home) is two-tone in Outline (its line plus a soft fill).
   await expect(nav).toHaveAttribute('data-icon-style', 'outline')
   await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
-  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-variant', 'solid')
+  const homeIcon = nav.getByRole('link', { name: 'Home' }).locator('svg')
+  await expect(homeIcon).toHaveAttribute('data-variant', 'line')
+  await expect(homeIcon).toHaveAttribute('data-duo', 'true')
+  await expect(homeIcon.locator('.icon-duo')).toBeVisible()
+  await expect(groupsIcon.locator('.icon-duo')).toBeHidden()
   await page.goto('/settings/preferences')
   const icons = page.getByTestId('icon-style')
   await icons.getByRole('radio', { name: 'Filled' }).click()
