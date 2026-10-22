@@ -172,19 +172,19 @@ export const BellSlashIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
-/** fluent bot-sparkle */
+/** fluent bot */
 export const BotIcon = /* @__PURE__ */ makeIcon(
   'Bot',
   <>
     <path
       fill="currentColor"
-      d="m18.5 10.3-1-.3H17V5.9a1 1 0 0 0-.7-.8H7.8a1 1 0 0 0-.8.8v4.5q0 .6.8.7H16l-.4 1.4v.1H7.7a2.3 2.3 0 0 1-2.3-2.2V5.7a2.3 2.3 0 0 1 2.3-2.2h3.5v-.7a1 1 0 0 1 .6-.8h.1a1 1 0 0 1 .7.6v.9h3.5a2.3 2.3 0 0 1 2.3 2.3zM13 14h.2-7A2.3 2.3 0 0 0 4 16.3v.9A4 4 0 0 0 5.3 20a10 10 0 0 0 6.7 2q3 0 5.2-1a2 2 0 0 1-1.2-1v-.1q-1.6.6-4 .6-3.9 0-5.7-1.6a2 2 0 0 1-.8-1.7v-1a1 1 0 0 1 .8-.7H12a2 2 0 0 1 1-1.5m-2-6.2a1.3 1.3 0 1 0-2.5 0 1.3 1.3 0 0 0 2.5 0m3.2-1.3a1.3 1.3 0 1 1 0 2.5 1.3 1.3 0 0 1 0-2.5m1.9 11a3 3 0 0 0-1.4-1l-1.3-.5a.5.5 0 0 1 0-1l1.3-.5a3 3 0 0 0 1.8-1.7l.5-1.4a.5.5 0 0 1 1 0l.4 1.3a3 3 0 0 0 1.8 1.8l1.4.5a.5.5 0 0 1 0 1l-1.3.5a3 3 0 0 0-1.8 1.8l-.5 1.3-.2.3a.5.5 0 0 1-.8-.3l-.5-1.3zm7.7 3.8L23 21a2 2 0 0 1-1-1l-.2-.8a.3.3 0 0 0-.6 0l-.2.8a2 2 0 0 1-1 1l-.8.2a.3.3 0 0 0 0 .6l.8.2a2 2 0 0 1 1 1l.2.8a.3.3 0 0 0 .6 0l.2-.8a2 2 0 0 1 1-1l.8-.2a.3.3 0 0 0 0-.6z"
+      d="M17.8 14a2.3 2.3 0 0 1 2.2 2.3v.9a4 4 0 0 1-1.3 2.8q-2.4 2-6.7 2c-4.3 0-5.1-.7-6.7-2A4 4 0 0 1 4 17.2v-1A2.3 2.3 0 0 1 6.3 14zm0 1.5H6.3a1 1 0 0 0-.8.8v.9q0 1 .8 1.7Q8 20.5 12 20.5c3.9 0 4.5-.6 5.7-1.6a2 2 0 0 0 .8-1.7v-1a1 1 0 0 0-.7-.7M11.9 2a1 1 0 0 1 .7.6v.9h3.5a2.3 2.3 0 0 1 2.3 2.2v4.6a2.3 2.3 0 0 1-2.3 2.2H7.7a2.3 2.3 0 0 1-2.2-2.2V5.7a2.3 2.3 0 0 1 2.3-2.2h3.5v-.7a1 1 0 0 1 .6-.8m4.4 3H7.8a1 1 0 0 0-.8.8v4.5q0 .6.8.7h8.5a1 1 0 0 0 .7-.7V5.7a1 1 0 0 0-.7-.7M9.8 6.5a1.3 1.3 0 1 1 0 2.5 1.3 1.3 0 0 1 0-2.5m4.4 0a1.3 1.3 0 1 1 0 2.5 1.3 1.3 0 0 1 0-2.5"
     />
   </>,
   <>
     <path
       fill="currentColor"
-      d="M18.4 10.3V5.7a2.3 2.3 0 0 0-2.2-2.2h-3.6v-.9L12 2h-.1a1 1 0 0 0-.7.8v.7H7.7a2.3 2.3 0 0 0-2.2 2.3v4.5a2.3 2.3 0 0 0 2.3 2.2h7.7L16 11a1.5 1.5 0 0 1 2.4-.7M9.8 6.5a1.3 1.3 0 1 1 0 2.5 1.3 1.3 0 0 1 0-2.5m4.4 0a1.3 1.3 0 1 1 0 2.5 1.3 1.3 0 0 1 0-2.5M13 14h.2-7A2.3 2.3 0 0 0 4 16.2v1A4 4 0 0 0 5.3 20a10 10 0 0 0 6.7 2q3 0 5.2-1a2 2 0 0 1-1.2-1l-.4-1.4-.5-.7-.3-.3-.4-.2L13 17a1.5 1.5 0 0 1 0-3m2.9 3.1.6 1.2.5 1.3a.5.5 0 0 0 1 0l.5-1.3a3 3 0 0 1 1.8-1.8l1.3-.5a.5.5 0 0 0 0-1l-1.4-.5a3 3 0 0 1-1.8-1.8l-.4-1.3a.5.5 0 0 0-1 0l-.5 1.3a3 3 0 0 1-1.8 1.8l-1.3.5a.5.5 0 0 0 0 1l1.3.5q.7.2 1.2.6M23 21l.8.2a.3.3 0 0 1 0 .6l-.8.2a2 2 0 0 0-1 1l-.2.8a.3.3 0 0 1-.6 0L21 23a2 2 0 0 0-1-1l-.8-.2a.3.3 0 0 1 0-.6l.8-.2a2 2 0 0 0 1-1l.2-.8a.3.3 0 0 1 .6 0l.2.8a2 2 0 0 0 1 1"
+      d="M17.8 14a2.3 2.3 0 0 1 2.2 2.3v.9a4 4 0 0 1-1.3 2.8q-2.4 2-6.7 2c-4.3 0-5.1-.7-6.7-2A4 4 0 0 1 4 17.2v-1A2.3 2.3 0 0 1 6.3 14zM11.9 2a1 1 0 0 1 .7.6v.9h3.5a2.3 2.3 0 0 1 2.3 2.2v4.6a2.3 2.3 0 0 1-2.3 2.2H7.7a2.3 2.3 0 0 1-2.2-2.2V5.7a2.3 2.3 0 0 1 2.3-2.2h3.5v-.7a1 1 0 0 1 .6-.8M9.7 6.5a1.3 1.3 0 1 0 0 2.5 1.3 1.3 0 0 0 0-2.5m4.5 0a1.3 1.3 0 1 0 0 2.5 1.3 1.3 0 0 0 0-2.5"
     />
   </>,
 )
@@ -1127,7 +1127,7 @@ export const RepeatIcon = /* @__PURE__ */ makeIcon(
 export const RowAdminIcon = /* @__PURE__ */ makeIcon(
   'RowAdmin',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path
         d="M3 10.4q-.1-4.7.4-5.3c.4-.6 1.9-1 4.9-2.1l.5-.2Q11 2 12 2c.8 0 1.6.3 3.2.8l.5.2q4.4 1.4 5 2 .4.8.3 5.4V12c0 5.6-4.2 8.4-6.9 9.5-.7.3-1 .5-2.1.5-1 0-1.4-.2-2.1-.5C7.2 20.4 3 17.6 3 12z"
         opacity=".5"
@@ -1151,7 +1151,7 @@ export const RowAdminIcon = /* @__PURE__ */ makeIcon(
 export const RowAiIcon = /* @__PURE__ */ makeIcon(
   'RowAi',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M8 3.7a1 1 0 0 1 2 0l1 2.7.6.6 2.7 1a1 1 0 0 1 0 2l-2.7 1-.6.6-1 2.7a1 1 0 0 1-2 0l-1-2.7-.6-.6-2.7-1a1 1 0 0 1 0-2l2.7-1 .6-.6z" />
       <path d="M16.5 13.3q.5-.6 1 0l.8 2q0 .3.3.4l2 .8q.8.5 0 1l-2 .8-.3.3-.8 2q-.5.8-1 0l-.8-2-.3-.3-2-.8a.5.5 0 0 1 0-1l2-.8.3-.3z" opacity=".5" />
     </g>
@@ -1172,8 +1172,8 @@ export const RowAnimationsIcon = /* @__PURE__ */ makeIcon(
   'RowAnimations',
   <>
     <g fill="none" stroke="currentColor" strokeLinecap="round">
-      <path strokeWidth="1.5" d="M3.8 8A2.9 2.9 0 1 1 8 3.7L20.3 16a2.9 2.9 0 0 1-4.1 4z" />
-      <path strokeWidth="1.5" d="m6 10 4-4" opacity=".5" />
+      <path strokeWidth="2" d="M3.8 8A2.9 2.9 0 1 1 8 3.7L20.3 16a2.9 2.9 0 0 1-4.1 4z" />
+      <path strokeWidth="2" d="m6 10 4-4" opacity=".5" />
       <path d="M16.1 2.3q.5-.6.9 0l.4 1.1.3.3 1 .4q.8.4 0 1l-1 .3-.3.3-.4 1.1q-.4.6-.9 0l-.4-1q0-.3-.3-.4l-1-.4a.5.5 0 0 1 0-.9l1-.4.3-.3z" />
       <path
         d="M20 9.1c.1-.4.7-.4.9 0l.1.4q0 .3.3.3l.4.2c.4.1.4.7 0 .9l-.4.1-.3.3-.1.4q-.5.6-1 0v-.4l-.4-.3-.4-.1a.5.5 0 0 1 0-1l.4-.1q.3 0 .3-.3zM5.1 15.3c.2-.4.8-.4 1 0v.4l.4.3.4.1q.6.5 0 1l-.4.1q-.3 0-.3.3l-.2.4c-.1.4-.7.4-.9 0l-.1-.4q0-.3-.3-.3l-.4-.2a.5.5 0 0 1 0-.9l.4-.1.3-.3z"
@@ -1205,7 +1205,7 @@ export const RowAnimationsIcon = /* @__PURE__ */ makeIcon(
 export const RowAutomationIcon = /* @__PURE__ */ makeIcon(
   'RowAutomation',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M2 5.3C2 3.5 3.6 2 5.5 2 7.5 2 9 3.5 9 5.3S7.9 9 6.1 9.9H5C3 9 2 7 2 5.3Zm13 12c0-1.8 1.6-3.3 3.5-3.3 2 0 3.5 1.5 3.5 3.3s-1.1 3.8-2.9 4.6H18c-2-.9-3-2.9-3-4.6Z" />
       <path strokeLinejoin="round" d="M12 5h4.1c2 0 2.8 2.6 1.1 3.7L6.8 15.3c-1.7 1-1 3.7 1 3.7H12m-1.5 1.5L12 19l-1.5-1.5" opacity=".5" />
       <path strokeLinejoin="round" d="M18.5 17.5zm-13-12z" />
@@ -1228,7 +1228,7 @@ export const RowAutomationIcon = /* @__PURE__ */ makeIcon(
 export const RowBalancesIcon = /* @__PURE__ */ makeIcon(
   'RowBalances',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <circle cx="12" cy="12" r="10" opacity=".5" />
       <path strokeLinejoin="round" d="M17 10H7l3.4-3M7 14h10l-3.4 3" />
     </g>
@@ -1245,7 +1245,7 @@ export const RowBalancesIcon = /* @__PURE__ */ makeIcon(
 export const RowChatIcon = /* @__PURE__ */ makeIcon(
   'RowChat',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M12 22a10 10 0 1 0-9-5.5q.3.5.2 1.1l-.6 2.2c-.3 1 .6 1.9 1.6 1.6l2.2-.6q.6 0 1.1.2 2.1 1 4.5 1Z" />
       <path strokeLinejoin="round" d="M8 12zm4 0zm4 0z" opacity=".5" />
     </g>
@@ -1262,7 +1262,7 @@ export const RowChatIcon = /* @__PURE__ */ makeIcon(
 export const RowDataIcon = /* @__PURE__ */ makeIcon(
   'RowData',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M2 7V5.2A4 4 0 0 1 5.4 2h2.3A4 4 0 0 1 10 3l.5.4.6.6q1 1.1 1.7 1.5l.9.3q.6.3 2.2.2h.4c2.6 0 4 0 4.8.8l.2.2q1 1 .8 4.8V14c0 3.8 0 5.7-1.2 6.8-1.1 1.2-3 1.2-6.8 1.2h-4c-3.8 0-5.7 0-6.8-1.2C2 19.7 2 17.8 2 14z" />
       <path
         d="M13 11.9a2 2 0 0 1 1.5 0M10.7 13l-1-.3Q8.1 13 8 14.4 8.2 16 9.7 16h4c1.3 0 2.3-1 2.3-2.1q0-1.5-1.5-2m-4.5 1V12q.2-2 2.3-2.1 1.9.1 2.3 1.9"
@@ -1285,7 +1285,7 @@ export const RowDataIcon = /* @__PURE__ */ makeIcon(
 export const RowDeleteAccountIcon = /* @__PURE__ */ makeIcon(
   'RowDeleteAccount',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M16.7 14q-2-1-4.7-1c-3.9 0-7 1.8-7 4s3.1 4 7 4q1.2 0 2.2-.2" opacity=".5" />
       <path d="M21 18a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1.2-2.8-5.6 5.6" />
       <circle cx="12" cy="6" r="4" />
@@ -1308,7 +1308,7 @@ export const RowDeleteAccountIcon = /* @__PURE__ */ makeIcon(
 export const RowEncryptedIcon = /* @__PURE__ */ makeIcon(
   'RowEncrypted',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path
         d="M3 10.4q-.1-4.7.4-5.3c.4-.6 1.9-1 4.9-2.1l.5-.2Q11 2 12 2c.8 0 1.6.3 3.2.8l.5.2q4.4 1.4 5 2 .4.8.3 5.4V12c0 5.6-4.2 8.4-6.9 9.5-.7.3-1 .5-2.1.5-1 0-1.4-.2-2.1-.5C7.2 20.4 3 17.6 3 12z"
         opacity=".5"
@@ -1336,8 +1336,8 @@ export const RowHelpIcon = /* @__PURE__ */ makeIcon(
       d="M19.1 6.5a9 9 0 0 1 0 11l-3-3.7a5 5 0 0 0 0-3.6Zm-1.6 12.6a9 9 0 0 1-11 0l3.7-3a5 5 0 0 0 3.6 0ZM4.9 17.5a9 9 0 0 1 0-11l3 3.7a5 5 0 0 0 0 3.6ZM6.5 4.9a9 9 0 0 1 11 0l-3.7 3a5 5 0 0 0-3.6 0Z"
       opacity=".5"
     />
-    <circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    <circle cx="12" cy="12" r="4.3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="12" r="4.3" fill="none" stroke="currentColor" strokeWidth="2" />
   </>,
   <>
     <path fill="currentColor" fillRule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 1 1 0-20m0 6a4 4 0 1 0 0 8 4 4 0 1 0 0-8" opacity=".5" />
@@ -1353,9 +1353,9 @@ export const RowIconsIcon = /* @__PURE__ */ makeIcon(
   'RowIcons',
   <>
     <g fill="none" stroke="currentColor" strokeLinecap="round">
-      <circle cx="12" cy="12" r="10" strokeWidth="1.5" opacity=".5" />
-      <path strokeWidth="1.5" d="M9 16q1.8.3 4-.1a8 8 0 0 0 3.6-2" />
-      <path strokeWidth="1.5" d="m13 16 .5 1a1.5 1.5 0 1 0 2.7-1.3l-.5-1" />
+      <circle cx="12" cy="12" r="10" strokeWidth="2" opacity=".5" />
+      <path strokeWidth="2" d="M9 16q1.8.3 4-.1a8 8 0 0 0 3.6-2" />
+      <path strokeWidth="2" d="m13 16 .5 1a1.5 1.5 0 1 0 2.7-1.3l-.5-1" />
       <path d="M15 9.6q.1 1-.2 1.1-.5 0-.8-.8-.2-.9.3-1 .3-.2.7.7Z" />
       <ellipse cx="8.7" cy="11.3" rx=".5" ry="1" transform="rotate(-15 8.7 11.3)" />
     </g>
@@ -1372,7 +1372,7 @@ export const RowIconsIcon = /* @__PURE__ */ makeIcon(
 export const RowImportIcon = /* @__PURE__ */ makeIcon(
   'RowImport',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path
         d="M2 12V5.3A4 4 0 0 1 5.4 2h2.3A4 4 0 0 1 10 3l.5.4.6.6q1 1.1 1.7 1.5l.9.3q.6.3 2.2.2h.4c2.6 0 4 0 4.8.8l.2.2q1 1 .8 4.8V14c0 3.8 0 5.7-1.2 6.8-1.1 1.2-3 1.2-6.8 1.2h-4c-3.8 0-5.7 0-6.8-1.2Q2.2 20 2 18"
         opacity=".5"
@@ -1395,7 +1395,7 @@ export const RowImportIcon = /* @__PURE__ */ makeIcon(
 export const RowInsightsIcon = /* @__PURE__ */ makeIcon(
   'RowInsights',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path strokeLinejoin="round" d="M3 22h18" opacity=".5" />
       <path d="M3 11q0-1.4.3-1.7.4-.4 1.7-.3 1.4 0 1.7.3.4.4.3 1.7v6q0 1.4-.3 1.7-.4.4-1.7.3-1.4 0-1.7-.3-.4-.4-.3-1.7zm7-4q0-1.4.3-1.7.4-.4 1.7-.3 1.4 0 1.7.3.4.4.3 1.7v10q0 1.4-.3 1.7-.4.4-1.7.3-1.4 0-1.7-.3-.4-.4-.3-1.7zm7-3q0-1.4.3-1.7.4-.4 1.7-.3 1.4 0 1.7.3.4.4.3 1.7v13q0 1.4-.3 1.7-.4.4-1.7.3-1.4 0-1.7-.3-.4-.4-.3-1.7z" />
     </g>
@@ -1415,7 +1415,7 @@ export const RowInsightsIcon = /* @__PURE__ */ makeIcon(
 export const RowInstallIcon = /* @__PURE__ */ makeIcon(
   'RowInstall',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
       <path d="M3 15c0 2.8 0 4.2.9 5.1s2.3.9 5.1.9h6c2.8 0 4.2 0 5.1-.9s.9-2.3.9-5.1" opacity=".5" />
       <path d="M12 3v13m-4-4.4 4 4.4 4-4.4" />
     </g>
@@ -1435,7 +1435,7 @@ export const RowInstallIcon = /* @__PURE__ */ makeIcon(
 export const RowKeyboardIcon = /* @__PURE__ */ makeIcon(
   'RowKeyboard',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M2 11c0-2.8 0-4.2.9-5.1S5.2 5 8 5h8c2.8 0 4.2 0 5.1.9s.9 2.3.9 5.1v2c0 2.8 0 4.2-.9 5.1s-2.3.9-5.1.9H8c-2.8 0-4.2 0-5.1-.9S2 15.8 2 13z" />
       <path d="M7 16h10" opacity=".5" />
       <path strokeLinejoin="round" d="M6 9zm3 0zm3 0zm3 0zm3 0zm0 3zm-3 0zm-3 0zm-3 0zm-3 0z" opacity=".5" />
@@ -1452,22 +1452,25 @@ export const RowKeyboardIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
-/** solar:bell-bing duotone */
+/** ours */
 export const RowNotificationsIcon = /* @__PURE__ */ makeIcon(
   'RowNotifications',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
-      <path d="M18.7 9.7V9c0-3.9-3-7-6.7-7a7 7 0 0 0-6.7 7v.7q0 1.3-.7 2.4l-1.1 1.7c-1 1.6-.3 3.7 1.5 4.2q7 2 14 0a2.8 2.8 0 0 0 1.5-4.2l-1-1.7q-.8-1-.8-2.4Z" />
-      <path d="M7.5 19a4.9 4.9 0 0 0 9 0M12 6v4" opacity=".5" />
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7">
+      <path d="M15.4 11.8v-.6c0-3.3-2.5-6-5.7-6a6 6 0 0 0-5.7 6v.6q0 1-.6 2l-1 1.4a2.4 2.4 0 0 0 1.3 3.6q6 1.7 12 0a2.4 2.4 0 0 0 1.3-3.6l-1-1.4q-.6-1-.6-2Z" />
+      <path d="M5.9 19.7a4 4 0 0 0 3.8 2.5 4 4 0 0 0 3.8-2.6" opacity=".5" />
     </g>
+    <circle cx="18.8" cy="4.8" r="2.8" fill="currentColor" />
   </>,
   <>
-    <path
-      fill="currentColor"
-      d="M18.8 9v.7q0 1.3.6 2.4l1.2 1.7c1 1.6.2 3.7-1.6 4.2a26 26 0 0 1-14 0 2.8 2.8 0 0 1-1.5-4.2l1-1.7a4 4 0 0 0 .8-2.4V9c0-3.9 3-7 6.7-7s6.8 3.1 6.8 7"
-      opacity=".5"
-    />
-    <path fill="currentColor" d="M12.8 6a.8.8 0 0 0-1.6 0v4a.8.8 0 0 0 1.6 0zM7.2 18.5a5 5 0 0 0 9.6 0q-4.8.9-9.6 0" />
+    <g fill="currentColor">
+      <path
+        d="M15.4 11.1v.6q0 1.2.6 2l1 1.5c.8 1.4.2 3.2-1.3 3.6a22 22 0 0 1-12 0 2.4 2.4 0 0 1-1.3-3.6l1-1.4q.6-1 .6-2V11c0-3 2.5-5.8 5.7-5.8s5.7 2.7 5.7 6"
+        opacity=".5"
+      />
+      <path d="M5.7 19.3a4.3 4.3 0 0 0 8 0 22 22 0 0 1-8 0" />
+    </g>
+    <circle cx="18.8" cy="4.8" r="2.8" fill="currentColor" />
   </>,
 )
 
@@ -1475,7 +1478,7 @@ export const RowNotificationsIcon = /* @__PURE__ */ makeIcon(
 export const RowPayIcon = /* @__PURE__ */ makeIcon(
   'RowPay',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M5.8 6.1 6 6l3.7-2.5c1-.7 2.5-.7 3.6 0L17 6l.2.1" opacity=".5" />
       <path strokeLinejoin="round" d="M6 10h4" opacity=".5" />
       <path d="M20.8 11h-2.6c-1.8 0-3.2 1.3-3.2 3s1.4 3 3.2 3H21q.9 0 1-1v-4a1 1 0 0 0-1-1z" />
@@ -1503,7 +1506,7 @@ export const RowPayIcon = /* @__PURE__ */ makeIcon(
 export const RowPreferencesIcon = /* @__PURE__ */ makeIcon(
   'RowPreferences',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M9.5 14a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm5-10a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
       <path d="M13 17h9M11 7H2m0 10h4M22 7h-4" opacity=".5" />
     </g>
@@ -1523,7 +1526,7 @@ export const RowPreferencesIcon = /* @__PURE__ */ makeIcon(
 export const RowScanIcon = /* @__PURE__ */ makeIcon(
   'RowScan',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <circle cx="12" cy="13" r="3" />
       <path
         d="M9.8 21h4.4c3.1 0 4.7 0 5.8-.7l1.3-1.2c.7-1.1.7-2.7.7-5.7 0-3.1 0-4.6-.7-5.7q-.6-.8-1.3-1.2-1-.7-3-.7-1 0-1.3-1.2a2 2 0 0 0-2-1.6h-3.3a2 2 0 0 0-2 1.6Q8 5.7 7 5.8q-2 0-3 .7-.8.5-1.3 1.2c-.7 1-.7 2.6-.7 5.7 0 3 0 4.6.7 5.7L4 20.3c1.1.7 2.7.7 5.8.7Z"
@@ -1548,53 +1551,44 @@ export const RowScanIcon = /* @__PURE__ */ makeIcon(
   </>,
 )
 
-/** solar:settings duotone */
+/** ours */
 export const RowSettingsIcon = /* @__PURE__ */ makeIcon(
   'RowSettings',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
-      <circle cx="12" cy="12" r="3" />
-      <path
-        d="M13.8 2.2Q13.3 2 12 2t-1.8.2a2 2 0 0 0-1 1l-.2.9q0 .9-.8 1.4-.7.3-1.5 0l-.9-.3Q5 5 4.4 5.5T3.4 7q-.8 1.1-.8 1.6-.1.8.4 1.5.1.3.7.5.6.5.7 1.4t-.7 1.4q-.6.3-.7.5a2 2 0 0 0-.4 1.5q0 .5.7 1.6l1 1.5q.8.4 1.5.3.4 0 .9-.3.7-.3 1.5 0Q9 19 9 20q0 .5.2.9.3.7 1 1 .5.3 1.8.2t1.8-.2a2 2 0 0 0 1-1l.2-.9q0-.9.8-1.4.7-.3 1.5 0l.9.3q.8.2 1.4-.3l1-1.5.8-1.6q.1-.7-.4-1.5-.1-.2-.7-.5-.6-.5-.7-1.4t.7-1.4q.6-.2.7-.5.5-.7.4-1.5L20.7 7l-1-1.5a2 2 0 0 0-1.5-.3q-.4 0-.9.3-.7.3-1.5 0Q15 5 15 4q0-.5-.2-.9a2 2 0 0 0-1-1Z"
-        opacity=".5"
-      />
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
+      <circle cx="12" cy="12" r="3" opacity=".5" />
+      <path d="M13.8 2.2Q13.3 2 12 2t-1.8.2a2 2 0 0 0-1 1l-.2.9q0 .9-.8 1.4-.7.3-1.5 0l-.9-.3Q5 5 4.4 5.5T3.4 7q-.8 1.1-.8 1.6-.1.8.4 1.5.1.3.7.5.6.5.7 1.4t-.7 1.4q-.6.3-.7.5a2 2 0 0 0-.4 1.5q0 .5.7 1.6l1 1.5q.8.4 1.5.3.4 0 .9-.3.7-.3 1.5 0Q9 19 9 20q0 .5.2.9.3.7 1 1 .5.3 1.8.2t1.8-.2a2 2 0 0 0 1-1l.2-.9q0-.9.8-1.4.7-.3 1.5 0l.9.3q.8.2 1.4-.3l1-1.5.8-1.6q.1-.7-.4-1.5-.1-.2-.7-.5-.6-.5-.7-1.4t.7-1.4q.6-.2.7-.5.5-.7.4-1.5L20.7 7l-1-1.5a2 2 0 0 0-1.5-.3q-.4 0-.9.3-.7.3-1.5 0Q15 5 15 4q0-.5-.2-.9a2 2 0 0 0-1-1Z" />
     </g>
   </>,
   <>
     <g fill="currentColor">
       <path
         fillRule="evenodd"
-        d="M14.3 2.2q-.5-.2-1.8-.2t-1.8.2a2 2 0 0 0-1 1q-.2.4-.2.9 0 .9-.8 1.4-.7.3-1.6 0l-.8-.3q-.7-.1-1.5.3L3.8 7 3 8.6q-.1.8.4 1.5l.7.5q.8.5.8 1.4T4 13.4l-.7.5a2 2 0 0 0-.4 1.5q0 .5.8 1.6.6 1.1 1 1.5.7.4 1.5.3.3 0 .8-.3.8-.3 1.6 0 .8.5.8 1.4l.1.9q.3.7 1.1 1 .5.3 1.8.2t1.8-.2a2 2 0 0 0 1-1q.2-.4.2-.9 0-.9.8-1.4.7-.3 1.6 0l.8.3q.8.2 1.5-.3.4-.4 1-1.5l.8-1.6q.1-.7-.4-1.5l-.7-.5q-.8-.5-.8-1.4t.8-1.4l.7-.5q.5-.7.4-1.5L21.2 7q-.6-1.1-1-1.5a2 2 0 0 0-1.5-.3q-.3 0-.8.3-.8.3-1.6 0-.8-.5-.8-1.4l-.1-.9a2 2 0 0 0-1.1-1"
-        clipRule="evenodd"
-        opacity=".5"
+        d="M14.3 2.2q-.5-.2-1.8-.2t-1.8.2a2 2 0 0 0-1 1q-.2.4-.2.9 0 .9-.8 1.4-.7.3-1.6 0l-.8-.3q-.7-.1-1.5.3L3.8 7 3 8.6q-.1.8.4 1.5l.7.5q.8.5.8 1.4T4 13.4l-.7.5a2 2 0 0 0-.4 1.5q0 .5.8 1.6.6 1.1 1 1.5.7.4 1.5.3.3 0 .8-.3.8-.3 1.6 0 .8.5.8 1.4l.1.9q.3.7 1.1 1 .5.3 1.8.2t1.8-.2a2 2 0 0 0 1-1q.2-.4.2-.9 0-.9.8-1.4.7-.3 1.6 0l.8.3q.8.2 1.5-.3.4-.4 1-1.5l.8-1.6q.1-.7-.4-1.5l-.7-.5q-.8-.5-.8-1.4t.8-1.4l.7-.5q.5-.7.4-1.5L21.2 7q-.6-1.1-1-1.5a2 2 0 0 0-1.5-.3q-.3 0-.8.3-.8.3-1.6 0-.8-.5-.8-1.4l-.1-.9a2 2 0 0 0-1.1-1M12.5 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6"
       />
-      <path d="M15.5 12a3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3" />
+      <circle cx="12.5" cy="12" r="2.3" opacity=".5" />
     </g>
   </>,
 )
 
-/** solar:cup-hot duotone */
+/** solar:hand-heart duotone */
 export const RowSupportIcon = /* @__PURE__ */ makeIcon(
   'RowSupport',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
-      <path d="M3.3 11.3q-.3-2.8.4-3.7.8-.7 3.6-.6h5.4q2.9-.2 3.6.6t.4 3.7l-.3 5.1c-.2 2.7-.3 4-1.2 4.8s-2.2.8-4.8.8h-.8q-3.7.2-4.8-.8c-1-.8-1-2.1-1.2-4.8z" />
-      <path d="M16.3 18H3.7" opacity=".5" />
-      <path d="m6 5 .5-.5q.3-.6-.2-1a1 1 0 0 1-.2-1l.4-.6m7.6 3.2.4-.6q.3-.6-.2-1a1 1 0 0 1-.2-1l.4-.6" />
-      <path d="m10 5 .5-.5q.3-.6-.2-1a1 1 0 0 1-.2-1l.4-.6" opacity=".5" />
-      <path d="M16.3 17H18a4 4 0 1 0 0-8h-1.2" />
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
+      <path strokeLinejoin="round" d="M7 4.7c0 1.5 1.7 3 3.1 4.1q1 .9 1.9.9c.7 0 1-.3 1.9-.9 1.4-1 3.1-2.6 3.1-4C17 2 14.2 1 12 3 9.8 1 7 2 7 4.6" />
+      <path
+        d="M11.8 18.5h1.9m0 0h-.1m0 0h.4q1.4-.4 2.4-1.2l1.8-1.4c.6-.4 1.6-.4 2.2 0q1 .8.4 1.8t-1.6 2a9 9 0 0 1-4.6 2.1q-2.7.5-5.3-.1l-3-.3H4m9.7-2.9.4-.2q1-1 .1-2.2l-.4-.3C11 14 6.6 15.4 4 17.2"
+        opacity=".5"
+      />
     </g>
   </>,
   <>
     <g fill="currentColor">
+      <path d="M7 4.8C7 6.4 8.7 8 10.1 9.1q1 .9 1.9.9c.7 0 1-.3 1.9-1C15.3 8 17 6.5 17 4.9 17 2 14.2 1 12 3.2 9.8 1 7 2 7 4.8" />
       <path
-        d="M16.3 18q-.2 2.4-1 3.2c-1 .8-2.3.8-5 .8h-.7q-3.7.2-4.8-.8t-1-3.2zM6 1.5a.7.7 0 1 1 1.2.9l-.4.5q.9 1 .3 2l-.4.6a.7.7 0 0 1-1.3-.9l.4-.5Q5 3 5.5 2zm4 0a.7.7 0 0 1 1.2.9l-.4.5q.9 1 .3 2l-.4.6a.7.7 0 0 1-1.3-.9l.4-.5Q9 3 9.5 2zm4 0a.7.7 0 1 1 1.2.9l-.4.5q.9 1 .3 2l-.4.6a.7.7 0 0 1-1.3-.9l.4-.5q-.9-1-.3-2z"
+        d="M6.3 21.4H6q-1.4 0-1.7-.3-.4-.4-.3-1.7v-1.1l.1-1q.3-.4.8-.6c2.6-1.6 6.4-2.4 8.9-1l.4.4q.9 1.2-.1 2.2l-.4.2h.3q1.4-.4 2.4-1.2l1.8-1.4c.6-.4 1.6-.4 2.2 0q1 .8.4 1.8t-1.6 2a9 9 0 0 1-4.6 2.1q-2.7.5-5.3-.1z"
         opacity=".5"
-      />
-      <path
-        fillRule="evenodd"
-        d="M3.3 11.3q-.3-2.8.4-3.7.8-.7 3.6-.6h5.4q2.9-.2 3.6.6l.4.7h.3a4.7 4.7 0 1 1 0 9.5h-.7v.2H3.7v-1.6zm13 5h.7a3.3 3.3 0 0 0 0-6.5h-.2v1.5z"
-        clipRule="evenodd"
       />
     </g>
   </>,
@@ -1604,7 +1598,7 @@ export const RowSupportIcon = /* @__PURE__ */ makeIcon(
 export const RowUpdateIcon = /* @__PURE__ */ makeIcon(
   'RowUpdate',
   <>
-    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="M7.4 11.6C7.4 9.1 9.4 7 12 7q2.1 0 3.5 1.5" />
       <path strokeLinejoin="round" d="m9 11-1.6 1.6L6 11m1.4 1.6v-1" />
       <path d="M16.6 12.4c0 2.5-2 4.6-4.7 4.6q-2 0-3.4-1.5" />

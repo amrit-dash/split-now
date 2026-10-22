@@ -654,13 +654,21 @@ const art: Record<UiIconName, ReactElement> = {
   ),
   phone: (
     <>
-      <g fill="currentColor">
+      <g fill="currentColor" opacity=".5">
         <path
           d="m12 2 4.1.1q1.6.2 2.6 1.2T20 6l.1 4v4l-.1 4q-.2 1.7-1.2 2.7T16.1 22l-4 .1h-.2l-4-.1q-1.6-.2-2.6-1.2T4 18v-8l.1-4q.2-1.7 1.2-2.7T7.9 2z"
           opacity=".5"
         />
         <path d="M8.6 18.5q0-.6.7-.7h5.4q.6 0 .7.7t-.7.7H9.3a1 1 0 0 1-.7-.7" />
       </g>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+        d="M9.8 6h4.4M9.8 8h4.4m-3.6-2q2.3 0 2.3 1.8c0 1.8-.8 2-2.3 2h-.8l3.4 3.2"
+      />
     </>
   ),
   plant: (

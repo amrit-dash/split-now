@@ -455,7 +455,7 @@ export default function SplitBill() {
             <div className="text-2xl font-extrabold tabular-nums">{formatMoney(total, cur)}</div>
           </div>
           <button type="button" className="btn-primary" onClick={start} disabled={busy || ocr.busy} data-testid="start-table">
-            {busy ? <Spinner className="!h-4 !w-4" /> : <LiveTableIcon size={18} aria-hidden />} Start table
+            {busy ? <Spinner className="!h-4 !w-4" /> : <LiveTableIcon size={18} solid aria-hidden />} Start table
           </button>
         </div>
       </div>

@@ -33,7 +33,43 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const S = (d, w = 1.5, extra = '') =>
   `<path d="${d}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`
 const ring = (r, w = 1.5) => `<circle cx="12" cy="12" r="${r}" fill="none" stroke="currentColor" stroke-width="${w}"/>`
+/** A rupee sign on a 24 px phone's screen: smaller, and raised clear of the phone's bottom bar. */
+const RUPEE =
+  '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" transform="translate(2.4 -.6) scale(.8)" d="M9.25 8.25h5.5M9.25 10.75h5.5M10.25 8.25c1.9 0 2.9.9 2.9 2.25s-1 2.5-2.9 2.5h-1l4.25 4"/>'
+
 const CUSTOM = {
+  /* Notifications row: Solar's bell with a round dot at its top right (owner: the line inside the
+     bell read as a mouse), the bell drawn a little smaller and lower so the dot sits clear of it. */
+  bellDot: {
+    get line() {
+      return `<g transform="translate(-.5 3.5) scale(.85)">${body('solar', 'bell-line-duotone')}</g><circle cx="18.75" cy="4.75" r="2.75" fill="currentColor"/>`
+    },
+    get fill() {
+      return `<g transform="translate(-.5 3.5) scale(.85)">${body('solar', 'bell-bold-duotone')}</g><circle cx="18.75" cy="4.75" r="2.75" fill="currentColor"/>`
+    },
+  },
+  /* Settings row: Solar's gear with the shades swapped (owner): the gear strong, the middle light. */
+  gear: {
+    get line() {
+      return body('solar', 'settings-line-duotone')
+        .replace(' opacity=".5"', '')
+        .replace('<circle cx="12" cy="12" r="3"/>', '<circle cx="12" cy="12" r="3" opacity=".5"/>')
+    },
+    get fill() {
+      // The gear with a hole where the middle goes, so the light middle isn't drawn over the strong gear.
+      const gearD = body('solar', 'settings-bold-duotone').match(/<path fill-rule="evenodd" d="([^"]+)"/)[1]
+      return `<g fill="currentColor"><path fill-rule="evenodd" d="${gearD}M12.5 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6Z"/><circle cx="12.5" cy="12" r="2.25" opacity=".5"/></g>`
+    },
+  },
+  /* Scan → Payment: a phone with a rupee on its screen (owner: the bare phone looked empty). */
+  phonePay: {
+    get lineDuo() {
+      return `${body('solar', 'smartphone-line-duotone')}${RUPEE}`
+    },
+    get boldDuo() {
+      return `<g opacity=".5">${body('solar', 'smartphone-bold-duotone')}</g>${RUPEE}`
+    },
+  },
   /* Help: a lifebuoy (the "floating tube"), the owner's pick: help when you're stuck. Four bands
      across the ring at the diagonals. Solid: the ring's four coloured sections, the bands left as gaps. */
   lifebuoy: {
@@ -70,12 +106,12 @@ const UI = {
   RowInsightsIcon: 'solar:chart-2',
   RowInstallIcon: 'solar:download-minimalistic',
   RowKeyboardIcon: 'solar:keyboard',
-  RowNotificationsIcon: 'solar:bell-bing',
+  RowNotificationsIcon: '~bellDot',
   RowPayIcon: 'solar:wallet-money',
   RowPreferencesIcon: 'solar:tuning-2',
   RowScanIcon: 'solar:camera',
-  RowSettingsIcon: 'solar:settings',
-  RowSupportIcon: 'solar:cup-hot',
+  RowSettingsIcon: '~gear',
+  RowSupportIcon: 'solar:hand-heart',
   RowUpdateIcon: 'solar:refresh-circle',
   AddIcon: 'add',
   AdminIcon: 'shield-keyhole',
@@ -87,7 +123,7 @@ const UI = {
   BellIcon: 'alert',
   BellRingingIcon: 'alert-on',
   BellSlashIcon: 'alert-off',
-  BotIcon: 'bot-sparkle',
+  BotIcon: 'bot',
   CalendarIcon: 'calendar-ltr',
   CameraIcon: 'camera',
   ChatIcon: 'chat',
@@ -222,7 +258,7 @@ const FEATURE = {
   pattern: 'widget-4',
   pause: 'pause-circle',
   pencil: 'pen',
-  phone: 'smartphone',
+  phone: '~phonePay',
   plant: 'leaf',
   plugs: 'plug-circle',
   prohibit: 'forbidden-circle',
@@ -300,6 +336,9 @@ function jsx(markup) {
     .trim()
 }
 
+// The Profile and Settings rows draw Solar's 1.5 lines at 2, so they read as firmly as the text beside them.
+const thicker = (markup, where) => (where.startsWith('Row') ? markup.replace(/stroke-width="1\.5"/g, 'stroke-width="2"') : markup)
+
 const art = (ref, kind, where) => {
   // A Fluent drawing as a Help picture: its fill at half tone under its line (Outline), or its
   // fill (Filled), so it paints like the Solar duotone around it.
@@ -311,12 +350,12 @@ const art = (ref, kind, where) => {
   }
   if (ref.startsWith('solar:')) {
     const suffix = kind === 'line' || kind === 'lineDuo' ? '-line-duotone' : '-bold-duotone'
-    return jsx(slim(body('solar', ref.slice(6) + suffix), where))
+    return jsx(slim(thicker(body('solar', ref.slice(6) + suffix), where), where))
   }
   if (ref.startsWith('~')) {
     const c = CUSTOM[ref.slice(1)]
     if (!c) problems.push(`${where}: no custom drawing ${ref}`)
-    return jsx(slim(c[kind], where))
+    return jsx(slim(thicker(c[kind], where), where))
   }
   const [setName, suffix] = {
     line: ['fluent', '-24-regular'],

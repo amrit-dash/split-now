@@ -555,6 +555,14 @@ const art: Record<UiIconName, ReactElement> = {
         <path d="M4 10c0-3.8 0-5.7 1.2-6.8C6.3 2 8.2 2 12 2s5.7 0 6.8 1.2C20 4.3 20 6.2 20 10v4c0 3.8 0 5.7-1.2 6.8-1.1 1.2-3 1.2-6.8 1.2s-5.7 0-6.8-1.2C4 19.7 4 17.8 4 14z" />
         <path d="M15 19H9" opacity=".5" />
       </g>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+        d="M9.8 6h4.4M9.8 8h4.4m-3.6-2q2.3 0 2.3 1.8c0 1.8-.8 2-2.3 2h-.8l3.4 3.2"
+      />
     </>
   ),
   plant: (
