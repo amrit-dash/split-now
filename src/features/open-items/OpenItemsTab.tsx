@@ -22,10 +22,10 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { SwipeRow } from '@/components/SwipeRow'
 import { HintText, type Hint } from '@/components/Hint'
 
-const ADD_HINT: Hint = { full: 'Spent something but not sure who paid or how much? Write it down.', short: 'Not sure who paid? Write it down.' }
+const ADD_HINT: Hint = { full: 'Unsure who paid or how much? Write it down here.', short: 'Unsure who paid? Write it down.' }
 /** Kept in every look: an open item is not in anyone's balance yet. */
 const NOT_COUNTED_HINT: Hint = {
-  full: 'Open items don’t count in balances until someone claims them.',
+  full: 'Open items don’t count in balances until claimed.',
   short: 'Not counted in balances until claimed.',
   tier: 'key',
 }

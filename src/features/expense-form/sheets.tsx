@@ -75,7 +75,7 @@ function GroupList({
       ? [
           groups.some((g) => g.type === 'personal')
             ? { type: 'personal' as const, label: 'New wallet', hint: { full: 'Fuel, groceries, shopping…', tier: 'help' as const }, icon: Wallet }
-            : { type: 'personal' as const, label: 'Personal wallet', hint: { full: 'Track your own spending', tier: 'help' as const }, icon: Wallet },
+            : { type: 'personal' as const, label: 'Personal wallet', hint: { full: 'Your own spending', tier: 'help' as const }, icon: Wallet },
         ]
       : []),
   ]
@@ -159,10 +159,10 @@ export function CurrencySheet({
         hint={{
           full: (
             <>
-              {groupName} is in {groupCurrency}. Other currencies are converted at the ECB rate for the expense date, then locked.
+              {groupName} is in {groupCurrency}. Others convert at the ECB rate for the expense date, then stay locked.
             </>
           ),
-          short: `Others are converted to ${groupCurrency} at that day’s rate, then locked`,
+          short: `Converted to ${groupCurrency} at that day’s rate, then locked`,
           tier: 'key',
         }}
       />

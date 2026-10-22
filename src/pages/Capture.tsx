@@ -285,11 +285,11 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         <h2 className="text-lg font-bold leading-snug">
           {merchantKnown(c.merchant) ? (
             <>
-              You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant} — is this a group expense?
+              You spent <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> at {c.merchant}. Is this a group expense?
             </>
           ) : (
             <>
-              You paid <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> ({source}) — is this a group expense?
+              You paid <span className="tabular-nums">{formatMoney(c.amount, cur)}</span> ({source}). Is this a group expense?
             </>
           )}
         </h2>
@@ -340,8 +340,8 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
               hint={{
                 full: (
                   <>
-                    {chosen.name} uses {chosen.currency}. The expense is entered as {formatMoney(c.amount, c.currency)} and converted to {chosen.currency} at
-                    the ECB rate for {formatDate(c.date)}; you can check the rate before saving.
+                    {chosen.name} uses {chosen.currency}. {formatMoney(c.amount, c.currency)} is converted at the ECB rate for {formatDate(c.date)}. Check the
+                    rate before saving.
                   </>
                 ),
                 short: `Converted to ${chosen.currency} at the ECB rate for ${formatDate(c.date)}.`,
@@ -415,7 +415,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
       </Sheet>
       <HintText
         className="text-muted mt-4 text-center text-xs"
-        hint={sameCurrency ? { full: 'Undo from the toast if you change your mind.' } : { full: 'Nothing is added until you save the expense.', tier: 'key' }}
+        hint={sameCurrency ? { full: 'Changed your mind? Undo from the toast.' } : { full: 'Nothing is added until you save the expense.', tier: 'key' }}
       />
     </Shell>
   )

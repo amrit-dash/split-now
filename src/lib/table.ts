@@ -218,7 +218,7 @@ export function extrasParts(p: Pick<PersonTotal, 'extras' | 'tip'>): Array<{ lab
 
 /** The line under the tax/tip/discount fields, for the chosen mode. */
 export const taxSplitHint = (mode: TaxSplit) =>
-  `${mode === 'equal' ? 'Tax, fees and discounts are split equally between everyone who had something.' : 'Tax, fees and discounts are shared in proportion to what each person had.'} Tip is always split equally.`
+  `${mode === 'equal' ? 'Tax, fees and discounts split equally between everyone who had something.' : 'Tax, fees and discounts split by what each person had.'} Tip is always split equally.`
 
 /** Claims that give every unclaimed item to everyone at the table (1 share each). */
 export function claimLeftoversForAll(t: LiveTable): Record<ParticipantId, Record<ItemId, number>> {

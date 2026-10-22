@@ -7,7 +7,7 @@ export default function Ai() {
   return (
     <SettingsPage
       title="AI features"
-      subtitle={{ full: 'Reading bills, bank SMS and more with Google’s AI', short: 'Bills and bank SMS, read by AI', tier: 'help' }}
+      subtitle={{ full: 'Bills, bank SMS and more, read by Google’s AI', short: 'Bills and bank SMS, read by AI', tier: 'help' }}
     >
       {repo.mode === 'firebase' ? (
         <AiSettings />

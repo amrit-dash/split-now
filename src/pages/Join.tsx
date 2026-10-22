@@ -95,7 +95,7 @@ export default function Join() {
     }
   }
 
-  const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed — join as ${myName}`] as [string, string]]
+  const options = [...Object.entries(invite.placeholders), ['new', `I’m not listed: join as ${myName}`] as [string, string]]
 
   return (
     <main className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]">
@@ -112,7 +112,7 @@ export default function Join() {
           id="join-help"
           className="text-muted mt-1 text-sm"
           hint={{
-            full: 'Which one is you? Expenses already logged for that person become yours.',
+            full: 'Which one is you? Expenses already added for them become yours.',
             short: 'Which one is you? Their expenses become yours.',
             tier: 'key',
           }}

@@ -8,7 +8,7 @@ import { HintText, type Hint } from '@/components/Hint'
 
 /** How the people you add get in: kept in every look, so nobody thinks they must wait for others to join. */
 export const MEMBER_PICKER_HINT: Hint = {
-  full: 'Add people now and log expenses straight away. They can claim their spot later with the invite link.',
+  full: 'Add people and their expenses now. They claim their spot later with the invite link.',
   short: 'They can claim their spot later with the invite link.',
   tier: 'key',
 }

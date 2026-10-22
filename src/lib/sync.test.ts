@@ -19,8 +19,8 @@ describe('syncText', () => {
   it('reads plainly', () => {
     expect(syncText({ kind: 'saving', pending: 1 })).toBe('Saving your change…')
     expect(syncText({ kind: 'saving', pending: 4 })).toBe('Saving 4 changes…')
-    expect(syncText({ kind: 'offline', pending: 0 })).toBe('Offline — changes will sync when you’re back')
-    expect(syncText({ kind: 'offline', pending: 1 })).toBe('Offline — 1 change is saved on this phone and will sync when you’re back')
-    expect(syncText({ kind: 'offline', pending: 2 })).toBe('Offline — 2 changes are saved on this phone and will sync when you’re back')
+    expect(syncText({ kind: 'offline', pending: 0 })).toBe('Offline. Changes sync when you’re back')
+    expect(syncText({ kind: 'offline', pending: 1 })).toBe('Offline. 1 change is saved on this phone and will sync when you’re back')
+    expect(syncText({ kind: 'offline', pending: 2 })).toBe('Offline. 2 changes are saved on this phone and will sync when you’re back')
   })
 })

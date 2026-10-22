@@ -15,7 +15,7 @@ import { Sheet } from './Sheet'
 // Tile subtitles: nice to read the first time, gone in the Minimal look (the titles say it).
 // All 'help': the tiles show a line under every one or under none.
 const ADD_HINT: Hint = { full: 'What you paid, and how to split it', tier: 'help' }
-const SCAN_HINT: Hint = { full: 'Read a bill or payment screenshot', short: 'Bills and payment screenshots', tier: 'help' }
+const SCAN_HINT: Hint = { full: 'A bill or payment screenshot', tier: 'help' }
 const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
 
 /**

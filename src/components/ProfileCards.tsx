@@ -18,7 +18,7 @@ import { useToast } from './Toast'
 // The card autosaves and says so once; noise after the first read.
 const AUTOSAVE_HINT: Hint = { full: 'Changes save by themselves.', tier: 'extra' }
 const SIGN_IN_HINT: Hint = {
-  full: 'No passwords: sign in with Google, or with a link we email you.',
+  full: 'No passwords: sign in with Google or a link we email you.',
   short: 'Google, or a link we email you.',
   tier: 'help',
 }

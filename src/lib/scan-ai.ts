@@ -48,7 +48,7 @@ export function scanAiWhyText(why: ScanAiWhy, kind: ScanCardKind): string {
         ? 'AI reading isn’t part of the demo. Statements show a sample here.'
         : 'AI reading isn’t part of the demo. Bills are read on this phone.'
     case 'admin':
-      return `Reading with AI is switched off for everyone right now. ${fallback}`
+      return `Reading with AI is off for everyone right now. ${fallback}`
     case 'account':
       return `AI reading isn’t set up for your account. ${fallback}`
     case 'master':

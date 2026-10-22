@@ -18,8 +18,8 @@ import { CardSkeleton } from '@/components/Skeleton'
 import { ExpenseEditor } from '@/features/expense-form/ExpenseEditor'
 
 const SPLIT_HINT: Hint = {
-  full: 'Out to eat? Scan the bill and everyone taps what they had, no group needed.',
-  short: 'Everyone taps what they had, no group needed',
+  full: 'Out to eat? Scan the bill and everyone taps what they had. No group needed.',
+  short: 'Everyone taps what they had',
   tier: 'help',
 }
 

@@ -115,7 +115,7 @@ export default function CaptureGuest() {
           {amount && <p className="mt-2 text-slate-300">{amount}</p>}
           <HintText
             className="mt-4 max-w-xs text-sm text-slate-400"
-            hint={{ full: 'Open Split Now from your home screen to choose a group. You can close this tab.', short: 'Open Split Now to choose a group.' }}
+            hint={{ full: 'Open Split Now from your home screen to pick a group. You can close this tab.', short: 'Open Split Now to pick a group.' }}
           />
         </>
       )}

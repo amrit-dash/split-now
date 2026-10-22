@@ -50,16 +50,16 @@ import { labelOf } from '@/lib/shortNames'
 import { FeatureIcon } from '@/components/Icon'
 
 const JOIN_HINT: Hint = {
-  full: 'Enter the code shown on the host’s phone, or scan their QR code with your camera.',
+  full: 'Enter the code on the host’s phone, or scan their QR with your camera.',
   short: 'The code on the host’s phone, or their QR',
   tier: 'help',
 }
-const QR_HINT: Hint = { full: 'Guests just enter their name. The table closes after 24 hours.', short: 'The table closes after 24 hours', tier: 'help' }
+const QR_HINT: Hint = { full: 'Guests only enter their name. The table closes after 24 hours.', short: 'Closes after 24 hours', tier: 'help' }
 const PERSON_HINT: Hint = { full: 'You’ll tap their items for them.', tier: 'help' }
 /** How tax and tip are shared: the full line from the table logic, one phrase for When needed. */
 const taxHint = (mode: TaxSplit): Hint => ({
   full: taxSplitHint(mode),
-  short: mode === 'equal' ? 'Split equally; tip always equal' : 'By what each had; tip split equally',
+  short: mode === 'equal' ? 'Split equally, tip too' : 'By what each had, tip equally',
   tier: 'help',
 })
 
@@ -224,7 +224,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
         </div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>
         <p className="mt-1 text-muted text-sm">
-          {host} is splitting {formatMoney(tableTotal(table), table.currency)}. Tap what you had — no account needed.
+          {host} is splitting {formatMoney(tableTotal(table), table.currency)}. Tap what you had. No account needed.
         </p>
       </div>
       <form className="mt-6 space-y-3" onSubmit={join}>
@@ -353,7 +353,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
               </button>
               {s > 0 && claimers.length > 1 && (
                 <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-sm dark:border-white/5">
-                  <span className="text-muted">Shared — {who === me ? 'your' : `${name(who)}’s`} portions</span>
+                  <span className="text-muted">Shared: {who === me ? 'your' : `${name(who)}’s`} portions</span>
                   <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800">
                     <button type="button" className="rounded-xl p-1" onClick={() => write(setShares(claims, it.id, s - 1))} aria-label="Fewer portions">
                       <Minus size={16} />

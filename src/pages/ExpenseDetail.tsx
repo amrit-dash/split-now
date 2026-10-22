@@ -283,7 +283,7 @@ export default function ExpenseDetail() {
   )
 }
 
-const NO_COMMENTS: Hint = { full: 'No comments yet. Ask a question or add context for the group.', short: 'No comments yet.', tier: 'help' }
+const NO_COMMENTS: Hint = { full: 'No comments yet. Ask a question or add some context.', short: 'No comments yet.', tier: 'help' }
 
 function Comments({ group, expense }: { group: Group; expense: Expense }) {
   const { user, profile } = useMe()

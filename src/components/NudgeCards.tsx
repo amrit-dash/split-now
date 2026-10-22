@@ -66,7 +66,7 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
                     short: (
                       <>
                         <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
-                        Tap Share → Add to Home Screen to get reminders as notifications.
+                        Share → Add to Home Screen to get reminders.
                       </>
                     ),
                   }}

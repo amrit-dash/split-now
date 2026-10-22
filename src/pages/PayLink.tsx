@@ -216,8 +216,8 @@ function PayView({ link, signedIn }: { link: PayLink; signedIn: boolean }) {
       <HintText
         className="text-muted mt-4 text-center text-xs"
         hint={{
-          full: `Split Now never moves money. Pay in your UPI or banking app, then tap “I’ve paid” and ${payee} sees it at once. No account needed.`,
-          short: 'Split Now never moves money. Pay in your UPI or bank app, then tap “I’ve paid”.',
+          full: `Split Now never moves money. Pay in your UPI or bank app, then tap “I’ve paid” and ${payee} sees it. No account needed.`,
+          short: 'Pay in your UPI or bank app, then tap “I’ve paid”. Split Now never moves money.',
           tier: 'key',
         }}
       />
@@ -319,7 +319,7 @@ function PayeeView({ link }: { link: PayLink }) {
           <HintText
             className="text-muted mt-3 text-xs"
             hint={{
-              full: 'Not right? Delete the payment in the group and it counts as owed again.',
+              full: 'Not right? Delete the payment in the group and it’s owed again.',
               short: 'Not right? Delete the payment in the group.',
               tier: 'key',
             }}

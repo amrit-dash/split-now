@@ -242,7 +242,7 @@ function ToGroup({ table, group, ready }: { table: LiveTable; group: Group; read
           </div>
         ))}
       </div>
-      {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member — their items will be combined.</p>}
+      {dupes.size > 0 && <p className="mt-2 text-xs text-amber-600">Two people point at the same member. Their items will be combined.</p>}
       <p className="mt-2 text-muted text-xs">
         {group.members[payer] ? labelOf(group.members, payer) : 'You'} paid {formatMoney(tableTotal(table), table.currency)}. Everyone else owes their share.
       </p>
@@ -310,12 +310,12 @@ function NoGroup({ table, ready }: { table: LiveTable; ready: boolean }) {
             <>
               Creates “{table.merchant}” with everyone here and{' '}
               {!table.extras.tip && taxSplitOf(table) === 'items'
-                ? 'adds this bill item by item, so you can fix who had what later.'
+                ? 'adds the bill item by item, so you can fix who had what later.'
                 : 'adds each person’s share exactly as shown here (tip and tax included).'}{' '}
               Friends join it with the invite link.
             </>
           ),
-          short: 'Makes a group with everyone here; they join with the invite link',
+          short: 'A group with everyone here. They join by invite link',
           tier: 'help',
         }}
       />

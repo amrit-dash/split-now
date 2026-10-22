@@ -87,7 +87,7 @@ export default function GroupMoney() {
       </section>
       <HintText
         hint={{
-          full: 'Total spent and the budget leave money received out. Balances and Settle up include it: whoever received it owes the others their share.',
+          full: 'Not in Total spent or the budget. Balances and Settle up include it: whoever received it owes the others their share.',
           tier: 'key',
         }}
         as="p"

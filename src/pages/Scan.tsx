@@ -450,9 +450,7 @@ export default function Scan() {
               </div>
               {receipt.date && <Row k="Date" v={formatDate(receipt.date)} />}
               {receipt.items.length > 0 ? <Row k="Line items" v={String(receipt.items.length)} /> : null}
-              {!receipt.total && receipt.items.length === 0 && (
-                <p className="text-muted mt-1 text-xs">Couldn’t read the total — you can type it on the next screen.</p>
-              )}
+              {!receipt.total && receipt.items.length === 0 && <p className="text-muted mt-1 text-xs">Couldn’t read the total. Type it on the next screen.</p>}
               {receipt.items.length > 0 && (
                 <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-xl bg-slate-50 p-2 text-sm dark:bg-ink-800">
                   {receipt.items.map((it, i) => (

@@ -12,11 +12,11 @@ import { errText } from '@/lib/errors'
 const RESEND_MS = 30_000
 
 const EMAILS_HINT: Hint = {
-  full: 'Friends may add you by a work or old address. Add it here and those groups reach this account.',
-  short: 'Add a work or old address friends might use',
+  full: 'Friends may add you by a work or old address. Add it so those groups reach you here.',
+  short: 'Other addresses friends might use',
   tier: 'help',
 }
-const ADD_HINT: Hint = { full: 'We’ll email it a link. Opening the link adds it to your account.', short: 'We’ll email it a link to confirm', tier: 'help' }
+const ADD_HINT: Hint = { full: 'We email it a link. Opening it adds the address to your account.', short: 'We email it a link to confirm', tier: 'help' }
 const SPAM_HINT: Hint = {
   full: 'Can’t find it? Check spam or promotions. It comes from Split Now’s Firebase address.',
   short: 'Can’t find it? Check spam',

@@ -23,15 +23,15 @@ import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 /** A flag doesn't take the expense out of the balances: say so before it is sent. */
 const FLAG_HINT: Hint = {
-  full: 'Tell the group what looks wrong. It stays in the balances (marked as flagged) until you resolve it.',
-  short: 'It stays in the balances (marked as flagged) until you resolve it.',
+  full: 'Tell the group what looks wrong. It stays in the balances, marked Flagged, until resolved.',
+  short: 'Still counted, marked Flagged, until resolved.',
   tier: 'key',
 }
 
 /** Deleted items can come back for a while, and meanwhile they aren't counted. */
 const trashHint = (): Hint => ({
-  full: `Deleted expenses and payments stay here for ${tuning().trashDays} days. They don’t count in balances. Nothing can be deleted for good in its first ${PURGE_HOLD_DAYS} days.`,
-  short: `Kept here for ${tuning().trashDays} days. They don’t count in balances.`,
+  full: `Deleted expenses and payments stay here ${tuning().trashDays} days, not counted in balances. None can be deleted for good in their first ${PURGE_HOLD_DAYS} days.`,
+  short: `Kept ${tuning().trashDays} days, not counted in balances.`,
   tier: 'key',
 })
 

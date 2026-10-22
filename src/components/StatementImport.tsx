@@ -57,8 +57,8 @@ const FLAG: Record<Flag, { text: string; cls: string }> = {
 const MAX_FILES = 6
 
 const INTRO_HINT: Hint = {
-  full: 'Screenshots of your Google Pay, PhonePe, Paytm or bank transactions, or a photo of a printed statement. We’ll list every payment, flag the ones in your trip dates, and you pick what to add.',
-  short: 'Payment screenshots in; you pick what to add',
+  full: 'Screenshots from Google Pay, PhonePe, Paytm or your bank, or a photo of a statement. We list each payment, mark those in your trip dates, and you pick.',
+  short: 'We list the payments, you pick what to add',
   tier: 'help',
 }
 // Key: it says where the screenshots go.
@@ -67,10 +67,10 @@ const READER_HINT: Hint = {
   short: 'Read by Google Gemini',
   tier: 'key',
 }
-const SPLIT_ALL_HINT: Hint = { full: 'For all ticked payments. Open one to change just that one.', short: 'For all ticked payments', tier: 'help' }
+const SPLIT_ALL_HINT: Hint = { full: 'For every ticked payment. Open one to change only that one.', short: 'For every ticked payment', tier: 'help' }
 // Key: a repayment recorded as an expense would skew the balances.
 const CREDIT_HINT: Hint = {
-  full: 'Money you received. If a friend paid you back, record it with Settle up instead.',
+  full: 'Money you received. If a friend paid you back, use Settle up instead.',
   short: 'A friend paid you back? Use Settle up instead',
   tier: 'key',
 }

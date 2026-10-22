@@ -151,8 +151,8 @@ export default function EmailLink() {
 
 // Key: merging switches the other account off and leaves its settings and captured payments behind.
 const MERGE_HINT: Hint = {
-  full: 'Bring it into this account: its groups, Pay me links and tables move here, the email joins this account, and the other account is switched off. Its own settings and captured payments stay behind.',
-  short: 'Its groups move here and the other account is switched off. Its settings and captured payments stay behind.',
+  full: 'Its groups, Pay me links, tables and email move here, and the other account is switched off. Its settings and captured payments stay behind.',
+  short: 'Groups move here, the other account switches off. Its settings and captures stay behind.',
   tier: 'key',
 }
 

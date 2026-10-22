@@ -105,7 +105,7 @@ export function MergeSheet({
           <>
             <HintText
               hint={{
-                full: 'Pick the entry that’s the same person, like someone added once by name and once by email.',
+                full: 'Pick the same person, like someone added once by name and once by email.',
                 short: 'Pick the entry that’s the same person.',
               }}
               className="text-muted -mt-1 mb-2 text-sm"
@@ -161,11 +161,11 @@ export function MergeSheet({
               full: (
                 <ul className="list-disc space-y-1 pl-5">
                   <li>Everything {who(gone!) === 'You' ? 'you' : who(gone!)} paid or owes moves over, so their balances add up.</li>
-                  <li>A payment between the two is removed (it was one person paying themselves).</li>
+                  <li>A payment between the two is removed (one person paying themselves).</li>
                   <li>Past activity still shows the old name.</li>
                 </ul>
               ),
-              short: 'Their balances add up; a payment between the two is removed.',
+              short: 'Balances add up. A payment between them is removed.',
               tier: 'key',
             }}
           />
@@ -226,7 +226,7 @@ function MergeOffer({ group, r, me, myUid, compact }: { group: Group; r: MergeRe
             <p className="text-muted mt-0.5 text-xs">{approver ? `Waiting for ${approver === me ? 'you' : name(approver)} to OK it.` : 'Waiting for an OK.'}</p>
           )}
           {state.kind === 'suggested' && (
-            <HintText hint={{ full: <>Merging moves everything into {who(r.into)}; balances add up.</>, tier: 'key' }} className="text-muted mt-0.5 text-xs" />
+            <HintText hint={{ full: <>Merging moves everything into {who(r.into)}. Balances add up.</>, tier: 'key' }} className="text-muted mt-0.5 text-xs" />
           )}
         </div>
       </div>

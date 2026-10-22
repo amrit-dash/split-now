@@ -6,6 +6,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Shorter, plainer explanations across the app: the lines under settings, switches and screens say the same in fewer words, and where a title already said it all the line is gone and the title carries it (like **Add my bank payments here** on a trip, **New expenses with you** in Notifications). Warnings about money, privacy and deleting keep every fact. The detail levels have clearer names: **Explain everything**, **Short tips**, **Titles only** and **Tips behind (i)** (they were Full, When needed, Minimal and Tooltip).
 - Finish every section of Help and its ring turns into a tick, with a **Congratulations** banner to claim your **Pro** badge. It stays yours even when Help grows; new sections just bring the ring back.
 - Help has three new explainers under How it works: why a captured payment waits for you, Simple and Advanced as one kitchen with fewer drawers open, and how Collect in my currency makes one total. Earn Pro is now a short picture too (the ring fills, Congratulations, the PRO ring and pill), still listed last.
 - Help's Simple and Advanced section plays its steps: the leaf in Profile turning into Advanced's picture with its accent burst, Undo, and Preferences → Mode. Help and What's new has a step for the progress ring and ticks; Scan's scene shows the new card with Camera, Photos and the AI button in its corner; Set up encrypted groups mentions the Help button at the top of Encrypted groups.

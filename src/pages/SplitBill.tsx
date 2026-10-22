@@ -43,16 +43,16 @@ const blank = (): Row => ({ id: uid('r_'), name: '', amount: '' })
  * the table scans the QR and taps what they had, no app or account needed (src/pages/Table.tsx).
  */
 const PAGE_HINT: Hint = { full: 'Everyone taps what they had', tier: 'help' }
-const SCAN_HINT: Hint = { full: 'We’ll pull out the items, taxes and total. Or type them in below.', short: 'Or type the items in below', tier: 'help' }
+const SCAN_HINT: Hint = { full: 'Reads the items, taxes and total. Or type them below.', short: 'Or type the items below', tier: 'help' }
 const NEXT_HINT: Hint = {
-  full: 'Next, friends scan your QR code and tap what they had. No app or account needed, and you can still edit the bill while it’s live.',
-  short: 'Friends scan your QR code; no app needed',
+  full: 'Next, friends scan your QR and tap what they had. No app needed, and you can still edit the bill.',
+  short: 'Friends scan your QR, no app needed',
   tier: 'help',
 }
 /** How tax and tip are shared: the full line from the table logic, one phrase for When needed. */
 const taxHint = (mode: TaxSplit): Hint => ({
   full: taxSplitHint(mode),
-  short: mode === 'equal' ? 'Split equally; tip always equal' : 'By what each had; tip split equally',
+  short: mode === 'equal' ? 'Split equally, tip too' : 'By what each had, tip equally',
   tier: 'help',
 })
 
@@ -112,10 +112,10 @@ export default function SplitBill() {
     })
     toast(
       items.length
-        ? `Found ${items.length} item${items.length === 1 ? '' : 's'} — check them below`
+        ? `Found ${items.length} item${items.length === 1 ? '' : 's'} . Check them below`
         : total
-          ? 'Couldn’t read the items — add them below'
-          : 'Couldn’t read this bill — add the items below',
+          ? 'Couldn’t read the items. Add them below'
+          : 'Couldn’t read this bill. Add the items below',
       items.length ? 'ok' : 'err',
     )
   }

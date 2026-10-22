@@ -371,7 +371,7 @@ export default function ImportGroup() {
                 </tbody>
               </table>
               <HintText
-                hint={{ full: 'Positive = is owed money. Balances match Splitwise exactly.', tier: 'extra' }}
+                hint={{ full: 'Positive means owed money. Balances match Splitwise exactly.', tier: 'extra' }}
                 className="text-muted px-4 pt-2 text-xs"
               />
               <details className="text-muted px-4 pb-4 pt-1 text-xs">
@@ -561,11 +561,11 @@ export default function ImportGroup() {
   )
 }
 
-const CHOOSE_HINT: Hint = { full: 'Your Splitwise group export. Nothing is saved until you tap Import.', short: 'Nothing is saved until you tap Import.' }
+const CHOOSE_HINT: Hint = { full: 'Your Splitwise group export. Nothing is saved until you tap Import.', short: 'Nothing saved until you tap Import.' }
 /** Kept in every look: mapping yourself wrongly gives your share to someone else. */
 const WHO_HINT: Hint = {
-  full: 'Pick yourself. Everyone else becomes a placeholder they can claim later with the group’s invite link.',
-  short: 'Pick yourself; the others can claim their spot later.',
+  full: 'Pick yourself. The others become spots they can claim later with the invite link.',
+  short: 'Pick yourself. Others claim their spot later.',
   tier: 'key',
 }
 

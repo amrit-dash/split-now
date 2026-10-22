@@ -23,8 +23,8 @@ import { type Hint, HintText } from '@/components/Hint'
 const BALANCES_HINT: Hint = { full: 'Across all your groups and 1:1s', tier: 'extra' }
 
 const EVENS_HINT: Hint = {
-  full: 'You owe each other the same overall. Clear them to settle every group with no money changing hands.',
-  short: 'Clear them to settle every group, no money needed.',
+  full: 'You owe each other the same overall. Clear them to settle every group, no money needed.',
+  short: 'Settles every group, no money needed.',
 }
 
 /*
@@ -429,7 +429,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
             full: (
               <>
                 <Lightbulb size={14} className="mb-0.5 mr-1 inline" aria-hidden />
-                You owe each other in different groups. Settle all of it with <b>one</b> payment of {amount}.
+                Debts across groups net out. Settle all of it with <b>one</b> payment of {amount}.
               </>
             ),
             short: (

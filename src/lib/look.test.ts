@@ -11,6 +11,14 @@ describe('resolveLook', () => {
   it('every look has a label for the console', () => {
     for (const l of LOOKS) expect(LOOK_INFO[l].label).toBeTruthy()
   })
+  it('names each look by what it gives, short enough for a picker row, with no two alike', () => {
+    expect(LOOK_INFO.full.label).toBe('Explain everything')
+    expect(LOOK_INFO.needed.label).toBe('Short tips')
+    expect(LOOK_INFO.minimal.label).toBe('Titles only')
+    expect(LOOK_INFO.tooltip.label).toBe('Tips behind (i)')
+    for (const l of LOOKS) expect(LOOK_INFO[l].label.length).toBeLessThanOrEqual(20)
+    expect(new Set(LOOKS.map((l) => LOOK_INFO[l].label)).size).toBe(LOOKS.length)
+  })
 })
 
 describe('hintView', () => {

@@ -592,7 +592,7 @@ export function ExpenseEditor({
           />
           {draft.received && (
             <HintText
-              hint={{ full: 'A refund or reimbursement one person got that belongs to several. Whoever received it owes the others their share.', tier: 'key' }}
+              hint={{ full: 'A refund one person got that belongs to several. Whoever received it owes the others their share.', tier: 'key' }}
               as="p"
               className="text-muted mt-2 px-1 text-xs"
             />

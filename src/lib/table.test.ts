@@ -250,8 +250,8 @@ describe('computeTableTotals', () => {
     ])
     expect(extrasParts({ extras: -40, tip: 0 })).toEqual([{ label: 'discount', amount: -40 }])
     expect(extrasParts({ extras: 0, tip: 0 })).toEqual([])
-    expect(taxSplitHint('items')).toBe('Tax, fees and discounts are shared in proportion to what each person had. Tip is always split equally.')
-    expect(taxSplitHint('equal')).toBe('Tax, fees and discounts are split equally between everyone who had something. Tip is always split equally.')
+    expect(taxSplitHint('items')).toBe('Tax, fees and discounts split by what each person had. Tip is always split equally.')
+    expect(taxSplitHint('equal')).toBe('Tax, fees and discounts split equally between everyone who had something. Tip is always split equally.')
   })
   it('claim leftovers for everyone', () => {
     const t = table({ claims: { g1: { a: 1 } } })

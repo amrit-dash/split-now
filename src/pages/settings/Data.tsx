@@ -18,12 +18,12 @@ import { SectionTitle, SettingsPage } from './common'
 import { RowTile } from '@/components/RowTile'
 
 const EXPORT_HINT: Hint = {
-  full: 'Every expense and payment in the group, with who paid and each person’s share. Opens in Excel or Google Sheets, and imports back into Split Now.',
-  short: 'Every expense and payment, for Excel or Google Sheets',
+  full: 'Every expense and payment, with who paid and each share. Opens in Excel or Google Sheets and imports back.',
+  short: 'For Excel or Google Sheets',
   tier: 'help',
 }
 const IMPORT_HINT: Hint = {
-  full: 'A group export (CSV), balances checked against Splitwise’s own totals',
+  full: 'A group export (CSV), balances checked against Splitwise’s totals',
   short: 'A Splitwise group export (CSV)',
   tier: 'help',
 }

@@ -37,7 +37,7 @@ export function iconAiOffered(o: {
  */
 export function iconAiWhy(o: Offer): string | null {
   if (o.vault || o.mode === 'demo') return null
-  if (!o.flag) return 'AI icons are switched off for everyone right now.'
+  if (!o.flag) return 'AI icons are off for everyone right now.'
   if (!o.online) return 'AI icons need the internet.'
   if (!o.prefs) return null
   if (!o.prefs.aiEnabled) return 'AI is off for you. Turn on Use AI in AI features.'

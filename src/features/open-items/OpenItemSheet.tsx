@@ -54,10 +54,10 @@ import { CategorySheet } from '@/features/expense-form/sheets'
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
 
 const NEW_ITEM_HINT: Hint = {
-  full: 'Something the group spent that nobody has added yet. Anyone can claim it later.',
+  full: 'Something the group spent that nobody has added. Anyone can claim it.',
   short: 'Anyone can claim it later.',
 }
-const SUSPECTS_HINT: Hint = { full: 'They’ll get a notification asking them to claim it.', short: 'They’ll get a notification.' }
+const SUSPECTS_HINT: Hint = { full: 'They get a notification asking them to claim it.', short: 'They get a notification.' }
 
 /** What a typed line adds beyond what's already in the fields ("Found ₹290 · 2 Oct · Rahul"). */
 type Found = OpenItemInput & { line: string }

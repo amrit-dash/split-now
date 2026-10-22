@@ -26,7 +26,7 @@ export function QuickAddCard({
   const id = useId()
   const hint: Hint = groups.length
     ? { full: 'Type or say it, then check the form', tier: 'help' }
-    : { full: 'Say who it’s with, and we’ll set up the group for you to check', short: 'Say who it’s with; we set up the group', tier: 'help' }
+    : { full: 'Say who it’s with and we set up the group for you to check', short: 'Say who it’s with', tier: 'help' }
   return (
     <section aria-labelledby={id} className={`rounded-3xl bg-slate-50 p-3.5 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:ring-white/5 ${className}`}>
       <div className="mb-3 flex items-center gap-3">

@@ -116,7 +116,7 @@ export function AiScanToggle({ className = '' }: { className?: string }) {
     return (
       <p className={`text-muted flex items-center gap-2 text-xs ${className}`} data-testid="ai-scan-off">
         <Sparkles size={14} className="shrink-0 text-brand-500" aria-hidden />
-        <span>Reading bills with AI is switched off for everyone right now</span>
+        <span>Reading bills with AI is off for everyone right now</span>
       </p>
     )
   }
@@ -156,8 +156,8 @@ export function AiScanToggle({ className = '' }: { className?: string }) {
   }
   // Key: where the photo goes is a privacy line, so every look keeps a short form of it.
   const hint: Hint = on
-    ? { full: 'the photo is sent to Google Gemini to read items and taxes', short: 'the photo is sent to Google Gemini', tier: 'key' }
-    : { full: 'off, read on this phone only (less accurate)', short: 'off, read on this phone', tier: 'key' }
+    ? { full: 'the photo goes to Google Gemini to read items and taxes', short: 'the photo goes to Google Gemini', tier: 'key' }
+    : { full: 'off, read on this phone only, less accurately', short: 'off, read on this phone', tier: 'key' }
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <Sparkles size={16} className="shrink-0 text-brand-500" aria-hidden />
