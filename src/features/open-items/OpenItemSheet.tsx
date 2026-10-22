@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { labelOf } from '@/lib/shortNames'
-import { ChevronRight, Loader2, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { ChevronRight, Loader2, Wand2 } from 'lucide-react'
+import { MagicIcon, SparkleIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { memberOrder, myMemberId } from '@/hooks/data'
@@ -357,7 +358,7 @@ export function OpenItemSheet({
               className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-left text-sm dark:bg-brand-500/10"
               data-testid="open-item-found"
             >
-              <Sparkles size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+              <SparkleIcon size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="font-semibold">“{found.title}”</span> · {foundBits.join(' · ')}
               </span>
@@ -371,7 +372,7 @@ export function OpenItemSheet({
               className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-left text-sm dark:bg-ink-800"
               data-testid="open-item-ai"
             >
-              <Wand2 size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+              <MagicIcon size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="text-muted mr-1 text-xs font-semibold uppercase tracking-wide">AI</span>
                 <span className="font-semibold">“{aiShown.title}”</span>
@@ -503,7 +504,7 @@ export function OpenItemSheet({
                 }}
                 aria-label="Delete open item"
               >
-                <Trash2 size={18} aria-hidden />
+                <TrashIcon size={18} aria-hidden />
               </button>
             )}
             <button type="submit" className="btn-primary" data-testid="open-item-save">

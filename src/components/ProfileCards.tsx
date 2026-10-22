@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { Check, ChevronDown, Loader2 } from 'lucide-react'
-import { ArrowsClockwiseIcon, CameraIcon } from '@/components/icons'
+import { RefreshIcon, CameraIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { AccountEmails } from '@/components/AccountEmails'
 import { useMe } from '@/hooks/auth'
@@ -241,7 +241,7 @@ export function RatesField({ base, hint, children }: { base: string; hint?: Hint
           data-testid="rates-button"
           className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-500/30 transition active:scale-95 disabled:opacity-70 dark:bg-brand-500/10 dark:text-brand-200 dark:ring-brand-400/30"
         >
-          <ArrowsClockwiseIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
+          <RefreshIcon size={16} className={busy ? 'animate-spin' : ''} aria-hidden />
           Refresh
         </button>
       </div>

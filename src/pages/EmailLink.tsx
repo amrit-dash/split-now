@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CircleCheck, Loader2, MailX, Users } from 'lucide-react'
+import { CircleCheck, Loader2, MailX } from 'lucide-react'
+import { GroupsIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { EmailLinkResult } from '@/data/repo'
 import { PageHeader } from '@/components/Misc'
@@ -116,7 +117,7 @@ export default function EmailLink() {
         )}
         {state.kind === 'done' && state.r.otherAccount && (
           <div>
-            <Users size={32} className="text-brand-600 dark:text-brand-300" aria-hidden />
+            <GroupsIcon size={32} className="text-brand-600 dark:text-brand-300" aria-hidden />
             <h2 className="mt-3 text-lg font-bold">This email has its own account</h2>
             <p className="mt-2 text-sm">
               <b className="[overflow-wrap:anywhere]">{state.r.otherAccount.email}</b> already signs in to Split Now

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useId } from 'react'
-import { Sparkles } from 'lucide-react'
+import { BotIcon } from '@/components/icons'
 import type { Group } from '@/types'
 import { type Hint, HintText, InfoTip } from './Hint'
 
@@ -34,7 +34,7 @@ export function QuickAddCard({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
           aria-hidden
         >
-          <Sparkles size={20} />
+          <BotIcon size={22} />
         </span>
         <span className="min-w-0">
           <span className="flex items-center">

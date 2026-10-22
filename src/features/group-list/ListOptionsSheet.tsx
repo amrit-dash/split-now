@@ -1,5 +1,6 @@
 import { type ReactNode, useId, useState } from 'react'
-import { ChevronDown, UserRound } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { UserIcon } from '@/components/icons'
 import type { Category, Group, MemberId } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { labelOf } from '@/lib/shortNames'
@@ -90,7 +91,7 @@ export function ListOptionsSheet({
                 aria-pressed={quick.onlyMe}
                 data-testid="quick-me"
               >
-                <UserRound size={15} aria-hidden />
+                <UserIcon size={16} aria-hidden />
                 Involving me
               </button>
             )}

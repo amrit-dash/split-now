@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { LogOut, RotateCcw, Trash2 } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
+import { ExitIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { groupPurgeBlocker } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -66,7 +67,7 @@ export function DeleteGroupButton({ group }: { group: Group }) {
   return (
     <>
       <button type="button" className="btn w-full text-rose-700 dark:text-rose-400" disabled={!debts} onClick={() => void run()} data-testid="delete-group">
-        <Trash2 size={18} aria-hidden /> Delete group
+        <TrashIcon size={18} aria-hidden /> Delete group
       </button>
       {!state.allowed && <p className="text-muted -mt-3 text-center text-xs">{state.reason}</p>}
     </>
@@ -144,7 +145,7 @@ export function DeletedGroupCard({ group }: { group: Group }) {
         className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
         aria-hidden
       >
-        <Trash2 size={22} />
+        <TrashIcon size={22} />
       </div>
       <h2 className="mt-3 text-lg font-bold">In Recently deleted</h2>
       <p className="text-muted mt-1 text-sm">
@@ -163,7 +164,7 @@ export function DeletedGroupCard({ group }: { group: Group }) {
           disabled={busy}
           data-testid="group-purge"
         >
-          <Trash2 size={18} aria-hidden /> {busy ? 'Deleting…' : 'Delete forever'}
+          <TrashIcon size={18} aria-hidden /> {busy ? 'Deleting…' : 'Delete forever'}
         </button>
       )}
       {purgeFrom && (
@@ -173,7 +174,7 @@ export function DeletedGroupCard({ group }: { group: Group }) {
       )}
       {canLeave && (
         <button type="button" className="btn mt-2 w-full" onClick={() => void leave()} disabled={busy} data-testid="group-deleted-leave">
-          <LogOut size={18} aria-hidden /> Leave group
+          <ExitIcon size={18} aria-hidden /> Leave group
         </button>
       )}
     </div>

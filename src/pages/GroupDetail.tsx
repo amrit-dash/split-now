@@ -1,37 +1,31 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AlertCircle, AlertTriangle, ChevronRight, MessageSquareText, Repeat, Search, UtensilsCrossed, X } from 'lucide-react'
 import {
-  AlertCircle,
-  AlertTriangle,
-  Archive,
-  BarChart3,
-  CheckCheck,
-  ChevronRight,
-  Download,
-  Flag,
-  HandCoins,
-  KeySquare,
-  Lock,
-  LockOpen,
-  Link2,
-  LogOut,
-  MessageSquareText,
-  MessagesSquare,
-  Pencil,
-  Repeat,
-  Search,
-  ArrowDownUp,
-  ReceiptText,
-  ArrowLeftRight,
-  CalendarRange,
-  UserRound,
-  Settings2,
-  Trash2,
-  UserMinus,
-  Users,
-  UtensilsCrossed,
-  X,
-} from 'lucide-react'
+  ArchiveIcon,
+  CalendarIcon,
+  ChatIcon,
+  ChecksIcon,
+  DownloadIcon,
+  EditIcon,
+  ExitIcon,
+  FlagIcon,
+  GroupsIcon,
+  HandCoinsIcon,
+  InsightsIcon,
+  KeyIcon,
+  LinkIcon,
+  LockIcon,
+  LockOpenIcon,
+  MemberRemoveIcon,
+  ReceiptIcon,
+  SettingsIcon,
+  SortIcon,
+  SwapIcon,
+  TrashIcon,
+  UserIcon,
+} from '@/components/icons'
+import { QrCode } from '@/components/QrCode'
 import { useMe } from '@/hooks/auth'
 import {
   computeGroupData,
@@ -97,7 +91,6 @@ import { Avatar } from '@/components/Avatar'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { DebtGraph } from '@/components/DebtGraph'
 import { GroupIcon } from '@/components/GroupIcon'
-import { QrCode } from '@/components/QrCode'
 import { Empty, LiveBadge, Loading, PageHeader, Segmented, formatRange } from '@/components/Misc'
 import { Celebrate } from '@/components/Celebrate'
 import { DeletedGroupCard, useDeleteGroup } from '@/components/DeleteGroup'
@@ -124,7 +117,6 @@ import { VaultLock } from '@/features/vault/VaultLock'
 import { PrivateGroupSheet } from '@/features/vault/PrivateGroupSheet'
 import { privateMenuShown } from '@/lib/vault-api'
 import { lockVault } from '@/lib/vault-keys'
-import { ClockCounterClockwiseIcon, MagnifyingGlassIcon, ReceiptIcon } from '@/components/icons'
 
 type Tab = 'expenses' | 'open' | 'balances' | 'activity'
 
@@ -193,7 +185,7 @@ export default function GroupDetail() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Group not found" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   // In Recently deleted: read-only, with Restore (and Delete forever for the creator).
@@ -316,7 +308,7 @@ export default function GroupDetail() {
                 title="Open: tap to lock"
                 data-testid="vault-lock-now"
               >
-                <LockOpen size={20} aria-hidden />
+                <LockOpenIcon size={20} aria-hidden />
               </button>
             )}
             {showChat && (
@@ -326,7 +318,7 @@ export default function GroupDetail() {
                 aria-label={unread ? 'Group chat, new messages' : 'Group chat'}
                 data-testid="group-chat"
               >
-                <MessagesSquare size={22} aria-hidden />
+                <ChatIcon size={22} aria-hidden />
                 {unread && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-ink-950" aria-hidden />}
               </Link>
             )}
@@ -338,7 +330,7 @@ export default function GroupDetail() {
               aria-haspopup="dialog"
               data-testid="group-menu"
             >
-              <Settings2 size={22} aria-hidden />
+              <SettingsIcon size={22} aria-hidden />
             </button>
           </div>
         }
@@ -451,7 +443,7 @@ export default function GroupDetail() {
                 onClick={() => openInvite()}
                 data-testid="group-invite"
               >
-                <Link2 size={18} aria-hidden /> Invite
+                <LinkIcon size={18} aria-hidden /> Invite
               </button>
             )}
           </div>
@@ -479,7 +471,7 @@ export default function GroupDetail() {
             }}
             data-testid="group-vault-waiting-set"
           >
-            <KeySquare size={18} aria-hidden /> Give it its own pattern
+            <KeyIcon size={18} aria-hidden /> Give it its own pattern
           </button>
         </div>
       )}
@@ -546,7 +538,7 @@ export default function GroupDetail() {
               className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm"
               data-testid="balances-open-note"
             >
-              <ReceiptText size={18} className="text-muted shrink-0" aria-hidden />
+              <ReceiptIcon size={18} className="text-muted shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">
                 {openCount} open {openCount === 1 ? 'item isn’t' : 'items aren’t'} counted yet. Claim {openCount === 1 ? 'it' : 'them'} before settling up.
               </span>
@@ -559,7 +551,7 @@ export default function GroupDetail() {
               className="card flex min-h-12 w-full items-center gap-2 px-4 py-3 text-sm"
               data-testid="balances-received-note"
             >
-              <HandCoins size={18} className="pos shrink-0" aria-hidden />
+              <HandCoinsIcon size={18} className="pos shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">Includes {formatMoney(receivedTotal, cur)} money received. See what it changed for each person.</span>
               <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" aria-hidden />
             </Link>
@@ -599,7 +591,7 @@ export default function GroupDetail() {
                           {
                             label: 'Remove',
                             ariaLabel: `Remove ${name(id)} from the group`,
-                            icon: <UserMinus size={20} strokeWidth={2.25} />,
+                            icon: <MemberRemoveIcon size={20} />,
                             onClick: () => void removeMember(id),
                             testId: 'balance-remove',
                           },
@@ -738,7 +730,7 @@ export default function GroupDetail() {
       <Sheet open={menu} onClose={() => setMenu(false)} title={group.name} testId="group-menu-sheet">
         <ul className="-mx-2 divide-y divide-slate-100 dark:divide-white/5">
           <MenuRow
-            icon={<Pencil size={20} />}
+            icon={<EditIcon size={20} />}
             label="Edit group"
             hint={MENU_HINTS.edit}
             onClick={() => {
@@ -748,7 +740,7 @@ export default function GroupDetail() {
           />
           {!personal && !direct && (
             <MenuRow
-              icon={<Users size={20} />}
+              icon={<GroupsIcon size={20} />}
               label="Members"
               hint={MENU_HINTS.members}
               onClick={() => {
@@ -760,7 +752,7 @@ export default function GroupDetail() {
           )}
           {canInvite && (
             <MenuRow
-              icon={<Link2 size={20} />}
+              icon={<LinkIcon size={20} />}
               label="Invite"
               hint={MENU_HINTS.invite}
               onClick={() => {
@@ -771,7 +763,7 @@ export default function GroupDetail() {
           )}
           {privateMenu && (
             <MenuRow
-              icon={<Lock size={20} />}
+              icon={<LockIcon size={20} />}
               label={group.vault ? 'Private group' : 'Make private'}
               hint={MENU_HINTS.pattern}
               onClick={() => {
@@ -783,7 +775,7 @@ export default function GroupDetail() {
           )}
           {receivedTotal > 0 && (
             <MenuRow
-              icon={<HandCoins size={20} />}
+              icon={<HandCoinsIcon size={20} />}
               label="Money received"
               hint={MENU_HINTS.received}
               onClick={() => {
@@ -794,7 +786,7 @@ export default function GroupDetail() {
             />
           )}
           <MenuRow
-            icon={<BarChart3 size={20} />}
+            icon={<InsightsIcon size={20} />}
             label="Insights"
             hint={MENU_HINTS.insights}
             onClick={() => {
@@ -802,9 +794,9 @@ export default function GroupDetail() {
               nav(`/insights?group=${group.id}`)
             }}
           />
-          <MenuRow icon={<Download size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />
+          <MenuRow icon={<DownloadIcon size={20} />} label="Export CSV" hint={MENU_HINTS.export} onClick={exportCsv} testId="group-export" />
           <MenuRow
-            icon={<Archive size={20} />}
+            icon={<ArchiveIcon size={20} />}
             label={archive.label}
             // Greyed out, its reason is a status line (always shown); otherwise what it does, like every other row.
             hint={
@@ -819,7 +811,7 @@ export default function GroupDetail() {
           />
           {!personal && !creator && me && (
             <MenuRow
-              icon={<LogOut size={20} />}
+              icon={<ExitIcon size={20} />}
               label="Leave group"
               hint={MENU_HINTS.leave}
               status={myBal === 0 ? undefined : 'Settle up first'}
@@ -1044,14 +1036,14 @@ function ActivityTab({ group, expenseIds }: { group: Group; expenseIds: Set<stri
   return (
     <div className="space-y-3">
       <button type="button" onClick={() => setOpen(true)} className="card flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left text-sm">
-        <Trash2 size={18} className="text-muted" aria-hidden />
+        <TrashIcon size={18} className="text-muted" aria-hidden />
         <span className="flex-1 font-medium">Recently deleted</span>
         <span className="text-muted">{n || 'empty'}</span>
       </button>
       {feed === null ? (
         <Loading />
       ) : feed.length === 0 ? (
-        <Empty icon={ClockCounterClockwiseIcon} title="No activity yet">
+        <Empty icon="history" title="No activity yet">
           Adds, edits, deletions and flags show up here.
         </Empty>
       ) : (
@@ -1147,7 +1139,7 @@ function ActivityList({
   }
   if (all === 0)
     return (
-      <Empty icon={ReceiptIcon} title="No expenses yet">
+      <Empty icon="receipt" title="No expenses yet">
         Tap the + button to add the first one, or scan a receipt.
       </Empty>
     )
@@ -1186,7 +1178,7 @@ function ActivityList({
           aria-haspopup="dialog"
           data-testid="list-options-open"
         >
-          <ArrowDownUp size={18} aria-hidden />
+          <SortIcon size={18} aria-hidden />
           {sheetCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fill px-1 text-[11px] font-bold text-on-fill">
               {sheetCount}
@@ -1237,7 +1229,7 @@ function ActivityList({
     <div className="space-y-5">
       {filters}
       {rows.length === 0 && (
-        <Empty icon={MagnifyingGlassIcon} title="No matches">
+        <Empty icon="search" title="No matches">
           Try a different search or clear the filters.
         </Empty>
       )}
@@ -1257,7 +1249,7 @@ function ActivityList({
                             {
                               label: 'Confirm',
                               ariaLabel: 'Confirm you got this payment',
-                              icon: <CheckCheck size={20} strokeWidth={2.25} />,
+                              icon: <ChecksIcon size={20} />,
                               tone: 'accent' as const,
                               onClick: () => answers.confirm(r.s),
                               testId: 'payment-confirm',
@@ -1269,7 +1261,7 @@ function ActivityList({
                             {
                               label: 'Not received',
                               ariaLabel: 'Say this payment hasn’t arrived',
-                              icon: <Flag size={20} strokeWidth={2.25} />,
+                              icon: <FlagIcon size={20} />,
                               tone: 'neutral' as const,
                               onClick: () => answers.notReceived(r.s),
                               testId: 'payment-not-received',
@@ -1289,7 +1281,7 @@ function ActivityList({
                       {
                         label: 'Delete',
                         ariaLabel: 'Delete payment',
-                        icon: <Trash2 size={20} strokeWidth={2.25} />,
+                        icon: <TrashIcon size={20} />,
                         onClick: () => undoable.settlement(groupId, r.s),
                         testId: 'payment-delete',
                       },
@@ -1346,7 +1338,7 @@ function ActivityList({
                     {
                       label: 'Edit',
                       ariaLabel: `Edit ${e.description}`,
-                      icon: <Pencil size={20} strokeWidth={2.25} />,
+                      icon: <EditIcon size={20} />,
                       tone: 'neutral',
                       onClick: () => navTo(`/groups/${groupId}/expenses/${e.id}/edit`),
                       testId: 'expense-edit',
@@ -1354,7 +1346,7 @@ function ActivityList({
                     {
                       label: 'Delete',
                       ariaLabel: `Delete ${e.description}`,
-                      icon: <Trash2 size={20} strokeWidth={2.25} />,
+                      icon: <TrashIcon size={20} />,
                       onClick: () => undoable.expense(groupId, e),
                       testId: 'expense-delete',
                     },
@@ -1548,7 +1540,7 @@ function DeleteRow({ group, debts, creator, close }: { group: Group; debts: Debt
   if (!creator && !creatorLeft) return null
   return (
     <MenuRow
-      icon={<Trash2 size={20} />}
+      icon={<TrashIcon size={20} />}
       label="Delete group"
       hint={state.allowed ? MENU_HINTS.delete : undefined}
       status={state.allowed ? undefined : state.reason}
@@ -1593,14 +1585,6 @@ function PillMark({ pill, filter, group }: { pill: string; filter: ActivityFilte
     return m ? <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={20} /> : null
   }
   const Icon =
-    pill === 'sort'
-      ? ArrowDownUp
-      : pill === 'involving'
-        ? UserRound
-        : pill === 'dates'
-          ? CalendarRange
-          : filter.kind === 'payments'
-            ? ArrowLeftRight
-            : ReceiptText
+    pill === 'sort' ? SortIcon : pill === 'involving' ? UserIcon : pill === 'dates' ? CalendarIcon : filter.kind === 'payments' ? SwapIcon : ReceiptIcon
   return <Icon size={15} aria-hidden />
 }

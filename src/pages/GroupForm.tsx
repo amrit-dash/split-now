@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Loader2, Lock, Stamp, UserMinus, Users } from 'lucide-react'
+import { ChevronRight, Loader2, Stamp } from 'lucide-react'
+import { GroupsIcon, LockIcon, MemberRemoveIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups, useJoinRequests } from '@/hooks/data'
@@ -790,7 +791,7 @@ export default function GroupForm() {
       )}
       {existing?.vault && (
         <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" data-testid="group-private-on">
-          <Lock size={16} aria-hidden /> <span className="font-semibold">Private group</span>
+          <LockIcon size={16} aria-hidden /> <span className="font-semibold">Private group</span>
           <span className="text-muted">· opens with your pattern and passkey</span>
         </div>
       )}
@@ -1114,7 +1115,7 @@ export default function GroupForm() {
                             {
                               label: 'Remove',
                               ariaLabel: `Remove ${m.name}`,
-                              icon: <UserMinus size={20} strokeWidth={2.25} />,
+                              icon: <MemberRemoveIcon size={20} />,
                               onClick: () => setMembers(({ [id]: _, ...rest }) => rest),
                             },
                           ]
@@ -1141,7 +1142,7 @@ export default function GroupForm() {
         )}
         {type !== 'personal' && type !== 'direct' && existing && (
           <Link to={`/groups/${existing.id}/members`} className="card flex min-h-14 items-center gap-3 px-4 py-3" data-testid="group-manage-members">
-            <Users size={20} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+            <GroupsIcon size={20} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="block font-medium">Manage members</span>
               <span className="text-muted block truncate text-xs">
@@ -1157,7 +1158,7 @@ export default function GroupForm() {
           <div className="card flex items-center justify-between gap-4 p-4">
             <div id="private-label">
               <div className="flex items-center gap-1.5 font-semibold">
-                <Lock size={16} aria-hidden /> Private group
+                <LockIcon size={16} aria-hidden /> Private group
               </div>
               <HintText hint={PRIVATE_HINT} className="text-muted text-xs" as="div" />
             </div>

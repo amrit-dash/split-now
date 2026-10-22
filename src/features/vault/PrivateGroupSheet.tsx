@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { KeySquare, Lock, LockOpen } from 'lucide-react'
+import { KeyIcon, LockIcon, LockOpenIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { Group } from '@/types'
 import { usePrivateGroups } from '@/hooks/usePrivateGroups'
@@ -218,7 +218,7 @@ export function PrivateGroupSheet({
                   <p className="text-muted mt-1 text-sm">{waiting.detail}</p>
                 </div>
                 <button type="button" className="btn w-full" disabled={!!busy} onClick={() => setSetting('set')} data-testid="vault-waiting-set">
-                  <KeySquare size={18} aria-hidden /> Give it its own pattern
+                  <KeyIcon size={18} aria-hidden /> Give it its own pattern
                 </button>
               </div>
             )}
@@ -234,7 +234,7 @@ export function PrivateGroupSheet({
                   passkey. Turn them on to set a universal pattern that opens them all.
                 </p>
                 <Link to="/settings/vault" className="btn w-full" onClick={onClose} data-testid="vault-suggest-on-link">
-                  <Lock size={18} aria-hidden /> Turn on private groups
+                  <LockIcon size={18} aria-hidden /> Turn on private groups
                 </Link>
               </div>
             )}
@@ -260,12 +260,12 @@ export function PrivateGroupSheet({
                 onClick={() => void convert(true)}
                 data-testid="vault-convert-on"
               >
-                <Lock size={18} aria-hidden /> {busy === 'convert' ? 'Encrypting…' : 'Make this group private'}
+                <LockIcon size={18} aria-hidden /> {busy === 'convert' ? 'Encrypting…' : 'Make this group private'}
               </button>
             ) : (
               isCreator && (
                 <button type="button" className="btn w-full" disabled={!!busy} onClick={() => void convert(false)} data-testid="vault-convert-off">
-                  <LockOpen size={18} aria-hidden /> {busy === 'convert' ? 'Decrypting…' : 'Turn off private'}
+                  <LockOpenIcon size={18} aria-hidden /> {busy === 'convert' ? 'Decrypting…' : 'Turn off private'}
                 </button>
               )
             )}

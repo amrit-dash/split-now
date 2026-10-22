@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Maximize2, PlusSquare, Share, Trash2, X } from 'lucide-react'
+import { Maximize2, PlusSquare, Share, X } from 'lucide-react'
+import { TrashIcon } from '@/components/icons'
 import { needsReAdd } from '@/lib/keyboard'
 import { isIOS, isStandalone } from '@/lib/push'
 import { repo } from '@/data'
@@ -75,7 +76,7 @@ export function ReAddCard() {
         <ol className="space-y-4">
           <li className="flex items-center gap-3">
             <span className={STEP} aria-hidden>
-              <Trash2 size={20} />
+              <TrashIcon size={20} />
             </span>
             <span>
               Touch and hold the <b>Split Now</b> icon, tap <b>Remove App</b>, then <b>Delete</b>.

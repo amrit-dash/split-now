@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { PRIVATE_GROUP_NAME } from '../../shared/names'
 import { useNavigate } from 'react-router-dom'
-import { BellRing, Loader2, Share2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { BellRingingIcon, ShareIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useFlag } from '@/hooks/useAppConfig'
@@ -312,7 +313,7 @@ function ChaseButtons({
         disabled={busy === 'remind'}
         data-testid="remind"
       >
-        {busy === 'remind' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
+        {busy === 'remind' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <ShareIcon size={18} aria-hidden />}
       </button>
       {onNudge && (
         <button
@@ -325,7 +326,7 @@ function ChaseButtons({
           disabled={busy === 'nudge'}
           data-testid="nudge"
         >
-          {busy === 'nudge' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <BellRing size={18} aria-hidden />}
+          {busy === 'nudge' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <BellRingingIcon size={18} aria-hidden />}
         </button>
       )}
     </span>

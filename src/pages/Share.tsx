@@ -1,4 +1,5 @@
-import { Plus, ScanLine } from 'lucide-react'
+import { ScanLine } from 'lucide-react'
+import { AddIcon } from '@/components/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { repo } from '@/data'
@@ -9,7 +10,6 @@ import { watchCapturePrefs } from '@/lib/capture-settings'
 import { todayISO } from '@/lib/id'
 import type { AllPrefs } from '@/lib/push'
 import { Empty, Loading, PageHeader } from '@/components/Misc'
-import { EyeSlashIcon, MagnifyingGlassIcon } from '@/components/icons'
 
 /**
  * Web Share Target landing page (Android). The service worker turns a shared image into
@@ -42,11 +42,11 @@ export default function Share() {
   return (
     <div className="mx-auto min-h-dvh max-w-lg px-4 pb-10">
       <PageHeader title="Shared to Split Now" back="/" />
-      <Empty icon={ignored ? EyeSlashIcon : MagnifyingGlassIcon} title={ignored ? 'Not a payment to add' : 'No amount found'}>
+      <Empty icon={ignored ? 'eyeSlash' : 'search'} title={ignored ? 'Not a payment to add' : 'No amount found'}>
         {ignored ? sharedTextIgnoredText(outcome) : shared ? <>We couldn’t find an amount in “{shared.slice(0, 120)}”.</> : 'Nothing was shared.'}
         <div className="mt-4 flex justify-center gap-2">
           <Link to="/add" className="btn-primary">
-            <Plus size={18} aria-hidden /> Add expense
+            <AddIcon size={18} aria-hidden /> Add expense
           </Link>
           <Link to="/scan" className="btn-secondary">
             <ScanLine size={18} aria-hidden /> Scan

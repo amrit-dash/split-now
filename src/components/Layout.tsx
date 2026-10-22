@@ -16,19 +16,18 @@ import { CreateSheet } from './CreateSheet'
 import { SyncPill } from './OfflinePill'
 import { Loading } from './Misc'
 import { useIconStyle } from './Icon'
-import { ChartDonutIcon, HouseIcon, LiveTableIcon, UserCircleIcon, UsersThreeIcon } from './icons'
-import { iconWeight } from '@/lib/icon-style'
+import { InsightsIcon, HomeIcon, LiveTableIcon, ProfileIcon, GroupsIcon } from './icons'
 
 // Live table has the slot Insights had (Insights is a row in Profile now); with live tables
 // switched off for everyone, Insights takes its place back, so the bar never has a hole.
-// Phosphor icons, solid on the current tab in either icon style (src/lib/icon-style.ts).
+// Fluent icons, solid on the current tab in either icon style.
 const tabsFor = (liveTables: boolean) =>
   [
-    { to: '/', icon: HouseIcon, label: 'Home', end: true },
-    { to: '/groups', icon: UsersThreeIcon, label: 'Groups' },
+    { to: '/', icon: HomeIcon, label: 'Home', end: true },
+    { to: '/groups', icon: GroupsIcon, label: 'Groups' },
     null,
-    liveTables ? { to: '/split', icon: LiveTableIcon, label: 'Live table' } : { to: '/insights', icon: ChartDonutIcon, label: 'Insights' },
-    { to: '/profile', icon: UserCircleIcon, label: 'Profile' },
+    liveTables ? { to: '/split', icon: LiveTableIcon, label: 'Live table' } : { to: '/insights', icon: InsightsIcon, label: 'Insights' },
+    { to: '/profile', icon: ProfileIcon, label: 'Profile' },
   ] as const
 
 export function Layout() {
@@ -145,9 +144,8 @@ export function Layout() {
                         too often to animate it. Inactive stays a readable grey. A press dips the icon. */}
                     <t.icon
                       size={24}
-                      weight={iconWeight(iconStyle, isActive ? 'active' : 'ui')}
+                      solid={isActive || undefined}
                       className={`transition-transform duration-150 ease-out motion-safe:group-active:scale-[0.96] ${isActive ? '-translate-y-px' : ''}`}
-                      data-weight={iconWeight(iconStyle, isActive ? 'active' : 'ui')}
                       aria-hidden
                     />
                     {t.label}

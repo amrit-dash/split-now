@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, Camera, CheckCheck, ChevronDown, Clock, Copy, ExternalLink, ImagePlus, Lightbulb, QrCode as QrIcon, X } from 'lucide-react'
+import { ArrowDown, ChevronDown, Lightbulb, X } from 'lucide-react'
+import { CameraIcon, ChecksIcon, CopyIcon, ExternalIcon, HistoryIcon, ImageAddIcon, QrIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { ChequeIcon } from '@/components/ChequeIcon'
@@ -38,7 +39,6 @@ import { Select } from '@/components/Select'
 import { DateField } from '@/components/DateField'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip, useShows } from '@/components/Hint'
-import { ConfettiIcon, MagnifyingGlassIcon } from '@/components/icons'
 
 /** Under "Waive the rest": the waived part is recorded, so it stops counting as owed. */
 const WAIVE_HINT: Hint = { full: 'Records that nothing more is owed for this.', tier: 'key' }
@@ -228,7 +228,7 @@ export default function SettleUp() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Settle up" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d || !group) return <Loading />
@@ -449,7 +449,7 @@ export default function SettleUp() {
               </>
             ) : (
               <>
-                <Camera size={16} aria-hidden /> Read from payment screenshot
+                <CameraIcon size={16} aria-hidden /> Read from payment screenshot
               </>
             )}
           </button>
@@ -521,7 +521,7 @@ export default function SettleUp() {
       {needsOk && (
         <div className="card mt-3 p-4" data-testid="settle-needs-ok">
           <div className="flex items-start gap-2">
-            <Clock size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+            <HistoryIcon size={18} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
             <div className="min-w-0 text-sm">
               <div className="flex items-center font-semibold">
                 Needs {labelOf(group.members, to, 'their', d.me)}’s OK
@@ -540,7 +540,7 @@ export default function SettleUp() {
             </div>
           ) : (
             <button type="button" className="btn-secondary btn-sm mt-3 w-full" onClick={() => proofRef.current?.click()} data-testid="settle-proof-add">
-              <ImagePlus size={16} aria-hidden /> Attach payment screenshot
+              <ImageAddIcon size={16} aria-hidden /> Attach payment screenshot
             </button>
           )}
           <input
@@ -730,7 +730,7 @@ function UpiCard({
           onClick={onCopy}
           aria-label="Copy UPI ID"
         >
-          <Copy size={18} />
+          <CopyIcon size={18} />
         </button>
       </div>
       {o.qr && qrOk && (
@@ -746,7 +746,7 @@ function UpiCard({
       {!toMe && o.href && (
         <div className="mt-3 space-y-2">
           <a className="btn-primary btn-sm w-full" href={o.href} onClick={onPick} data-testid="upi-open">
-            Pay {amount > 0 ? formatMoney(amount, cur) : ''} with a UPI app <ExternalLink size={16} aria-hidden />
+            Pay {amount > 0 ? formatMoney(amount, cur) : ''} with a UPI app <ExternalIcon size={16} aria-hidden />
           </a>
           <div className="grid grid-cols-3 gap-2">
             {o.apps?.map((a) => (
@@ -879,7 +879,7 @@ function PayWith({
                   }}
                   aria-label={`Copy ${o.label}`}
                 >
-                  <Copy size={18} />
+                  <CopyIcon size={18} />
                 </button>
                 {o.href && (
                   <a
@@ -890,7 +890,7 @@ function PayWith({
                     onClick={() => onPick(methodFor(o))}
                     aria-label={`Open ${o.label} (opens in a new tab)`}
                   >
-                    <ExternalLink size={18} />
+                    <ExternalIcon size={18} />
                   </a>
                 )}
               </div>
@@ -1017,7 +1017,7 @@ export function SettleWithPerson() {
     return (
       <>
         <PageHeader title="Settle up" back="/settle" />
-        <Empty icon={ConfettiIcon} title="Nothing left to settle">
+        <Empty icon="confetti" title="Nothing left to settle">
           You’re all square with this person.{' '}
           <Link to="/settle" className="font-semibold text-brand-600 dark:text-brand-300">
             Back to Balances
@@ -1330,7 +1330,7 @@ export function SettleWithPerson() {
         <button type="submit" className="btn-primary w-full" disabled={busy || tooMuch || (!even && value <= 0)} data-testid="settle-person-confirm">
           {even ? (
             <>
-              <CheckCheck size={18} aria-hidden /> Clear {n} groups
+              <ChecksIcon size={18} aria-hidden /> Clear {n} groups
             </>
           ) : (
             <>

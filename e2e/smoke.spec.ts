@@ -412,8 +412,8 @@ test('Preferences → Icons: Filled turns the tab bar icons solid, Outline bring
   const groupsIcon = nav.getByRole('link', { name: 'Groups' }).locator('svg')
   // Outline by default; the current tab (Home) is solid in either style.
   await expect(nav).toHaveAttribute('data-icon-style', 'outline')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
-  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  await expect(nav.getByRole('link', { name: 'Home' }).locator('svg')).toHaveAttribute('data-variant', 'solid')
   await page.goto('/settings/preferences')
   const icons = page.getByTestId('icon-style')
   await icons.getByRole('radio', { name: 'Filled' }).click()
@@ -421,13 +421,19 @@ test('Preferences → Icons: Filled turns the tab bar icons solid, Outline bring
   await expect(page.locator('html')).toHaveAttribute('data-icon-style', 'filled')
   await page.goto('/')
   await expect(nav).toHaveAttribute('data-icon-style', 'filled')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
   await page.reload()
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'fill')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'solid')
+  await page.goto('/settings/preferences')
+  // Help's pictures follow the style too (Solar bold duotone in Filled).
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="solid"] path').first()).toBeAttached()
   await page.goto('/settings/preferences')
   await page.getByTestId('icon-style').getByRole('radio', { name: 'Outline' }).click()
   await page.goto('/')
-  await expect(groupsIcon).toHaveAttribute('data-weight', 'regular')
+  await expect(groupsIcon).toHaveAttribute('data-variant', 'line')
+  await page.goto('/help')
+  await expect(page.getByTestId('help-core-card').first().locator('svg[data-variant="line"] path').first()).toBeAttached()
 })
 
 test('Animations: turning them all off stills the preview and the accent buttons, and is kept after a reload', async ({ page }) => {
@@ -1874,18 +1880,28 @@ test('What’s new rises above the tab bar a moment after the screen loads, and 
   const box = await banner.boundingBox()
   const vh = page.viewportSize()?.height ?? 0
   expect(box && box.y > vh / 2).toBe(true)
-  // a short drag springs back; a long one closes it
-  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2
-  const x = (box?.x ?? 0) + 40
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 30, y, { steps: 5 })
-  await page.mouse.up()
+  // a short, slow drag springs back; a long one closes it. Both start on the words (not the icon
+  // or a button), move in small steps with a pause between them so the release speed is what a
+  // finger would give (a quick 30px jump reads as a flick), and wait for the card to settle.
+  const words = await banner.getByText('Updated', { exact: true }).boundingBox()
+  const width = box?.width ?? 320
+  const y = (words?.y ?? 0) + (words?.height ?? 0) / 2
+  const x = (words?.x ?? 0) + 4
+  const drag = async (to: number, steps: number) => {
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(x + (to * i) / steps, y)
+      await page.waitForTimeout(16)
+    }
+    await page.mouse.up()
+  }
+  await drag(30, 10)
+  await page.waitForTimeout(300)
   await expect(banner).toBeVisible()
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + 260, y, { steps: 10 })
-  await page.mouse.up()
+  await expect.poll(() => banner.evaluate((el) => (el.firstElementChild as HTMLElement).style.transform || 'none')).toBe('none')
+  // well past the share of its width that closes it
+  await drag(Math.round(width * 0.6), 20)
   await expect(banner).toHaveCount(0)
   // nothing was tapped on the way (What's new stayed shut), and it stays closed
   await expect(page).toHaveURL(/\/$/)

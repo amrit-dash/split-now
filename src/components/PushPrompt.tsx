@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { Bell, BellRing, HandCoins, Lock, MessagesSquare, MoreVertical, Receipt, RefreshCw, Settings, Smartphone, ToggleRight, X } from 'lucide-react'
+import { MoreVertical, RefreshCw, ToggleRight, X } from 'lucide-react'
+import { BellIcon, BellRingingIcon, ChatIcon, HandCoinsIcon, LockIcon, PhoneIcon, ReceiptIcon, SettingsIcon } from '@/components/icons'
 import { useGroups } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { isIOS, isStandalone, permission, pushSupported } from '@/lib/push'
@@ -37,10 +38,10 @@ function UnblockSteps() {
   if (device === 'iphone')
     return (
       <ol className="space-y-4">
-        <Step icon={<Settings size={20} />}>
+        <Step icon={<SettingsIcon size={20} />}>
           Open the <b>Settings</b> app and tap <b>Notifications</b>.
         </Step>
-        <Step icon={<Smartphone size={20} />}>
+        <Step icon={<PhoneIcon size={20} />}>
           Find <b>Split Now</b> in the list and tap it.
         </Step>
         <Step icon={<ToggleRight size={20} />}>
@@ -51,10 +52,10 @@ function UnblockSteps() {
   if (device === 'android')
     return installed ? (
       <ol className="space-y-4">
-        <Step icon={<Smartphone size={20} />}>
+        <Step icon={<PhoneIcon size={20} />}>
           Touch and hold the <b>Split Now</b> icon on your home screen and tap <b>App info</b>.
         </Step>
-        <Step icon={<Bell size={20} />}>
+        <Step icon={<BellIcon size={20} />}>
           Tap <b>Notifications</b>.
         </Step>
         <Step icon={<ToggleRight size={20} />}>
@@ -75,10 +76,10 @@ function UnblockSteps() {
   if (device === 'mac-safari')
     return (
       <ol className="space-y-4">
-        <Step icon={<Settings size={20} />}>
+        <Step icon={<SettingsIcon size={20} />}>
           Open <b>System Settings</b> → <b>Notifications</b>.
         </Step>
-        <Step icon={<Smartphone size={20} />}>
+        <Step icon={<PhoneIcon size={20} />}>
           Find <b>Split Now</b> in the list and turn on <b>Allow notifications</b>.
         </Step>
         <Step icon={<RefreshCw size={20} />}>Come back here.</Step>
@@ -87,7 +88,7 @@ function UnblockSteps() {
   if (device === 'firefox')
     return (
       <ol className="space-y-4">
-        <Step icon={<Lock size={20} />}>Click the lock icon at the left of the address bar.</Step>
+        <Step icon={<LockIcon size={20} />}>Click the lock icon at the left of the address bar.</Step>
         <Step icon={<X size={20} />}>
           Next to <b>Send notifications</b>, click <b>✕</b> to clear the block.
         </Step>
@@ -164,7 +165,7 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
   return (
     <section className={`card flex items-start gap-3 p-4 ${className}`} aria-labelledby={`push-prompt-${place}`} data-testid={`push-prompt-${place}`}>
       <span className={STEP} aria-hidden>
-        <BellRing size={20} />
+        <BellRingingIcon size={20} />
       </span>
       <div className="min-w-0 flex-1">
         <h2 id={`push-prompt-${place}`} className="font-semibold">
@@ -180,7 +181,7 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
               className="btn-primary !min-h-10 !rounded-full !px-4 !py-0 text-sm"
               data-testid="push-prompt-on"
             >
-              <Bell size={16} aria-hidden /> Turn on
+              <BellIcon size={16} aria-hidden /> Turn on
             </button>
           ) : null}
           <button
@@ -206,13 +207,13 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
       <Sheet open={open} onClose={() => setOpen(false)} title="Turn on notifications" testId="push-prompt-sheet">
         <ul className="mb-5 space-y-2 text-sm">
           <li className="flex items-center gap-2">
-            <Receipt size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> Someone adds an expense with you
+            <ReceiptIcon size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> Someone adds an expense with you
           </li>
           <li className="flex items-center gap-2">
-            <HandCoins size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> Someone pays you back, or reminds you to settle up
+            <HandCoinsIcon size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> Someone pays you back, or reminds you to settle up
           </li>
           <li className="flex items-center gap-2">
-            <MessagesSquare size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> New messages in your groups’ chats
+            <ChatIcon size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden /> New messages in your groups’ chats
           </li>
         </ul>
         {step === 'blocked' ? (
@@ -223,13 +224,13 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
         ) : (
           <>
             <ol className="space-y-4">
-              <Step icon={<Bell size={20} />}>
+              <Step icon={<BellIcon size={20} />}>
                 Tap <b>Allow notifications</b> below.
               </Step>
               <Step icon={<ToggleRight size={20} />}>
                 When your {isIOS() ? 'iPhone' : 'device'} asks, tap <b>Allow</b>.
               </Step>
-              <Step icon={<Settings size={20} />}>
+              <Step icon={<SettingsIcon size={20} />}>
                 Choose what you hear about any time in <b>Settings</b> → <b>Notifications</b>.
               </Step>
             </ol>
@@ -242,7 +243,7 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
                 void turnOn()
               }}
             >
-              <Bell size={18} aria-hidden /> Allow notifications
+              <BellIcon size={18} aria-hidden /> Allow notifications
             </button>
           </>
         )}

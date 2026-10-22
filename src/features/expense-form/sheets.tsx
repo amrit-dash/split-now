@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { Check, Plus, Search, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Check, Search, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { AddIcon, GroupsIcon } from '@/components/icons'
 import type { Category, Group, MemberId } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
 import { isLiveTrip } from '@/lib/capture'
@@ -116,7 +117,7 @@ function GroupList({
                 <span className="block font-semibold">{c.label}</span>
                 <HintText hint={c.hint} as="span" className="block truncate text-xs text-muted" />
               </span>
-              <Plus size={18} className="shrink-0 text-slate-400" aria-hidden />
+              <AddIcon size={18} className="shrink-0 text-slate-400" aria-hidden />
             </button>
           ))}
         </div>
@@ -295,7 +296,7 @@ export function PayerSheet({
           data-testid="payer-multiple"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-ink-800">
-            <Users size={18} aria-hidden />
+            <GroupsIcon size={18} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{received ? 'Several people received it' : 'Several people paid'}</span>

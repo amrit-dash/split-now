@@ -3,7 +3,7 @@ import { addPlan, addRefusal } from '@/lib/vault-api'
 import { addedPrompt } from '@/lib/vault-setup'
 import { useConfirm } from '@/components/ConfirmSheet'
 import { passkeyCancelled, passkeyProof } from '@/features/vault/passkey'
-import { HandCoins, Link2, LogOut, UserMinus } from 'lucide-react'
+import { ExitIcon, HandCoinsIcon, LinkIcon, MemberRemoveIcon } from '@/components/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -37,7 +37,6 @@ import { labelOf } from '@/lib/shortNames'
 import { Switch } from '@/components/Switch'
 import { MergeOffers, MergeSheet } from '@/features/merge/Merge'
 import { mergeCandidates } from '@/lib/merge'
-import { MagnifyingGlassIcon, WalletIcon } from '@/components/icons'
 
 /**
  * A group's people: who is in it, whether they have joined, where each stands, and adding or
@@ -68,7 +67,7 @@ export default function GroupMembers() {
       <>
         {/* Fixed: this group is gone for you, and every screen of it behind this one would say the same, so back leaves the group. */}
         <PageHeader title="Members" back={{ to: '/groups', mode: 'fixed' }} />
-        <Empty icon={MagnifyingGlassIcon} title="This group doesn’t exist or you’re not a member" />
+        <Empty icon="search" title="This group doesn’t exist or you’re not a member" />
       </>
     )
   if (!d)
@@ -137,7 +136,7 @@ export default function GroupMembers() {
           {
             label: 'Merge',
             ariaLabel: `Merge ${id === me ? 'yourself' : group.members[id].name} with someone else in the group`,
-            icon: <Link2 size={20} strokeWidth={2.25} />,
+            icon: <LinkIcon size={20} />,
             tone: 'neutral',
             onClick: () => setMergeFrom(id),
             testId: 'member-merge',
@@ -152,7 +151,7 @@ export default function GroupMembers() {
         return {
           label: 'Settle up',
           ariaLabel: `Settle up with ${who}`,
-          icon: <HandCoins size={20} strokeWidth={2.25} />,
+          icon: <HandCoinsIcon size={20} />,
           tone: 'accent',
           onClick: () => nav(settleLink(id)),
           testId: 'member-settle',
@@ -161,7 +160,7 @@ export default function GroupMembers() {
         return {
           label: 'Remove',
           ariaLabel: `Remove ${who} from the group`,
-          icon: <UserMinus size={20} strokeWidth={2.25} />,
+          icon: <MemberRemoveIcon size={20} />,
           onClick: () => void remove(id),
           testId: 'member-remove',
         }
@@ -169,7 +168,7 @@ export default function GroupMembers() {
         return {
           label: 'Leave',
           ariaLabel: `Leave ${group.name}`,
-          icon: <LogOut size={20} strokeWidth={2.25} />,
+          icon: <ExitIcon size={20} />,
           onClick: () => void remove(id),
           testId: 'member-leave',
         }
@@ -177,7 +176,7 @@ export default function GroupMembers() {
       return {
         label: self ? 'Leave' : 'Remove',
         ariaLabel: self ? `Leave ${group.name} (not possible yet)` : `Remove ${who} (not possible yet)`,
-        icon: self ? <LogOut size={20} strokeWidth={2.25} /> : <UserMinus size={20} strokeWidth={2.25} />,
+        icon: self ? <ExitIcon size={20} /> : <MemberRemoveIcon size={20} />,
         tone: 'muted',
         onClick: () => void remove(id),
         testId: 'member-remove-blocked',
@@ -188,7 +187,7 @@ export default function GroupMembers() {
     <div>
       <PageHeader title="Members" subtitle={group.name} back={`/groups/${group.id}`} />
       {group.type === 'personal' ? (
-        <Empty icon={WalletIcon} title="A personal wallet is just you" />
+        <Empty icon="wallet" title="A personal wallet is just you" />
       ) : (
         <div className="space-y-4">
           <MergeOffers group={group} requests={mergeRequests} me={me} myUid={user.uid} />

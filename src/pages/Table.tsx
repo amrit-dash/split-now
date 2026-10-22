@@ -1,21 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import {
-  ArrowRight,
-  Check,
-  CircleCheck,
-  Copy,
-  ExternalLink,
-  LogIn,
-  Minus,
-  Pencil,
-  Plus,
-  QrCode as QrIcon,
-  Receipt,
-  Share2,
-  Trash2,
-  UserPlus,
-} from 'lucide-react'
+import { ArrowRight, Check, CircleCheck, ExternalLink, LogIn, Minus, Receipt, Share2 } from 'lucide-react'
+import { AddIcon, CopyIcon, EditIcon, MemberAddIcon, QrIcon, ShareIcon, TrashIcon } from '@/components/icons'
+import { QrCode } from '@/components/QrCode'
 import { repo } from '@/data'
 import type { TablePatch } from '@/data/repo'
 import { useAuth } from '@/hooks/auth'
@@ -56,13 +43,11 @@ import { Avatar } from '@/components/Avatar'
 import { Empty, Loading, PageHeader, Segmented } from '@/components/Misc'
 import { GuestPay } from '@/components/GuestPay'
 import { MarkPaid } from '@/components/MarkPaid'
-import { QrCode } from '@/components/QrCode'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { type Hint, HintText, InfoTip } from '@/components/Hint'
 import { labelOf } from '@/lib/shortNames'
-import { StyledIcon } from '@/components/Icon'
-import { HourglassIcon, LiveTableIcon, MagnifyingGlassIcon, PlugsIcon, ReceiptIcon } from '@/components/icons'
+import { FeatureIcon } from '@/components/Icon'
 
 const JOIN_HINT: Hint = {
   full: 'Enter the code shown on the host’s phone, or scan their QR code with your camera.',
@@ -137,7 +122,7 @@ export function TableEntry() {
           className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30"
           aria-hidden
         >
-          <StyledIcon icon={LiveTableIcon} size={40} kind="feature" className="text-brand-600 dark:text-brand-300" />
+          <FeatureIcon name="liveTable" size={48} />
         </div>
         <div className="mt-4 flex items-center justify-center">
           <h1 className="text-2xl font-extrabold">Join a table</h1>
@@ -183,7 +168,7 @@ export default function TablePage() {
   if (viewer.error)
     return (
       <Shell>
-        <Empty icon={PlugsIcon} title="Couldn’t open the table">
+        <Empty icon="plugs" title="Couldn’t open the table">
           {viewer.error}
         </Empty>
       </Shell>
@@ -192,7 +177,7 @@ export default function TablePage() {
   if (table === null) {
     return (
       <Shell>
-        <Empty icon={MagnifyingGlassIcon} title="Table not found">
+        <Empty icon="search" title="Table not found">
           The code may be mistyped, or the bill was already closed or expired.
         </Empty>
       </Shell>
@@ -203,7 +188,7 @@ export default function TablePage() {
   if (isExpired(table) && !isHost)
     return (
       <Shell>
-        <Empty icon={HourglassIcon} title="This table has expired">
+        <Empty icon="hourglass" title="This table has expired">
           Tables stay open for 24 hours. Ask the host to finish the bill in Split Now.
         </Empty>
       </Shell>
@@ -235,7 +220,7 @@ function JoinForm({ table, viewer }: { table: LiveTable; viewer: Viewer }) {
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-[calc(var(--safe-top)+4rem)]">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-duo-100 text-5xl dark:from-brand-900/50 dark:to-duo-900/30">
-          <StyledIcon icon={ReceiptIcon} size={40} kind="feature" className="text-brand-600 dark:text-brand-300" />
+          <FeatureIcon name="receipt" size={46} />
         </div>
         <h1 className="mt-4 text-2xl font-extrabold">{table.merchant}</h1>
         <p className="mt-1 text-muted text-sm">
@@ -381,7 +366,7 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
                       onClick={() => write(setShares(claims, it.id, s + 1))}
                       aria-label="More portions"
                     >
-                      <Plus size={16} />
+                      <AddIcon size={16} />
                     </button>
                   </div>
                 </div>
@@ -404,13 +389,13 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
               )
             }
           >
-            <Share2 size={16} /> Share
+            <ShareIcon size={16} /> Share
           </button>
           <button type="button" className="btn-secondary !px-2 text-sm" onClick={() => setSheet('person')}>
-            <UserPlus size={16} /> Person
+            <MemberAddIcon size={16} /> Person
           </button>
           <button type="button" className="btn-secondary !px-2 text-sm" onClick={() => setSheet('edit')}>
-            <Pencil size={16} /> Edit bill
+            <EditIcon size={16} /> Edit bill
           </button>
         </div>
       )}
@@ -462,14 +447,14 @@ function Live({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; isH
               className="btn-secondary"
               onClick={() => copy(link).then((ok) => toast(ok ? 'Link copied' : 'Couldn’t copy', ok ? 'ok' : 'err'))}
             >
-              <Copy size={16} /> Copy link
+              <CopyIcon size={16} /> Copy link
             </button>
             <button
               type="button"
               className="btn-primary"
               onClick={() => shareOrCopy({ title: table.merchant, text: `Tap what you had at ${table.merchant}:`, url: link })}
             >
-              <Share2 size={16} /> Share
+              <ShareIcon size={16} /> Share
             </button>
           </div>
           <HintText hint={QR_HINT} className="mt-3 text-muted text-xs" />
@@ -599,7 +584,7 @@ function AddPersonSheet({ open, onClose, table, onAdded }: { open: boolean; onCl
         <HintText hint={PERSON_HINT} className="text-muted text-sm" />
         <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus aria-label="Name" />
         <button type="submit" className="btn-primary w-full">
-          <UserPlus size={18} aria-hidden /> Add
+          <MemberAddIcon size={18} aria-hidden /> Add
         </button>
       </form>
     </Sheet>
@@ -658,7 +643,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
               onClick={() => setRows(rows.filter((x) => x.id !== r.id))}
               aria-label="Remove item"
             >
-              <Trash2 size={18} />
+              <TrashIcon size={18} />
             </button>
           </div>
         ))}
@@ -667,7 +652,7 @@ function EditBillSheet({ table, onClose }: { table: LiveTable; onClose: () => vo
           className="btn-secondary w-full !min-h-0 !py-2.5 text-sm"
           onClick={() => setRows([...rows, { id: uid('i_'), name: '', amount: '' }])}
         >
-          <Plus size={16} /> Add item
+          <AddIcon size={16} /> Add item
         </button>
         <div className="grid grid-cols-3 gap-2">
           {(['tax', 'tip', 'discount'] as const).map((k) => (
@@ -798,7 +783,7 @@ function Closed({ table, viewer, isHost }: { table: LiveTable; viewer: Viewer; i
                 onClick={() => remind(p)}
                 aria-label={`Send ${table.participants[p].name} their total`}
               >
-                <Share2 size={18} />
+                <ShareIcon size={18} />
               </button>
             )}
           </div>

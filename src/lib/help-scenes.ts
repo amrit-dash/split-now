@@ -7,7 +7,7 @@
  * switch turns on, a chip is picked). Pure data and lookups, so a test can check every mark.
  */
 
-import type { UiIconName } from './ui-icons'
+import type { SceneGlyph } from './ui-icons'
 
 export type PartKind =
   | 'title' // a screen's heading
@@ -34,7 +34,7 @@ export interface PartItem {
   /** an emoji the person chose (a group's or an expense's icon, an avatar) */
   icon?: string
   /** an interface icon (src/lib/ui-icons.ts), drawn as the app draws it */
-  glyph?: UiIconName
+  glyph?: SceneGlyph
   mark?: string
   /** shown as chosen before anything is tapped */
   on?: boolean

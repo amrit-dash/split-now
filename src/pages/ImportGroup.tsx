@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Check, Download, FileUp, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, myMemberId, useGroups } from '@/hooks/data'
@@ -20,8 +20,7 @@ import { IconPickerField, SuggestionRow, TypeSuggestion } from '@/components/Ico
 import { GROUP_TYPES, SHARED_TYPES, guessGroup, iconsFor, type GroupGuess } from '@/lib/groupTypes'
 import { activeMembers } from '@/lib/members'
 import { HintText, InfoTip, type Hint } from '@/components/Hint'
-import { StyledIcon } from '@/components/Icon'
-import { UsersThreeIcon } from '@/components/icons'
+import { DownloadIcon, FileUploadIcon, GroupsIcon } from '@/components/icons'
 
 /** 'me' | an existing member id of the target group | 'new' (a new placeholder) */
 type Target = string
@@ -257,7 +256,7 @@ export default function ImportGroup() {
               className="card flex w-full flex-col items-center gap-2 border-2 border-dashed border-brand-300 px-6 py-10 text-center dark:border-brand-800"
               onClick={() => fileInput.current?.click()}
             >
-              <FileUp className="text-brand-600" size={36} aria-hidden />
+              <FileUploadIcon className="text-brand-600" size={36} aria-hidden />
               <span className="text-lg font-bold">Choose a CSV file</span>
               <HintText hint={CHOOSE_HINT} className="text-muted text-sm" as="span" />
             </button>
@@ -276,7 +275,7 @@ export default function ImportGroup() {
           </>
         ) : (
           <div className="card flex items-center gap-3 p-4">
-            <FileUp className="shrink-0 text-brand-600" size={22} aria-hidden />
+            <FileUploadIcon className="shrink-0 text-brand-600" size={22} aria-hidden />
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold">{file.name}</div>
               {result && <div className="text-muted text-xs">{result.source === 'splitwise' ? 'Splitwise export' : 'Split Now export'}</div>}
@@ -410,7 +409,7 @@ export default function ImportGroup() {
                     {
                       value: 'new',
                       label: 'A new group',
-                      icon: <StyledIcon icon={UsersThreeIcon} size={22} className="text-brand-600 dark:text-brand-300" />,
+                      icon: <GroupsIcon size={22} className="text-brand-600 dark:text-brand-300" />,
                       hint: 'Create it from this file',
                     },
                     ...targets.map((g) => ({
@@ -547,7 +546,7 @@ export default function ImportGroup() {
               </p>
             ))}
             <button type="button" className="btn-primary w-full" onClick={run} disabled={busy || problems.length > 0} data-testid="import-run">
-              {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Download size={18} aria-hidden />}
+              {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <DownloadIcon size={18} aria-hidden />}
               {busy ? progress : `Import ${itemCount} item${itemCount === 1 ? '' : 's'}`}
             </button>
             {busy && (

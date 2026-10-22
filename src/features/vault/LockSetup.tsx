@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Check, CircleAlert, Fingerprint, Info, KeyRound, KeySquare, Loader2, Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { Check, CircleAlert, Fingerprint, Info, Loader2, Server } from 'lucide-react'
+import { AddIcon, EditIcon, KeyIcon, TrashIcon } from '@/components/icons'
 import type { VaultStatus } from '@/lib/vault-api'
 import { type OpensWith, type OwnPattern, type SetupRow, setupRows, stateLabel } from '@/lib/vault-setup'
 import { Segmented } from '@/components/Misc'
@@ -8,16 +9,16 @@ export type SetupAction = SetupRow['actions'][number]
 
 const ICONS: Record<SetupRow['id'], ReactNode> = {
   passkey: <Fingerprint size={20} />,
-  universal: <KeyRound size={20} />,
-  own: <KeySquare size={20} />,
+  universal: <KeyIcon size={20} />,
+  own: <KeyIcon size={20} />,
   server: <Server size={20} />,
 }
 
 const ACTION_ICON: Record<SetupAction, ReactNode> = {
-  add: <Plus size={20} />,
-  set: <Plus size={20} />,
-  change: <Pencil size={18} />,
-  remove: <Trash2 size={18} />,
+  add: <AddIcon size={20} />,
+  set: <AddIcon size={20} />,
+  change: <EditIcon size={18} />,
+  remove: <TrashIcon size={18} />,
 }
 
 const actionLabel = (a: SetupAction, r: SetupRow) =>

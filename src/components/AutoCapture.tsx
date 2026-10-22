@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link } from 'react-router-dom'
 import { ChevronRight, X } from 'lucide-react'
-import { ChatCircleTextIcon, CopyIcon, DeviceMobileIcon, KeyIcon, LightningIcon, PauseIcon, PlusIcon, ProhibitIcon, PulseIcon } from '@/components/icons'
+import { ChatsIcon, CopyIcon, PhoneIcon, KeyIcon, LightningIcon, PauseIcon, AddIcon, ProhibitIcon, PulseIcon } from '@/components/icons'
 import { firebaseProject, repo } from '@/data'
 import type { CaptureToken } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -229,7 +229,7 @@ export function AutoCapture() {
         className="card mt-3 flex items-center gap-3 p-3 ring-1 ring-brand-200 dark:ring-brand-800"
         data-testid="capture-setup-link"
       >
-        <ChatCircleTextIcon size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+        <ChatsIcon size={22} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{tokens?.length ? 'Set up on a new phone' : 'Set up auto-capture'}</div>
           <HintText hint={SETUP_HINT} as="div" />
@@ -257,7 +257,7 @@ export function AutoCapture() {
       {tokens && tokens.length > 0 && (
         <Keys tokens={tokens} groups={groups ?? []} lastUsed={lastUsed} onCopy={(t) => copyIt(t.token, 'Capture key')} onRevoke={revoke} />
       )}
-      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('PulseIcon cleared'))} />}
+      {log && view.activity && <RecentActivity rows={log} onClear={() => clearCaptureLog(user.uid, repo.mode, log).then(() => toast('Activity cleared'))} />}
 
       {view.advanced && (
         <details className="card mt-3 p-3">
@@ -276,7 +276,7 @@ export function AutoCapture() {
                   type="button"
                   className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
                   onClick={() => copyIt(token.token, 'Capture key')}
-                  aria-label="CopyIcon capture key"
+                  aria-label="Copy capture key"
                 >
                   <CopyIcon size={16} />
                 </button>
@@ -290,7 +290,7 @@ export function AutoCapture() {
 
           <details className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800" open={!!token}>
             <summary className="cursor-pointer font-semibold">
-              <DeviceMobileIcon size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
+              <PhoneIcon size={15} className="mr-1 inline" aria-hidden /> iPhone: Apple Pay Shortcut (iOS 17+)
             </summary>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -327,7 +327,7 @@ export function AutoCapture() {
 
           <details className="mt-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-ink-800">
             <summary className="cursor-pointer font-semibold">
-              <DeviceMobileIcon size={15} className="mr-1 inline" aria-hidden /> Android
+              <PhoneIcon size={15} className="mr-1 inline" aria-hidden /> Android
             </summary>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
               <li>
@@ -538,14 +538,14 @@ function Filters({ prefs, onChange }: { prefs: AllPrefs; onChange: (p: Partial<A
           data-testid="capture-ignore-input"
         />
         <button type="submit" className="btn-secondary !px-3" disabled={full || !word.trim()} aria-label="Add keyword">
-          <PlusIcon size={18} />
+          <AddIcon size={18} />
         </button>
       </form>
       {!full && suggestions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestions.map((s) => (
             <button key={s} type="button" className="chip !py-1.5 text-xs text-slate-700 dark:text-slate-300" onClick={() => add(s)}>
-              <PlusIcon size={12} aria-hidden /> {s}
+              <AddIcon size={12} aria-hidden /> {s}
             </button>
           ))}
         </div>
@@ -641,7 +641,7 @@ function Keys({
                 type="button"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 dark:text-slate-300"
                 onClick={() => onCopy(t)}
-                aria-label={`CopyIcon capture key for ${label}`}
+                aria-label={`Copy capture key for ${label}`}
               >
                 <CopyIcon size={16} />
               </button>

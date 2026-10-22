@@ -35,7 +35,6 @@ import { MarkPaid } from '@/components/MarkPaid'
 import { Empty, Loading } from '@/components/Misc'
 import { HintText } from '@/components/Hint'
 import { useToast } from '@/components/Toast'
-import { BellSlashIcon, HourglassIcon, LockIcon, MagnifyingGlassIcon, PauseCircleIcon, PlugsIcon, ProhibitIcon } from '@/components/icons'
 
 /*
  * /r/{code}: a Pay me link. Works without an account (an anonymous sign-in, as live tables do):
@@ -76,7 +75,7 @@ export default function PayLinkPage() {
   if (viewer.error)
     return (
       <Shell>
-        <Empty icon={PlugsIcon} title="Couldn’t open the link">
+        <Empty icon="plugs" title="Couldn’t open the link">
           {viewer.error}
         </Empty>
       </Shell>
@@ -85,7 +84,7 @@ export default function PayLinkPage() {
   if (view === 'missing' || !link)
     return (
       <Shell>
-        <Empty icon={MagnifyingGlassIcon} title="This Pay me link doesn’t exist">
+        <Empty icon="search" title="This Pay me link doesn’t exist">
           Check the link, or ask for a new one.
         </Empty>
       </Shell>
@@ -96,7 +95,7 @@ export default function PayLinkPage() {
   if (view === 'expired')
     return (
       <Shell>
-        <Empty icon={HourglassIcon} title="This Pay me link has expired">
+        <Empty icon="hourglass" title="This Pay me link has expired">
           Links work for 30 days. Ask {payee} for a new one.
         </Empty>
       </Shell>
@@ -104,7 +103,7 @@ export default function PayLinkPage() {
   if (view === 'cancelled')
     return (
       <Shell>
-        <Empty icon={ProhibitIcon} title={`${payee} cancelled this link`}>
+        <Empty icon="prohibit" title={`${payee} cancelled this link`}>
           Nothing to pay here. Ask {payee} if you’re not sure.
         </Empty>
       </Shell>
@@ -112,7 +111,7 @@ export default function PayLinkPage() {
   if (view === 'held')
     return (
       <Shell>
-        <Empty icon={PauseCircleIcon} title="This request is on hold">
+        <Empty icon="pause" title="This request is on hold">
           The group it’s for was deleted, so there’s nothing to pay for now. If {payee} restores it, this link works again.
         </Empty>
       </Shell>
@@ -120,7 +119,7 @@ export default function PayLinkPage() {
   if (view === 'notYours')
     return (
       <Shell>
-        <Empty icon={LockIcon} title="This link is for someone else">
+        <Empty icon="lock" title="This link is for someone else">
           Ask {payee} for your own Pay me link.
         </Empty>
       </Shell>
@@ -143,7 +142,7 @@ export default function PayLinkPage() {
   if (!guestPages)
     return (
       <Shell>
-        <Empty icon={BellSlashIcon} title="Pay me links are off for now">
+        <Empty icon="bellSlash" title="Pay me links are off for now">
           Ask {payee} for their UPI ID, or settle up in the app.
         </Empty>
       </Shell>

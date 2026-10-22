@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Check, Home, Inbox, Loader2, Pencil, Plus, Undo2, User, X } from 'lucide-react'
+import { ArrowRight, Check, Home, Loader2, Undo2, X } from 'lucide-react'
+import { AddIcon, EditIcon, InboxIcon, UserIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { draftToCapture } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
@@ -26,8 +27,7 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { HintText } from '@/components/Hint'
 import { activeMembers } from '@/lib/members'
-import { StyledIcon } from '@/components/Icon'
-import { CheckCircleIcon, CreditCardIcon, EyeSlashIcon, MagnifyingGlassIcon, QuestionIcon } from '@/components/icons'
+import { FeatureIcon } from '@/components/Icon'
 
 /** Guards against React StrictMode / reloads creating the same capture twice. */
 const inflight = new Map<string, Promise<string>>()
@@ -78,11 +78,11 @@ function CreateFromLink() {
   if (error) {
     return (
       <Shell>
-        <Empty icon={QuestionIcon} title="Couldn’t read that payment">
+        <Empty icon="question" title="Couldn’t read that payment">
           {error}
           <div className="mt-4 flex justify-center gap-2">
             <Link to="/add" className="btn-primary">
-              <Plus size={18} aria-hidden /> Add manually
+              <AddIcon size={18} aria-hidden /> Add manually
             </Link>
             <Link to="/" className="btn-secondary">
               <Home size={18} aria-hidden /> Home
@@ -103,7 +103,7 @@ function Prompt({ id }: { id: string }) {
   if (!c)
     return (
       <Shell>
-        <Empty icon={MagnifyingGlassIcon} title="Payment not found">
+        <Empty icon="search" title="Payment not found">
           It may have been removed.{' '}
           <Link to="/inbox" className="font-semibold text-brand-600 dark:text-brand-300">
             Open Inbox
@@ -148,7 +148,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
   if (c.status !== 'pending') {
     return (
       <Shell>
-        <Empty icon={c.status === 'assigned' ? CheckCircleIcon : EyeSlashIcon} title={c.status === 'assigned' ? 'Already added' : 'Not shared'}>
+        <Empty icon={c.status === 'assigned' ? 'checkCircle' : 'eyeSlash'} title={c.status === 'assigned' ? 'Already added' : 'Not shared'}>
           {captureHeadline(c, cur)} was {c.status === 'assigned' ? 'added to a group' : 'marked as not shared'}.
           <div className="mt-4 flex justify-center gap-2">
             {c.groupId && (
@@ -166,7 +166,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
               </button>
             )}
             <Link to="/inbox" className="btn-secondary">
-              <Inbox size={18} aria-hidden /> Inbox
+              <InboxIcon size={18} aria-hidden /> Inbox
             </Link>
           </div>
         </Empty>
@@ -277,7 +277,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-fill-500 to-fill-to text-2xl text-on-fill shadow-lg"
           aria-hidden
         >
-          <StyledIcon icon={CreditCardIcon} size={28} kind="feature" />
+          <FeatureIcon name="card" size={30} tone="current" />
         </div>
         <h2 className="text-lg font-bold leading-snug">
           {merchantKnown(c.merchant) ? (
@@ -358,7 +358,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           </button>
           {chosen && sameCurrency && (
             <button type="button" className="btn-ghost mt-1 w-full" disabled={!!busy} onClick={() => toExpense(chosen.id)} data-testid="capture-edit">
-              <Pencil size={16} aria-hidden /> Edit details first
+              <EditIcon size={16} aria-hidden /> Edit details first
             </button>
           )}
         </div>
@@ -366,21 +366,21 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
         <div className="card mt-4 p-4 text-center">
           <p className="text-muted text-sm">No groups yet. Create one to split this, or keep it as personal spending.</p>
           <Link to="/groups/new?next=add" className="btn-primary mt-3 w-full">
-            <Plus size={18} aria-hidden /> Create a group
+            <AddIcon size={18} aria-hidden /> Create a group
           </Link>
         </div>
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button type="button" className="btn-secondary" disabled={!!busy} onClick={personal}>
-          {busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <User size={18} aria-hidden />} Personal
+          {busy === 'personal' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <UserIcon size={18} aria-hidden />} Personal
         </button>
         <button type="button" className="btn-secondary" disabled={!!busy} onClick={dismiss} data-testid="capture-dismiss">
           {busy === 'dismiss' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <X size={18} aria-hidden />} Not shared
         </button>
       </div>
       <Link to="/inbox" className="btn-ghost mt-2 w-full">
-        <Inbox size={18} aria-hidden /> Decide later
+        <InboxIcon size={18} aria-hidden /> Decide later
       </Link>
       <Sheet open={walletSheet} onClose={() => setWalletSheet(false)} title="Which wallet?">
         <div className="space-y-1" data-testid="capture-wallets">
@@ -398,7 +398,7 @@ function PromptView({ c, groups }: { c: Capture; groups: Group[] }) {
           ))}
           <Link to={`/groups/new?type=personal&next=add&capture=${encodeURIComponent(c.id)}`} className={SHEET_ROW}>
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
-              <Plus size={20} aria-hidden />
+              <AddIcon size={20} aria-hidden />
             </span>
             {/* A line like the wallets above it have, so every row in the sheet has one. */}
             <span className="min-w-0 flex-1">

@@ -1,6 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { findMark, type Part, type PartItem, type Scene as SceneData, type Screen } from '@/lib/help-scenes'
-import { UiIcon } from '@/components/UiIcon'
+import type { SceneGlyph } from '@/lib/ui-icons'
+import {
+  CameraIcon,
+  ChatIcon,
+  CheckCircleIcon,
+  CopyIcon,
+  FaceIdIcon,
+  FileIcon,
+  GroupsIcon,
+  HandCoinsIcon,
+  HomeIcon,
+  LiveTableIcon,
+  LockIcon,
+  MailIcon,
+  ProfileIcon,
+  ReceiptIcon,
+  SplitIcon,
+} from '@/components/icons'
+import type { AppIcon } from '@/components/Icon'
 
 /**
  * One main feature's scene in Help (src/lib/help-scenes.ts): a small phone showing the screen
@@ -96,9 +114,31 @@ function Parts({ screen, mark, step, still }: { screen: Screen; mark?: string; s
   )
 }
 
+/** The app's own UI icon for each scene glyph, so a scene's tab bar and tiles match the real ones. */
+const SCENE_ICONS: Record<SceneGlyph, AppIcon> = {
+  camera: CameraIcon,
+  chat: ChatIcon,
+  checkCircle: CheckCircleIcon,
+  copy: CopyIcon,
+  divide: SplitIcon,
+  envelope: MailIcon,
+  faceId: FaceIdIcon,
+  file: FileIcon,
+  house: HomeIcon,
+  liveTable: LiveTableIcon,
+  lock: LockIcon,
+  money: HandCoinsIcon,
+  receipt: ReceiptIcon,
+  user: ProfileIcon,
+  users: GroupsIcon,
+}
+
 /** An item's picture: the interface icon as the app draws it, or the emoji the person chose. */
 function ItemFace({ it, size, className = '' }: { it: PartItem; size: number; className?: string }) {
-  if (it.glyph) return <UiIcon name={it.glyph} size={size} className="shrink-0" />
+  if (it.glyph) {
+    const Glyph = SCENE_ICONS[it.glyph]
+    return <Glyph size={size} solid={it.on} className="shrink-0" />
+  }
   return it.icon ? <span className={className}>{it.icon}</span> : null
 }
 
@@ -237,7 +277,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
             className={`press-hold relative flex h-14 w-14 items-center justify-center rounded-full bg-fill text-xl text-on-fill shadow-lg ${ring}`}
             data-press={on && !still ? 'down' : 'idle'}
           >
-            <UiIcon name="lock" size={22} />
+            <LockIcon size={22} />
           </div>
           <div className="text-muted text-[0.55rem]">{p.label}</div>
           {on && !still && (
@@ -257,7 +297,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
       return (
         <div {...tag} className="flex flex-col items-center gap-1 py-3 text-[0.7rem] font-semibold">
           <span className={`text-brand-600 dark:text-brand-300 ${still ? '' : 'animate-[help-press_1.4s_ease-out_0.3s_both]'}`}>
-            <UiIcon name="faceId" size={30} />
+            <FaceIdIcon size={30} />
           </span>
           {p.label}
         </div>
@@ -266,7 +306,7 @@ function PartView({ part: p, mark, step, still }: { part: Part; mark?: string; s
       return (
         <div {...tag} className={`flex items-center gap-2 rounded-xl bg-white px-2 py-2 text-[0.65rem] shadow-sm dark:bg-ink-800 ${ring}`}>
           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-200 dark:bg-ink-700">
-            <UiIcon name="lock" size={13} />
+            <LockIcon size={13} />
           </span>
           <span className="font-mono tracking-wider">{p.label}</span>
           <span className="ml-auto">🦊🐼</span>

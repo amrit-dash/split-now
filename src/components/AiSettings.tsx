@@ -2,18 +2,7 @@ import { pictureCost } from '../../shared/icon-ai'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Loader2 } from 'lucide-react'
-import {
-  ArrowSquareOutIcon,
-  ArrowsClockwiseIcon,
-  ChatCircleDotsIcon,
-  KeyIcon,
-  KeyboardIcon,
-  ScanIcon,
-  ShapesIcon,
-  ShieldCheckIcon,
-  SparkleIcon,
-  TrashIcon,
-} from '@/components/icons'
+import { ExternalIcon, RefreshIcon, ChatIcon, KeyIcon, KeyboardIcon, ScanIcon, ShapesIcon, ShieldIcon, SparkleIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useAiState } from '@/hooks/data'
 import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
@@ -52,7 +41,7 @@ const OWN_KEY_HINT: Hint = {
         target="_blank"
         rel="noopener noreferrer"
       >
-        aistudio.google.com/apikey <ArrowSquareOutIcon size={11} aria-hidden />
+        aistudio.google.com/apikey <ExternalIcon size={11} aria-hidden />
       </a>
       . Google’s free tier may use what you send to improve its models and isn’t meant for personal data, so for bills and bank messages use a key from a
       project with billing turned on (the paid tier). The key is checked with Google, then kept on Split Now’s server; the app only ever shows its last 4
@@ -279,7 +268,7 @@ export function AiSettings() {
               </div>
             )}
           </SettingsSection>
-          <SettingsSection icon={<ChatCircleDotsIcon size={16} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
+          <SettingsSection icon={<ChatIcon size={16} aria-hidden />} title="Bank SMS" testId="ai-section-sms">
             <Row
               title="Bank SMS the app can’t read"
               testId="ai-sms"
@@ -486,7 +475,7 @@ export function AiSettings() {
                       </p>
                       <div className="flex gap-2">
                         <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => run('test')}>
-                          {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ArrowsClockwiseIcon size={16} aria-hidden />} Test
+                          {busy === 'test' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <RefreshIcon size={16} aria-hidden />} Test
                         </button>
                         <button type="button" className="btn-secondary btn-sm flex-1" disabled={!!busy} onClick={() => setEditing(true)}>
                           <KeyIcon size={16} aria-hidden /> Replace
@@ -522,8 +511,7 @@ export function AiSettings() {
                       />
                       <div className="flex gap-2">
                         <button type="submit" className="btn-primary btn-sm flex-1" disabled={!draft.trim() || !!busy}>
-                          {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheckIcon size={16} aria-hidden />} Save &amp;
-                          check
+                          {busy === 'save' ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldIcon size={16} aria-hidden />} Save &amp; check
                         </button>
                         {editing && (
                           <button
@@ -571,7 +559,7 @@ export function AiSettings() {
 
       {status?.admin && (
         <p className="text-muted mt-3 flex items-center gap-1.5 px-1 text-xs">
-          <ShieldCheckIcon size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under{' '}
+          <ShieldIcon size={14} className="text-brand-500" aria-hidden /> You’re an admin: Split Now’s key is managed under{' '}
           <Link to="/settings/admin" className="font-semibold text-brand-600 dark:text-brand-300">
             Admin
           </Link>

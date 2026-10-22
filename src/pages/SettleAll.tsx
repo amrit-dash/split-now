@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCheck, ChevronRight, Lightbulb, Lock, Plus, Users } from 'lucide-react'
+import { ChevronRight, Lightbulb } from 'lucide-react'
+import { AddIcon, ChecksIcon, GroupsIcon, LockIcon } from '@/components/icons'
 import { PatternLock } from '@/features/vault/PatternLock'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { useMe } from '@/hooks/auth'
@@ -75,7 +76,7 @@ export default function SettleAll() {
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200/70 dark:bg-ink-800"
             testId="settle-unlock"
           >
-            <Lock size={18} aria-hidden />
+            <LockIcon size={18} aria-hidden />
           </PatternLock>
         </div>
       )}
@@ -359,7 +360,7 @@ function PersonAction({ p, n }: { p: PersonBalance; n: number }) {
       aria-label={p.net > 0 ? `Record payment from ${p.label} across ${n} groups` : `Clear balances with ${p.label} across ${n} groups`}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition active:scale-95 active:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:active:bg-brand-900/70"
     >
-      {p.net > 0 ? <ChequeIcon size={24} /> : <CheckCheck size={20} aria-hidden />}
+      {p.net > 0 ? <ChequeIcon size={24} /> : <ChecksIcon size={20} aria-hidden />}
     </Link>
   )
 }
@@ -456,14 +457,14 @@ function AllSettled() {
       <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
         <Link to="/add" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
-            <Plus size={20} aria-hidden />
+            <AddIcon size={20} aria-hidden />
           </span>
           <span className="flex-1">Add an expense</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
         </Link>
         <Link to="/groups" className="flex items-center gap-3 px-4 py-3.5 font-semibold transition active:bg-slate-50 dark:active:bg-ink-800">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
-            <Users size={20} aria-hidden />
+            <GroupsIcon size={20} aria-hidden />
           </span>
           <span className="flex-1">Your groups</span>
           <ChevronRight size={18} className="text-slate-300 dark:text-slate-600" aria-hidden />
