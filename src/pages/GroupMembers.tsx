@@ -213,31 +213,44 @@ export default function GroupMembers() {
                 >
                   <Avatar name={m.name} color={m.color} photoURL={m.photoURL} size={40} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate font-medium">
-                        {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
-                      </span>
-                      {/* The badge (src/lib/pro.ts): the pill by the name; someone else's PRO opens Help → Earn Pro for a viewer without it. */}
-                      {badge &&
-                        (self ? (
-                          <span className="flex shrink-0 items-center">
-                            <ProPill h={9} word={badge} />
-                            <span className="sr-only">{badgeLabel(badge, false)}</span>
-                          </span>
-                        ) : (
-                          <ProTap word={badge} className="-my-2 flex min-h-8 shrink-0 items-center px-1" testId="member-pro">
-                            <ProPill h={9} word={badge} />
-                          </ProTap>
-                        ))}
+                    <div className="truncate font-medium">
+                      {self ? m.name : labelOf(group.members, id, m.name, me)} {self && <span className="text-muted text-xs">(you)</span>}
                     </div>
-                    {/* The full name under the short one: this is where you check who someone is. */}
-                    <div className="text-muted truncate text-xs">
-                      {!self && labelOf(group.members, id, m.name, me) !== m.name.trim() ? `${m.name.trim()} · ` : ''}
-                      {memberState(m).replace(/\. Share the invite link$/, '')}
+                    {/* The full name under the short one: this is where you check who someone is. Then the badge,
+                        after a dot (owner): the name keeps the whole first line. */}
+                    <div className="text-muted flex min-w-0 items-center gap-1.5 text-xs">
+                      <span className="truncate">
+                        {!self && labelOf(group.members, id, m.name, me) !== m.name.trim() ? `${m.name.trim()} · ` : ''}
+                        {memberState(m).replace(/\. Share the invite link$/, '')}
+                      </span>
+                      {/* The badge (src/lib/pro.ts); someone else's PRO opens Help → Earn Pro for a viewer without it. */}
+                      {badge && (
+                        <>
+                          <span aria-hidden>·</span>
+                          {self ? (
+                            <span className="flex shrink-0 items-center">
+                              <ProPill h={8} word={badge} />
+                              <span className="sr-only">{badgeLabel(badge, false)}</span>
+                            </span>
+                          ) : (
+                            <ProTap word={badge} className="-mx-1 -my-2 flex min-h-8 shrink-0 items-center px-1" testId="member-pro">
+                              <ProPill h={8} word={badge} />
+                            </ProTap>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div className={`shrink-0 text-right text-sm font-semibold ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
-                    {v === 0 ? 'settled' : `${v > 0 ? 'gets back' : 'owes'} ${formatMoney(Math.abs(v), cur)}`}
+                  {/* "gets back" / "owes" over the amount, so the column stays narrow and the name and status keep their room. */}
+                  <div className={`shrink-0 text-right leading-tight ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'text-muted'}`}>
+                    {v === 0 ? (
+                      <span className="text-sm font-semibold">settled</span>
+                    ) : (
+                      <>
+                        <span className="block text-[11px] font-medium opacity-80">{v > 0 ? 'gets back' : 'owes'}</span>
+                        <span className="block text-sm font-semibold tabular-nums">{formatMoney(Math.abs(v), cur)}</span>
+                      </>
+                    )}
                   </div>
                 </SwipeRow>
               )

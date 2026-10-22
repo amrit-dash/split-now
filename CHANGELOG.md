@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Members: a PRO, DEV or PRO DEV badge sits after the status line ("Joined · DEV"), so the name keeps its whole line; and "gets back" / "owes" sits small above the amount, so long names and statuses aren't cut short. Before, the badge sat beside the name and the wide amount squeezed both.
+
 ## 9.1.1 — October 2026
 
 - Rows of chips that scroll sideways (split types, filters, suggestions, Help's explainers, photos) fade softly at the end that has more, so a cut-off chip reads as "scroll for more". Before, the last chip was simply sliced at the screen edge.
