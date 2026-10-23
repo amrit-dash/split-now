@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { HelpIcon, LockIcon } from '@/components/icons'
+import { LockIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useFlag } from '@/hooks/useAppConfig'
@@ -153,11 +153,17 @@ export default function Vault() {
         // How private groups work lives in Help; its back button returns here.
         <Link
           to="/help/private-groups"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-ink-800"
+          className="group flex h-11 w-11 items-center justify-center rounded-full"
           aria-label="How private groups work"
           data-testid="vault-help"
         >
-          <HelpIcon size={22} />
+          {/* A plain question mark in a circle (owner, 23 Oct 2026): "how does this work?" reads quicker here than the lifebuoy. */}
+          <span
+            aria-hidden
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[15px] font-bold leading-none text-slate-700 ring-2 ring-slate-300 transition group-active:scale-95 dark:text-slate-200 dark:ring-slate-600"
+          >
+            ?
+          </span>
         </Link>
       }
     >

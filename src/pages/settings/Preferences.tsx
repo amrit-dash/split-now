@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -56,6 +56,16 @@ export default function Preferences() {
   const [lookSaved, flashLook] = useSavedFlash()
   const [modeSaved, flashMode] = useSavedFlash()
   const mode = useMode()
+  const modeCard = useRef<HTMLDivElement>(null)
+  const modeTop = useRef<number | null>(null)
+  // After the mode changed and the rows above came or went: scroll by however far the card moved.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the mode changes
+  useLayoutEffect(() => {
+    const before = modeTop.current
+    modeTop.current = null
+    const now = modeCard.current?.getBoundingClientRect().top
+    if (before !== null && now !== undefined && Math.abs(now - before) > 1) window.scrollBy({ top: now - before, behavior: 'instant' })
+  }, [mode])
   // Simple keeps currency, theme, accent and its text; the rest keep their values, out of sight (src/lib/mode.ts).
   const simple = mode === 'simple'
   const adminLook = useAppConfig().look
@@ -280,12 +290,15 @@ export default function Preferences() {
 
       {/* Mode last (owner): the everyday choices first. Advanced shows the same picture as Profile's mode button. */}
       <SectionTitle saved={modeSaved}>Mode</SectionTitle>
-      <div className="card p-4">
+      <div className="card p-4" ref={modeCard}>
         <Segmented<Mode>
           label="Mode"
           testId="mode"
           value={mode}
           onChange={(m) => {
+            // Advanced adds rows above this card (and Simple takes them away): keep the card where the
+            // finger is, so the page doesn't seem to jump (owner, 23 Oct 2026).
+            modeTop.current = modeCard.current?.getBoundingClientRect().top ?? null
             setModePref(m)
             flashMode()
           }}
