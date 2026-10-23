@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bindQuickPrefill, matchName, mergeAiParse, parseNlExpense, toQuickPrefill, type NlContext } from './nl-expense'
+import { bindQuickPrefill, exactFromParts, matchName, mergeAiParse, nameMatches, parseNlExpense, toQuickPrefill, type NlContext } from './nl-expense'
 
 const ctx: NlContext = {
   members: [
@@ -237,5 +237,130 @@ describe('money received', () => {
   it('hands the form the flag', () => {
     expect(toQuickPrefill(parse('refund 500'), 'refund 500').received).toBe(true)
     expect(toQuickPrefill(parse('dinner 500'), 'dinner 500').received).toBeUndefined()
+  })
+})
+
+describe('payments back', () => {
+  it('to someone: paid / sent / gave / settled up by paying', () => {
+    expect(parse('paid Rahul 500 back')).toMatchObject({ payment: { from: 'me', to: 'rahul' }, amount: 50000 })
+    expect(parse('sent Priya 300')).toMatchObject({ payment: { from: 'me', to: 'priya' }, amount: 30000 })
+    expect(parse('settled up with Rahul by paying 700')).toMatchObject({ payment: { from: 'me', to: 'rahul' }, amount: 70000 })
+  })
+  it('from someone: paid me / got N back from', () => {
+    expect(parse('Priya paid me 200 back')).toMatchObject({ payment: { from: 'priya', to: 'me' }, amount: 20000 })
+    expect(parse('got 800 back from Rahul')).toMatchObject({ payment: { from: 'rahul', to: 'me' }, amount: 80000 })
+  })
+  it('“paid 500 for chai” is a cost, not a payment', () => {
+    expect(parse('paid 500 for chai').payment).toBeUndefined()
+  })
+})
+
+describe('who paid, in other words', () => {
+  it('pronouns point at the one other person named', () => {
+    expect(parse('For lunch with Rahul bill was 1762 and they paid')).toMatchObject({
+      description: 'Lunch',
+      amount: 176200,
+      payer: 'rahul',
+      participants: ['me', 'rahul'],
+    })
+  })
+  it('two people named: a choice; nobody: unclear', () => {
+    expect(parse('dinner 900 with Rahul and Priya he paid').payerChoices).toEqual(['rahul', 'priya'])
+    expect(parse('lunch 900 they paid').payerUnclear).toBe(true)
+  })
+  it('covered / on NAME', () => {
+    expect(parse('coffee 300 Priya covered it').payer).toBe('priya')
+    expect(parse('drinks 1200 on Rahul').payer).toBe('rahul')
+  })
+})
+
+describe('uneven parts', () => {
+  it('owes, percent, shares, ratio, pairs with a rest', () => {
+    expect(parse('cab 600 I paid, Rahul owes 400').exact).toEqual({ rahul: 40000, me: 20000 })
+    expect(parse('snacks 500 Rahul 30% Priya 70%').exact).toEqual({ rahul: 15000, priya: 35000 })
+    expect(parse('hotel 9000 Rahul 2 shares Priya 1 share me 1 share').exact).toEqual({ rahul: 450000, priya: 225000, me: 225000 })
+    expect(parse('groceries 1500 split 60/40 with Priya').exact).toEqual({ me: 90000, priya: 60000 })
+    expect(parse('pizza 1000 Rahul 700 rest me').exact).toEqual({ rahul: 70000, me: 30000 })
+  })
+  it('one pair counts only when the line has a total besides it', () => {
+    expect(parse('hotel 6000 Priya 4000').exact).toEqual({ priya: 400000, me: 200000 })
+    expect(parse('lunch with Rahul 600').exact).toBeUndefined()
+  })
+  it('parts over the total are not exact', () => {
+    expect(parse('cab 300 Rahul owes 400').exact).toBeUndefined()
+  })
+})
+
+describe('exactFromParts', () => {
+  it('amounts, then the rest to whoever shares without a part', () => {
+    expect(exactFromParts(1000, [{ id: 'a', kind: 'amount', value: 700 }], null, ['a', 'b'], 'b')).toEqual({ a: 700, b: 300 })
+  })
+  it('percents round to the total', () => {
+    const r = exactFromParts(
+      1001,
+      [
+        { id: 'a', kind: 'percent', value: 50 },
+        { id: 'b', kind: 'percent', value: 50 },
+      ],
+      null,
+      ['a', 'b'],
+      'a',
+    )
+    expect(Object.values(r ?? {}).reduce((x, y) => x + y, 0)).toBe(1001)
+  })
+  it('shares mixed with amounts, or over 100%, cannot be exact', () => {
+    expect(
+      exactFromParts(
+        1000,
+        [
+          { id: 'a', kind: 'shares', value: 2 },
+          { id: 'b', kind: 'amount', value: 100 },
+        ],
+        null,
+        ['a', 'b'],
+        'a',
+      ),
+    ).toBeNull()
+    expect(
+      exactFromParts(
+        1000,
+        [
+          { id: 'a', kind: 'percent', value: 80 },
+          { id: 'b', kind: 'percent', value: 30 },
+        ],
+        null,
+        ['a', 'b'],
+        'a',
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('names', () => {
+  const two: NlContext = { ...ctx, members: [...ctx.members, { id: 'rahul2', name: 'Rahul Verma' }] }
+  it('nameMatches gives every best fit', () => {
+    expect(nameMatches('Rahul', two.members)).toEqual(['rahul', 'rahul2'])
+    expect(nameMatches('Rahul Verma', two.members)).toEqual(['rahul2'])
+    expect(nameMatches('Zed', two.members)).toEqual([])
+  })
+  it('a shared first name is noted, a full name is not', () => {
+    expect(parseNlExpense('dinner 900 with Rahul', two).ambiguous).toEqual([{ token: 'Rahul', ids: ['rahul', 'rahul2'] }])
+    const full = parseNlExpense('dinner 900 with Rahul Verma', two)
+    expect(full).toMatchObject({ description: 'Dinner', participants: ['me', 'rahul2'] })
+    expect(full.ambiguous).toBeUndefined()
+  })
+  it('a full name from another group is nobody here, not a namesake', () => {
+    const p = parseNlExpense('dinner 900 with Rahul Verma', { ...ctx, knownNames: ['Rahul Verma'] })
+    expect(p.unmatched).toEqual(['Rahul Verma'])
+  })
+  it('everyone except someone', () => {
+    expect(parse('taxi 900 everyone except Samar').participants).toEqual(['me', 'rahul', 'priya'])
+  })
+  it('filler around a spoken amount leaves the description', () => {
+    expect(parse('dinner the total came to 2400').description).toBe('Dinner')
+    expect(parse('parking 50 paid').description).toBe('Parking')
+  })
+  it('toQuickPrefill carries exact parts', () => {
+    expect(toQuickPrefill(parse('cab 600 I paid, Rahul owes 400'), 'x').exact).toEqual({ rahul: 40000, me: 20000 })
   })
 })
