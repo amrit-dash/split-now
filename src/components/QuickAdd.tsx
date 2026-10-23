@@ -341,18 +341,18 @@ export function QuickAdd({
           </span>
         ) : problem ? (
           <span
-            className="mt-2 flex items-start gap-2 rounded-2xl bg-rose-50 px-3 py-2 text-xs leading-snug text-rose-800 dark:bg-rose-500/10 dark:text-rose-200"
+            className="mt-2 flex items-center gap-2.5 rounded-2xl bg-rose-50 px-3 py-2 text-xs leading-snug text-rose-800 dark:bg-rose-500/10 dark:text-rose-200"
             data-testid={`${testId}-problem`}
           >
-            <AlertCircle size={15} className="mt-px shrink-0" aria-hidden />
+            <AlertCircle size={16} className="shrink-0" aria-hidden />
             {problem}
           </span>
         ) : answer ? (
           <span
-            className="mt-2 flex items-start gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-xs leading-snug text-brand-900 dark:bg-brand-500/10 dark:text-brand-100"
+            className="mt-2 flex items-center gap-2.5 rounded-2xl bg-brand-50 px-3 py-2 text-xs leading-snug text-brand-900 dark:bg-brand-500/10 dark:text-brand-100"
             data-testid={`${testId}-answer`}
           >
-            <Lightbulb size={15} className="mt-px shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
+            <Lightbulb size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
             {answer}
           </span>
         ) : null}

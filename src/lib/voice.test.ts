@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   barHeights,
+  finalVoiceText,
   holdDrag,
   isDoubleTap,
   joinHeard,
@@ -192,5 +193,19 @@ describe('speech service missing', () => {
     expect(speechNoneStill(null, 5)).toBe(false)
     expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS - 1)).toBe(true)
     expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS)).toBe(false)
+  })
+})
+
+describe('finalVoiceText', () => {
+  it('AI’s text wins over the live words', () => {
+    expect(finalVoiceText({ text: 'Dinner 1200 with Rahul' }, 'dinner twelve hundred')).toEqual({ text: 'Dinner 1200 with Rahul' })
+  })
+  it('keeps the live words when AI heard nothing or failed', () => {
+    expect(finalVoiceText({ text: '' }, 'dinner 1200')).toEqual({ text: 'dinner 1200' })
+    expect(finalVoiceText({ text: '', error: 'Couldn’t transcribe' }, 'dinner 1200')).toEqual({ text: 'dinner 1200' })
+  })
+  it('says why when neither heard anything', () => {
+    expect(finalVoiceText({ text: '', error: 'Couldn’t transcribe' }, '  ')).toEqual({ text: '', error: 'Couldn’t transcribe' })
+    expect(finalVoiceText({ text: '' }, '')).toEqual({ text: '' })
   })
 })

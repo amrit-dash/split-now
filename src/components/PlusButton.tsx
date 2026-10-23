@@ -27,6 +27,17 @@ type Phase = 'idle' | 'listening' | 'working'
 type Bubble = { title?: string; text: string; kind: 'teach' | 'answer' }
 
 const NOT_HEARD = 'Didn’t catch that. Hold + again and talk, a little closer to the phone.'
+/** Remembered once the "double tap to stop" tip has shown on this device. */
+const STOP_TIP_KEY = 'splitnow-voice-stop-tip'
+function stopTipDue(): boolean {
+  try {
+    if (localStorage.getItem(STOP_TIP_KEY)) return false
+    localStorage.setItem(STOP_TIP_KEY, '1')
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * The tab bar's + (src/lib/plus-target.ts): a tap does what it always did (Add expense inside a
@@ -124,6 +135,8 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       return toast('Cancelled')
     }
     go('working')
+    // The first time it works something out: say how to stop it (owner, 23 Oct 2026).
+    if (stopTipDue()) setAnswer({ kind: 'teach', title: 'Tip', text: 'Double tap + to stop it while it works.' })
     try {
       const r = await voice.stop()
       if (stopped.current) return

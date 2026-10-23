@@ -19,7 +19,7 @@ import {
   type Recording,
 } from '@/lib/mic'
 import { listen, speechDenied, speechSupported, subscribeSpeechDenied, type SpeechSession } from '@/lib/speech'
-import { meterBesideSpeech, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
+import { finalVoiceText, meterBesideSpeech, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
 import { TRANSCRIBE_MAX_SECONDS } from '../../shared/transcribe'
 
 /** The language people speak to Quick add in: English with Indian names and places, by default. */
@@ -64,6 +64,8 @@ interface Live {
   stream?: MediaStream | null
   meter?: () => void
   rec?: Recording
+  /** with AI: the phone's recognition running alongside, only for the words live */
+  live?: SpeechSession | null
   text: string
   error?: string
   stopping?: boolean
@@ -100,6 +102,7 @@ export function useVoice(opts: {
   useEffect(
     () => () => {
       live.current?.speech?.abort()
+      live.current?.live?.abort()
       live.current?.rec?.cancel()
       cleanup()
     },
@@ -194,6 +197,18 @@ export function useVoice(opts: {
     }
     void openMeter(l)
     l.rec = record(l.stream, TRANSCRIBE_MAX_SECONDS * 1000, () => l.autoStop?.())
+    // The words live while AI records (owner, 23 Oct 2026): the phone's own recognition, when it has
+    // one, only shows them; AI's text replaces them on letting go (finalVoiceText). Where the browser
+    // can't share the microphone (some iPhones) it just shows nothing, and AI still gets the recording.
+    if (speechSupported() && !speechDenied())
+      l.live = listen({
+        lang: LANG,
+        onText: (t) => {
+          l.text = t
+          o.current.onText?.(t)
+        },
+        onEnd: () => {},
+      })
     return true
   }
 
@@ -217,19 +232,21 @@ export function useVoice(opts: {
       setState('idle')
       return { text: '' }
     }
+    l.live?.abort()
     const blob = await l.rec.stop()
     l.meter?.()
     l.meter = undefined
     closeMic(l.stream)
     setState('transcribing')
+    const heard = l.text
     try {
-      if (blob.size < 800) return { text: '' }
+      if (blob.size < 800) return finalVoiceText({ text: '' }, heard)
       const r = await repo.transcribeAi({ audio: await blobToBase64(blob), mimeType: blob.type || 'audio/webm', lang: LANG })
-      if (!r) return { text: '', error: transcribeFailText({ demo: repo.mode !== 'firebase' }) }
-      if (r.unavailable) return { text: '', error: transcribeFailText({ demo: false, reason: r.reason }) }
-      return { text: r.text }
+      if (!r) return finalVoiceText({ text: '', error: transcribeFailText({ demo: repo.mode !== 'firebase' }) }, heard)
+      if (r.unavailable) return finalVoiceText({ text: '', error: transcribeFailText({ demo: false, reason: r.reason }) }, heard)
+      return finalVoiceText({ text: r.text }, heard)
     } catch {
-      return { text: '', error: transcribeFailText({ demo: false }) }
+      return finalVoiceText({ text: '', error: transcribeFailText({ demo: false }) }, heard)
     } finally {
       cleanup()
       setState('idle')
@@ -243,6 +260,7 @@ export function useVoice(opts: {
 
   const cancel = () => {
     live.current?.speech?.abort()
+    live.current?.live?.abort()
     live.current?.rec?.cancel()
     stopPulse()
     cleanup()

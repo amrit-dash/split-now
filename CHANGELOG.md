@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Voice with AI shows your words as you talk again: the phone's own recognition runs alongside, only to show them, and AI's text replaces them when you let go (if AI hears nothing or fails, the phone's words are kept). Before, with AI chosen the pill and the Quick add box stayed empty until AI answered. With Phone chosen nothing goes to AI, as before.
+- The first time + works something out after you talk, a tip says you can double tap + to stop it.
+
 - Quick add: “Working it out…” and “Reading your line…” show in the card's top-right corner with a spinner; an answer sits under the box in a tinted panel with a lightbulb, a problem (microphone, transcription) in a red one with an alert icon, both shorter. Before, they were plain grey text or a toast. The tips and answers rising from + have an icon in front too.
 - Simple mode: the Create sheet keeps a short line under Quick add, Add expense, New group and Scan.
 
