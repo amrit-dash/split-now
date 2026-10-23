@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.2.0 — October 2026
+
 - Admin → AI → Transcription key: after **Save & check** the screen shows the saved key with Test, Use another key and Remove straight away. Before, it said “Transcription key saved” but went back to the empty paste box for up to a minute, because the status came from a server copy that hadn't heard of the save yet (the project key had the same lag).
 - Admin → AI: the Bills and Bank SMS switches say they only stop Split Now's key paying (people's own keys keep working), and the matching Flags say they switch the feature off for everyone, each pointing to the other.
 - AI features (and Admin → AI): **Test** sits beside Model for pictures, and the test picture appears at the end of that row (tap it to see it bigger), with one line under for the cost and the result. Before, a Test pictures button sat alone under a paragraph.

@@ -106,10 +106,11 @@ describe('transcribeAi (emulator)', () => {
     await write('private/geminiTranscribeKey', { key: FAKE_KEY, hint: '…0000' })
     await write('config/app', { flags: { aiTranscribeShared: false } })
     expect((await call<Answer>('transcribeAi', clip, 'alice')).result).toEqual({ unavailable: true, reason: 'not_configured' })
-    // Which key: Own key, without one
+    // An old "Which key: Own key" no longer narrows it (22 Oct 2026): Split Now's key is tried
+    // (the fake key is then refused by Google, but it is no longer "not configured")
     await write('config/app', { flags: {} })
     await write('users/alice/settings/notifications', { aiTranscribe: true, aiTranscribeKey: 'own' })
-    expect((await call<Answer>('transcribeAi', clip, 'alice')).result).toEqual({ unavailable: true, reason: 'not_configured' })
+    expect((await call<Answer>('transcribeAi', clip, 'alice')).result).not.toEqual({ unavailable: true, reason: 'not_configured' })
   })
 
   it('Split Now’s transcription key over its daily allowance is refused before Gemini, and counted', async () => {
