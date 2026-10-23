@@ -6,6 +6,8 @@ import {
   pickStory,
   clampStep,
   guideLayout,
+  guideOrder,
+  nextInGuide,
   type HelpShot,
   markBox,
   nextStep,
@@ -37,11 +39,12 @@ describe('the guide’s content', () => {
       expect((s.steps?.length ?? 0) + s.points.length).toBeGreaterThan(0)
     }
   })
-  it('the ten main features each have steps and a scene that knows every step’s mark', () => {
+  it('the main features (an even number in each mode) each have steps and a scene that knows every step’s mark', () => {
     const core = SECTIONS.filter((s) => s.core)
     expect(core.map((s) => s.id).sort()).toEqual(
       [
         'add-expense',
+        'approvals',
         'auto-capture-setup',
         'create-group',
         'icons-and-ai',
@@ -51,6 +54,7 @@ describe('the guide’s content', () => {
         'scan-receipt',
         'settle-up-upi',
         'split-types',
+        'voice',
       ].sort(),
     )
     for (const s of core) {
@@ -168,7 +172,7 @@ describe('the step player and the front page', () => {
       'modes-explained',
       'collect-explained',
     ])
-    expect(g.core.length).toBe(10)
+    expect(g.core.length).toBe(12)
     const rest = g.chapters.flatMap((c) => c.sections)
     expect(rest.some((s) => s.core || (s.story && !s.inChapter))).toBe(false)
     expect(g.chapters.every((c) => c.sections.length > 0)).toBe(true)
@@ -322,5 +326,31 @@ describe('pickStory', () => {
   it('always plays the main one when there is no alternative or the run is automated', () => {
     expect(pickStory({ kind: 'pot', beats: ['x'] }, () => 0)).toEqual({ kind: 'pot', beats: ['x'] })
     expect(pickStory(story, () => 0, true).kind).toBe('doors')
+  })
+})
+
+describe('Help main features', () => {
+  it('fill even rows of two in both modes', async () => {
+    const { SECTIONS, CHAPTERS } = await import('./help-content')
+    for (const mode of ['simple', 'advanced'] as const) {
+      const { core } = guideLayout(CHAPTERS, sectionsFor(mode, SECTIONS))
+      expect(core.length % 2).toBe(0)
+    }
+  })
+})
+
+describe('Up next', () => {
+  it('follows the front page: How it works, the main features, then the chapters; nothing after the last', async () => {
+    const { SECTIONS, CHAPTERS } = await import('./help-content')
+    for (const mode of ['simple', 'advanced'] as const) {
+      const shown = sectionsFor(mode, SECTIONS)
+      const order = guideOrder(CHAPTERS, shown)
+      const g = guideLayout(CHAPTERS, shown)
+      expect(order[0].id).toBe(g.stories[0].id)
+      expect(nextInGuide(g.stories.at(-1)!.id, order)?.id).toBe(g.core[0].id)
+      expect(nextInGuide(order.at(-1)!.id, order)).toBeNull()
+      expect(new Set(order.map((s) => s.id)).size).toBe(order.length)
+    }
+    expect(nextInGuide('not-a-section', [])).toBeNull()
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Debt, Group } from '@/types'
-import type { SettleRow } from './settleAll'
+import { groupLine, type SettleRow } from './settleAll'
 import {
   groupSettleTarget,
   canNudgePerson,
@@ -232,5 +232,12 @@ describe('names across groups', () => {
         .map((p) => p.label)
         .sort(),
     ).toEqual(['Priya', 'Rahul K.', 'Rahul S.'])
+  })
+})
+
+describe('groupLine', () => {
+  it('names a 1:1 as 1:1, not the person again, and other groups by emoji and name', () => {
+    expect(groupLine({ direct: true, groupEmoji: '🤝', groupName: 'Akash Agrawal' })).toEqual({ emoji: null, text: '1:1' })
+    expect(groupLine({ groupEmoji: '🏖️', groupName: 'Goa Trip' })).toEqual({ emoji: '🏖️', text: 'Goa Trip' })
   })
 })

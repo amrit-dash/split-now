@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   barHeights,
+  holdDrag,
+  isDoubleTap,
   joinHeard,
+  liveTail,
+  meterBesideSpeech,
+  SPEECH_NONE_TTL_MS,
+  speechNoneStill,
+  speechServiceMissing,
   micRelease,
   pickRecorderMime,
   rmsToLevel,
   smoothLevel,
   transcribeFailText,
   transcribeOffer,
-  transcriptionView,
   voiceEngine,
 } from './voice'
 
@@ -20,7 +26,6 @@ const offer = (o: Partial<Parameters<typeof transcribeOffer>[0]> = {}) =>
     status: { transcribe: { configured: true } },
     hasOwnKey: false,
     aiEnabled: true,
-    keyChoice: 'auto',
     ...o,
   })
 
@@ -31,13 +36,12 @@ describe('transcribeOffer', () => {
   it('without the shared key, only someone with their own key', () => {
     expect(offer({ sharedFlag: false })).toEqual({ ai: false, why: expect.stringMatching(/own Gemini key/) })
     expect(offer({ sharedFlag: false, hasOwnKey: true })).toEqual({ ai: true, why: null })
-    expect(offer({ status: { transcribe: { configured: false } } }).why).toMatch(/isn’t set up yet/)
+    expect(offer({ status: { transcribe: { configured: false } } }).why).toMatch(/Add your own Gemini key/)
     expect(offer({ status: { transcribe: { configured: false } }, hasOwnKey: true }).ai).toBe(true)
   })
-  it('Which key narrows it', () => {
-    expect(offer({ keyChoice: 'own' }).ai).toBe(false)
-    expect(offer({ keyChoice: 'own', hasOwnKey: true }).ai).toBe(true)
-    expect(offer({ keyChoice: 'app', hasOwnKey: true, sharedFlag: false }).ai).toBe(false)
+  it('your own key is enough, with or without Split Now’s', () => {
+    expect(offer({ hasOwnKey: true, sharedFlag: false }).ai).toBe(true)
+    expect(offer({ hasOwnKey: true, status: { transcribe: { configured: false } } }).ai).toBe(true)
   })
   it('says why: demo, the admin’s switch, AI off, offline', () => {
     expect(offer({ mode: 'demo' }).why).toMatch(/needs the online app/)
@@ -47,27 +51,6 @@ describe('transcribeOffer', () => {
   })
   it('while the status loads it is not offered yet, without a reason', () => {
     expect(offer({ status: undefined })).toEqual({ ai: false, why: null })
-  })
-})
-
-describe('transcriptionView', () => {
-  const yes = { ai: true, why: null }
-  const no = { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
-  it('Native and AI when AI can serve the person', () => {
-    expect(transcriptionView({ offer: yes, aiChosen: false, nativeOk: true })).toEqual({ options: ['native', 'ai'], value: 'native', note: null })
-    expect(transcriptionView({ offer: yes, aiChosen: true, nativeOk: true }).value).toBe('ai')
-  })
-  it('Native only, with the reason, when it can’t', () => {
-    expect(transcriptionView({ offer: no, aiChosen: false, nativeOk: true })).toEqual({ options: ['native'], value: 'native', note: no.why })
-  })
-  it('AI picked but unavailable stays visible (to switch back), and says the phone listens meanwhile', () => {
-    const v = transcriptionView({ offer: no, aiChosen: true, nativeOk: true })
-    expect(v.options).toEqual(['native', 'ai'])
-    expect(v.note).toMatch(/your phone listens instead/)
-  })
-  it('a phone without recognition: no mic, or AI to talk', () => {
-    expect(transcriptionView({ offer: no, aiChosen: false, nativeOk: false }).note).toMatch(/has no mic here/)
-    expect(transcriptionView({ offer: yes, aiChosen: false, nativeOk: false }).note).toMatch(/Pick AI to talk/)
   })
 })
 
@@ -155,5 +138,59 @@ describe('pickRecorderMime', () => {
         throw new Error('no')
       }),
     ).toBeUndefined()
+  })
+})
+
+describe('hold to talk gestures', () => {
+  it('cancels once the finger slides far enough, any way', () => {
+    expect(holdDrag(0, 0)).toBe('talk')
+    expect(holdDrag(40, -40)).toBe('talk')
+    expect(holdDrag(-80, 0)).toBe('cancel')
+    expect(holdDrag(0, -73)).toBe('cancel')
+  })
+  it('knows a double tap', () => {
+    expect(isDoubleTap(null, 1000)).toBe(false)
+    expect(isDoubleTap(1000, 1300)).toBe(true)
+    expect(isDoubleTap(1000, 1401)).toBe(false)
+    expect(isDoubleTap(1000, 900)).toBe(false)
+  })
+})
+
+describe('liveTail', () => {
+  it('shows short lines whole', () => {
+    expect(liveTail('  dinner   1200 ')).toBe('dinner 1200')
+  })
+  it('keeps the latest words of a long line, cut at a word', () => {
+    const t = liveTail('dinner at the beach shack 1200 with Rahul and Priya, I paid', 30)
+    expect(t.startsWith('…')).toBe(true)
+    expect(t.endsWith('I paid')).toBe(true)
+    expect(t.length).toBeLessThanOrEqual(31)
+    expect(t.slice(1, 2)).not.toBe(' ')
+  })
+})
+
+describe('meterBesideSpeech', () => {
+  it('skips the second microphone on Apple WebKit only', () => {
+    expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/130.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15')).toBe(false)
+    expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(true)
+    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(true)
+  })
+})
+
+describe('speech service missing', () => {
+  it('tells a missing service from a refusal or being offline', () => {
+    expect(speechServiceMissing('network', true)).toBe(true)
+    expect(speechServiceMissing('network', false)).toBe(false)
+    expect(speechServiceMissing('service-not-allowed', true)).toBe(true)
+    expect(speechServiceMissing('language-not-supported', true)).toBe(true)
+    expect(speechServiceMissing('not-allowed', true)).toBe(false)
+    expect(speechServiceMissing('no-speech', true)).toBe(false)
+  })
+  it('remembers it for a week', () => {
+    expect(speechNoneStill(null, 5)).toBe(false)
+    expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS - 1)).toBe(true)
+    expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS)).toBe(false)
   })
 })

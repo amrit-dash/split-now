@@ -19,7 +19,7 @@ import {
   type Recording,
 } from '@/lib/mic'
 import { listen, speechDenied, speechSupported, subscribeSpeechDenied, type SpeechSession } from '@/lib/speech'
-import { transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
+import { meterBesideSpeech, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
 import { TRANSCRIBE_MAX_SECONDS } from '../../shared/transcribe'
 
 /** The language people speak to Quick add in: English with Indian names and places, by default. */
@@ -50,7 +50,6 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
     status,
     hasOwnKey: !!aiState?.hint,
     aiEnabled: prefs?.aiEnabled ?? true,
-    keyChoice: prefs?.aiTranscribeKey ?? 'auto',
   })
   const aiChosen = !!prefs?.aiTranscribe && flag
   const engine = quickAdd ? voiceEngine({ native, nativeDenied: denied, micDenied: mic === 'denied', aiChosen, aiReady: offer.ai && online, recorder }) : null
@@ -169,8 +168,9 @@ export function useVoice(opts: {
             o.current.onError?.(err)
           }
         },
-        // The browser has the microphone now; the bars' meter opens its own (Chrome shares it).
-        onAudio: () => void openMeter(l),
+        // The browser has the microphone now; the bars' meter opens its own where that's safe (Chrome
+        // shares it). On Apple's WebKit a second stream can starve recognition: the words drive the bars.
+        onAudio: () => void (meterBesideSpeech(navigator.userAgent) ? openMeter(l) : startPulse()),
       })
       if (!l.speech) {
         cleanup()

@@ -1,5 +1,4 @@
-import { type ReactNode, useId, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useId } from 'react'
 import { UserIcon } from '@/components/icons'
 import type { Category, Group, MemberId } from '@/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -9,13 +8,14 @@ import { todayISO } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
 import { DateField } from '@/components/DateField'
 import { Segmented } from '@/components/Misc'
+import { Select } from '@/components/Select'
 import { Sheet } from '@/components/Sheet'
 import { useEdgeFade } from '@/hooks/useEdgeFade'
 
 /**
  * Sort and filter for a group's Expenses list: the order (date spent, date added, amount), Quick
  * filters (Involving me and the categories in use, one sideways row), and which rows (expenses or
- * payments, who paid, between two days). Sort by starts folded, its choice in the header.
+ * payments, who paid, between two days). Sort by is a dropdown at the top.
  * Search stays on the list; changes apply at once, and what's on shows as pills under the search.
  */
 export function ListOptionsSheet({
@@ -45,6 +45,7 @@ export function ListOptionsSheet({
   quick: { showMe: boolean; onlyMe: boolean; onOnlyMe: (on: boolean) => void; categories: Category[] }
 }) {
   const fade = useEdgeFade()
+  const sortId = useId()
   const reset = () => {
     onSort(DEFAULT_SORT)
     onFilter({ kind: 'all', paidBy: undefined, from: undefined, to: undefined, categories: [] })
@@ -56,29 +57,19 @@ export function ListOptionsSheet({
     onFilter({ categories: filter.categories.includes(c) ? filter.categories.filter((x) => x !== c) : [...filter.categories, c] })
   return (
     <Sheet open={open} onClose={onClose} title="Sort and filter" testId="list-options">
-      <Fold title="Sort by" summary={SORT_OPTIONS.find((o) => o.value === sort)?.label} testId="list-sort">
-        <div className="-mx-2 divide-y divide-slate-100 dark:divide-white/5" role="radiogroup" aria-label="Sort by">
-          {SORT_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              role="radio"
-              aria-checked={sort === o.value}
-              onClick={() => onSort(o.value)}
-              className="flex min-h-12 w-full items-center gap-3 px-2 text-left text-sm"
-              data-testid={`sort-${o.value}`}
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${sort === o.value ? 'border-brand-600 dark:border-brand-300' : 'border-slate-300 dark:border-slate-600'}`}
-                aria-hidden
-              >
-                {sort === o.value && <span className="h-2.5 w-2.5 rounded-full bg-brand-600 dark:bg-brand-300" />}
-              </span>
-              <span className={sort === o.value ? 'font-semibold' : ''}>{o.label}</span>
-            </button>
-          ))}
-        </div>
-      </Fold>
+      {/* A dropdown, not a fold of radios (owner, 22 Oct 2026): one line, the choice always in view. */}
+      <div data-testid="list-sort">
+        <label className="label" htmlFor={sortId}>
+          Sort by
+        </label>
+        <Select
+          id={sortId}
+          aria-label="Sort by"
+          value={sort}
+          onChange={onSort}
+          options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label, text: o.label }))}
+        />
+      </div>
 
       {hasQuick && (
         <div className="mt-4">
@@ -189,38 +180,5 @@ export function ListOptionsSheet({
         </button>
       </div>
     </Sheet>
-  )
-}
-
-/**
- * A folded section of the sheet: its name, and what's chosen in it, on one header row; the
- * options open under it (grid-rows height animation, off with reduced motion).
- */
-function Fold({ title, summary, children, testId }: { title: string; summary?: ReactNode; children: ReactNode; testId: string }) {
-  const [open, setOpen] = useState(false)
-  const body = useId()
-  return (
-    <section className="border-b border-slate-100 dark:border-white/5" data-testid={testId}>
-      <button
-        type="button"
-        className="flex min-h-12 w-full items-center gap-3 text-left"
-        aria-expanded={open}
-        aria-controls={body}
-        onClick={() => setOpen(!open)}
-      >
-        <span className="label !mb-0 shrink-0">{title}</span>
-        <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold text-brand-700 dark:text-brand-200" data-testid={`${testId}-summary`}>
-          {summary}
-        </span>
-        <ChevronDown size={18} className={`text-muted shrink-0 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} aria-hidden />
-      </button>
-      <div
-        id={body}
-        className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
-        inert={!open}
-      >
-        <div className="min-h-0 overflow-hidden">{children}</div>
-      </div>
-    </section>
   )
 }

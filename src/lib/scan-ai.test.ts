@@ -36,7 +36,7 @@ describe('scanAiButton', () => {
 describe('scan AI copy', () => {
   it('names the fallback per card', () => {
     expect(scanAiWhyText('admin', 'receipt')).toContain('Bills are read on this phone')
-    expect(scanAiWhyText('admin', 'statement')).toContain('Statements need it')
+    expect(scanAiWhyText('admin', 'statement')).toContain('Statements are read on this phone')
     expect(scanAiWhyText('demo', 'statement')).toContain('sample')
     expect(scanAiWhyText('master', 'receipt')).toContain('Settings → AI features')
   })
@@ -50,20 +50,20 @@ describe('scan AI copy', () => {
   })
 
   it('always says where the photo goes', () => {
-    expect(scanAiToggledText(true, 'receipt')).toContain('Google Gemini')
-    expect(scanAiToggledText(false, 'receipt')).toContain('on this phone')
-    expect(scanAiToggledText(false, 'statement')).toContain('can’t be read')
-    expect(scanAiTitle({ show: true, state: 'on' }, 'receipt')).toContain('Google Gemini')
-    expect(scanAiTitle({ show: true, state: 'off' }, 'statement')).toContain('can’t be read')
-    expect(scanAiTitle({ show: true, state: 'unavailable', why: 'demo' }, 'receipt')).toContain('isn’t available')
-    expect(scanAiTitle({ show: false }, 'payment')).toBe('')
+    expect(scanAiToggledText(true)).toContain('Google Gemini')
+    expect(scanAiToggledText(false)).toContain('on this phone')
+    expect(scanAiToggledText(false)).toContain('read on this phone')
+    expect(scanAiTitle({ show: true, state: 'on' })).toContain('Google Gemini')
+    expect(scanAiTitle({ show: true, state: 'off' })).toContain('read on this phone')
+    expect(scanAiTitle({ show: true, state: 'unavailable', why: 'demo' })).toContain('isn’t available')
+    expect(scanAiTitle({ show: false })).toBe('')
   })
 
   it('uses no exclamation marks or em dashes', () => {
     const all = [
       ...(['demo', 'admin', 'account', 'master'] as const).flatMap((w) => [scanAiWhyText(w, 'receipt'), scanAiWhyText(w, 'statement')]),
-      scanAiToggledText(true, 'receipt'),
-      scanAiToggledText(false, 'statement'),
+      scanAiToggledText(true),
+      scanAiToggledText(false),
     ]
     for (const t of all) expect(t).not.toMatch(/[!—]/)
   })

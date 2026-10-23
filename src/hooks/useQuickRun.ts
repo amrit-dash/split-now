@@ -40,6 +40,8 @@ export interface QuickLine {
   /** the line asks for a new group */
   fresh: { name: string; text: string } | null
   named: GroupInText
+  /** The person stopped it while it worked (double tap on + after talking): nothing opens. */
+  stopped?: () => boolean
 }
 
 /** What became of a line: a screen opened, it stayed (cancelled, or a toast said why), or a plain answer to show. */
@@ -181,6 +183,8 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
           openItems: openItemsOn,
         }),
       )
+      // Stopped while AI worked: nothing opens and nothing is said.
+      if (q.stopped?.()) return null
       if (!r) {
         toast('Couldn’t work that out right now, so it was read on this phone. Check the form.')
         return null
@@ -228,22 +232,32 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
   }
 
   const send = async (q: QuickLine): Promise<QuickOutcome> => {
+    const out = await work(q)
+    return q.stopped?.() && out.kind !== 'left' ? { kind: 'stayed' } : out
+  }
+
+  const work = async (q: QuickLine): Promise<QuickOutcome> => {
     const { target, fresh } = q
+    // Checked after every wait, so a stop while AI reads the line opens nothing.
+    const stop = () => !!q.stopped?.()
     // No groups yet: the line starts one (with AI when it asks for more than a plain line can say).
     if (!target) {
       if (aiAllowed && quickRouteNoGroups(q.text).route === 'ai') {
         const r = await askAi(q)
+        if (stop()) return { kind: 'stayed' }
         if (r === 'unknown') {
           const answer = quickAnswerFor({ text: q.text, amount: undefined, aiUnknown: true })
           if (answer) return { kind: 'answer', text: answer }
         } else if (r) return r
       }
+      if (stop()) return { kind: 'stayed' }
       return createGroup(fresh?.name ?? '', q)
     }
     // "lunch Oct 2 Cafe Blue, who paid?": nobody's sure yet, so it's an open item, read on the phone
     // (free and instant); subtler wording still reaches Quick add with AI below, which can answer open_item.
     if (openItemsOn && !fresh && target.type !== 'personal') {
       const { isOpenItemLine, openItemFromQuickLine } = await import('@/lib/open-item-line')
+      if (stop()) return { kind: 'stayed' }
       if (isOpenItemLine(q.line)) {
         const order = memberOrder(target)
         const me = myMemberId(target, user.uid) ?? order[0]
@@ -262,6 +276,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
     let aiUnknown = false
     if (aiAllowed) {
       const { parseNlExpense } = await loadParser()
+      if (stop()) return { kind: 'stayed' }
       const order = memberOrder(target)
       const parse = fresh
         ? parseNlExpense(fresh.text, { members: [{ id: user.uid, name: profile.displayName }], me: user.uid, currency: profile.currency })
@@ -272,10 +287,12 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
           })
       if (quickRoute(q.text, parse, q.named).route === 'ai') {
         const r = await askAi(q)
+        if (stop()) return { kind: 'stayed' }
         if (r === 'unknown') aiUnknown = true
         else if (r) return r
       }
     }
+    if (stop()) return { kind: 'stayed' }
     if (fresh) return createGroup(fresh.name, q)
     return go(q, target, aiUnknown)
   }

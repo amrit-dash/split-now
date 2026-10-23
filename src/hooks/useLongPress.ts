@@ -17,18 +17,23 @@ export function useLongPress({
   onTap,
   onHold,
   onHoldEnd,
+  onHoldMove,
   onDown,
   holdable = true,
 }: {
   onTap: () => void
   onHold: () => void
   onHoldEnd?: () => void
+  /** while a finger holds: how far it has slid from where it pressed (hold to talk: slide away to cancel) */
+  onHoldMove?: (dx: number, dy: number) => void
   /** every press, as it starts (to wake sound up: phones only allow it from a gesture) */
   onDown?: () => void
   holdable?: boolean
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const start = useRef<PressStart | null>(null)
+  /** where the finger pressed, kept through the hold (start is cleared when the hold takes) */
+  const origin = useRef<PressStart | null>(null)
   const held = useRef(false)
   /** the current hold is a finger's (it ends when lifted), not a right click's or a key's */
   const byFinger = useRef(false)
@@ -81,11 +86,13 @@ export function useLongPress({
       if (e.button !== 0 || !holdable) return
       if (onHoldEnd) (e.currentTarget as Element).setPointerCapture?.(e.pointerId)
       start.current = { x: e.clientX, y: e.clientY }
+      origin.current = start.current
       setPress('down')
       timer.current = setTimeout(() => hold(true), LONG_PRESS_MS)
     },
     onPointerMove: (e: PointerEvent) => {
       if (start.current && movedTooFar(start.current, { x: e.clientX, y: e.clientY })) stop()
+      else if (held.current && byFinger.current && origin.current) onHoldMove?.(e.clientX - origin.current.x, e.clientY - origin.current.y)
     },
     onPointerUp: lift,
     onPointerCancel: lift,

@@ -166,6 +166,10 @@ export function nettableRows(rows: SettleRow[], gated: ReadonlySet<string>): { r
 }
 
 /** Distinct groups a person's balance spans (a person can appear once per group). */
+/** How a row names its group: a 1:1 is "1:1" (its group name is the person, already on the row), any other group its emoji and name. */
+export const groupLine = (r: Pick<SettleRow, 'direct' | 'groupEmoji' | 'groupName'>): { emoji: string | null; text: string } =>
+  r.direct ? { emoji: null, text: '1:1' } : { emoji: r.groupEmoji, text: r.groupName }
+
 export const groupCount = (p: PersonBalance) => new Set(p.parts.map((r) => r.groupId)).size
 
 /** The settle-up screen for everything with one person (one currency) across their groups. */

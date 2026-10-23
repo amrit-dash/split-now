@@ -24,6 +24,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.2.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Talk to add shows your words as you speak; slide away to cancel', section: 'voice' },
+      { text: 'Voice: choose Phone or AI, and it works in more browsers', section: 'voice' },
+      { text: 'Statements read on your phone when AI is off', section: 'scan-receipt' },
+      { text: 'Balances: each group as a chip, easier to read', section: 'settle-up-upi' },
+      { text: 'Help: Up next at the end of every section', section: 'help-guide' },
+      { text: 'Earn Pro: stay on a section a few seconds for its stamp', section: 'earn-pro' },
+    ],
+  },
+  {
     version: '9.1.1',
     date: 'October 2026',
     items: [

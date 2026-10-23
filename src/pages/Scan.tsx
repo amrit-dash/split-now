@@ -392,7 +392,7 @@ export default function Scan() {
               ) : mode === 'receipt' ? (
                 <ScanIntro icon="receipt" title="Snap a bill" hint={RECEIPT_HINT} infoLabel="About scanning" />
               ) : (
-                <ScanIntro icon="phone" title="Upload a payment confirmation" hint={PAYMENT_HINT} infoLabel="About scanning" />
+                <ScanIntro icon="paymentProof" title="Upload a payment confirmation" hint={PAYMENT_HINT} infoLabel="About scanning" />
               )
             }
           />

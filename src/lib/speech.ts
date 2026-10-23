@@ -1,11 +1,15 @@
 /*
  * Voice for Quick add, the phone's own recognition: the browser's Web Speech API (Chrome on
- * Android, Safari on iOS 14.5+). Free, and always first (src/lib/voice.ts voiceEngine). Nothing is
+ * Android, Safari on iOS 14.5+, Chrome / Edge / Safari on a computer). Free, and always first
+ * (src/lib/voice.ts voiceEngine). Some Chromium browsers (Opera, Opera GX, Brave) have the API but
+ * not Google's speech service behind it: there it moves to the browser's on-device recogniser
+ * (processLocally, Chrome 139+, the model installed once) when the browser has one, and otherwise
+ * says so plainly and remembers it for a week (AI transcription still works there). Nothing is
  * recorded by the app and no audio leaves it through us; the browser does the recognition. Where
  * the API doesn't exist, or the person refused it, the mic isn't shown (unless they chose AI
  * transcription, src/lib/mic.ts).
  */
-import { joinHeard } from './voice'
+import { joinHeard, speechNoneStill, speechServiceMissing } from './voice'
 
 interface RecognitionResultEvent {
   resultIndex: number
@@ -23,15 +27,69 @@ interface Recognition {
   onerror: ((e: { error?: string }) => void) | null
   onend: (() => void) | null
   onaudiostart?: (() => void) | null
+  /** on-device recognition (Chrome 139+) */
+  processLocally?: boolean
+}
+type Availability = 'available' | 'downloadable' | 'downloading' | 'unavailable'
+interface RecognitionCtor {
+  new (): Recognition
+  available?: (o: { langs: string[]; processLocally: boolean }) => Promise<Availability>
+  install?: (o: { langs: string[]; processLocally: boolean }) => Promise<boolean>
 }
 
-function ctor(): (new () => Recognition) | undefined {
+function ctor(): RecognitionCtor | undefined {
   if (typeof window === 'undefined') return undefined
-  const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }
+  const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor }
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 
-export const speechSupported = (): boolean => !!ctor()
+export const speechSupported = (): boolean => !!ctor() && !speechNoneStill(readNum(NONE_KEY), Date.now())
+
+// ---- No speech service here ----------------------------------------------------------------
+// LOCAL_KEY: the language to recognise on the device (the cloud one isn't there); NONE_KEY: when
+// neither worked, so the mic hides for a week instead of failing on every hold.
+const LOCAL_KEY = 'splitnow-speech-local'
+const NONE_KEY = 'splitnow-speech-none'
+function readNum(k: string): number | null {
+  try {
+    const v = Number(localStorage.getItem(k))
+    return Number.isFinite(v) && v > 0 ? v : null
+  } catch {
+    return null
+  }
+}
+function readStr(k: string): string | null {
+  try {
+    return localStorage.getItem(k)
+  } catch {
+    return null
+  }
+}
+function write(k: string, v: string | null) {
+  try {
+    if (v === null) localStorage.removeItem(k)
+    else localStorage.setItem(k, v)
+  } catch {
+    /* private mode */
+  }
+}
+
+/** The on-device recogniser for `lang` (else US English), installing its model once if the browser offers it; null when there's none. */
+async function localLang(C: RecognitionCtor, lang: string): Promise<string | null> {
+  if (!C.available) return null
+  for (const l of [...new Set([lang, 'en-US'])]) {
+    try {
+      const a = await C.available({ langs: [l], processLocally: true })
+      if (a === 'available') return l
+      if ((a === 'downloadable' || a === 'downloading') && C.install && (await C.install({ langs: [l], processLocally: true }))) return l
+    } catch {
+      /* try the next */
+    }
+  }
+  return null
+}
+
+const NO_SERVICE_TEXT = 'This browser can’t turn speech into text. Chrome, Edge and Safari can, or turn on Transcribe with AI in Settings → AI features.'
 
 // ---- Refused on this device -------------------------------------------------------------
 // After a not-allowed error the mic hides (a button that only ever fails is worse than none);
@@ -59,14 +117,18 @@ export function subscribeSpeechDenied(f: () => void): () => void {
   return () => deniedSubs.delete(f)
 }
 
-const refused = (code: string | undefined) => code === 'not-allowed' || code === 'service-not-allowed'
+// Only the person's own refusal hides the mic until the microphone is allowed again;
+// "service-not-allowed" is the browser lacking the service (handled above), not a refusal.
+const refused = (code: string | undefined) => code === 'not-allowed'
 
 /** Plain words for the API's error codes. */
 export function speechErrorText(code: string | undefined): string {
   switch (code) {
     case 'not-allowed':
-    case 'service-not-allowed':
       return 'Microphone access was refused. Allow it in the browser to speak an expense.'
+    case 'service-not-allowed':
+    case 'language-not-supported':
+      return NO_SERVICE_TEXT
     case 'no-speech':
       return 'Didn’t catch that. Try again, a little closer to the phone.'
     case 'network':
@@ -104,6 +166,10 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
   let error: string | undefined
   let current: Recognition | null = null
   let restarts = 0
+  /** recognising on the device: set once the cloud service was found missing (or remembered so) */
+  let local = readStr(LOCAL_KEY)
+  /** the cloud service failed and the on-device one is being tried */
+  let switching = false
   const finish = () => {
     if (ended) return
     ended = true
@@ -112,7 +178,8 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
   const begin = () => {
     const r = new C()
     current = r
-    r.lang = opts.lang ?? 'en-IN'
+    r.lang = local ?? opts.lang ?? 'en-IN'
+    if (local) r.processLocally = true
     r.interimResults = true
     r.maxAlternatives = 1
     r.continuous = true
@@ -131,6 +198,13 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
       // Silence is not an ending: the session restarts below. A refusal hides the mic from now on.
       if (e.error === 'no-speech' || e.error === 'aborted') return
       if (refused(e.error)) setSpeechDenied(true)
+      // The device's recogniser went away (its model was removed): back to the cloud one next time.
+      if (local && speechServiceMissing(e.error, true)) write(LOCAL_KEY, null)
+      // No speech service behind the API: try the device's own recogniser before giving up.
+      if (!local && !switching && speechServiceMissing(e.error, navigator.onLine)) {
+        switching = true
+        return
+      }
       error = speechErrorText(e.error) || undefined
       stopped = true
     }
@@ -138,6 +212,25 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
     r.onend = () => {
       settled = joinHeard(settled, hearing)
       hearing = ''
+      if (switching) {
+        void localLang(C, opts.lang ?? 'en-IN').then((l) => {
+          switching = false
+          if (!l) {
+            write(NONE_KEY, String(Date.now()))
+            error = NO_SERVICE_TEXT
+            return finish()
+          }
+          local = l
+          write(LOCAL_KEY, l)
+          if (stopped) return finish()
+          try {
+            begin()
+          } catch {
+            finish()
+          }
+        })
+        return
+      }
       // The browser ended a session the person didn't: start another, a few times a minute at most.
       if (!stopped && restarts < 40) {
         restarts += 1

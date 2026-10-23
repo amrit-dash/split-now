@@ -3,7 +3,14 @@
 What the owner asked for that isn't shipped yet, newest first. Read this at the start of a session;
 remove an item when its release merges, and add anything left half-done.
 
-## Batch 9.1.1 (owner: release straight after 9.1.0)
+## Left from 9.2.0 (check by hand)
+
+- [ ] Opera GX / Brave: hold + and check the on-device recogniser installs and the words show (only tested with a fake browser).
+- [ ] Scan → Statement with AI off: try real GPay / PhonePe / bank screenshots (the parser is tested on typed text only).
+- [ ] The production outage of 22 Oct (every callable 500 before reaching the code, ~21:00–02:40 IST): cause not found; it cleared by itself. Read the Cloud Run logs for that window if it happens again.
+- [ ] Multi-group Balances card (someone in several groups) screenshot: the demo has no such person.
+
+## Older
 
 - [ ] Flaky e2e: "receipt photos: the scanned receipt leads the strip…" sometimes sits at the OCR spinner (Tesseract worker, after a fresh `npm ci` / cold Vite cache) and passes on rerun; it fails with or without the latest changes. Make the demo scan deterministic or wait for the worker.
 - [ ] Icons, later: lucide feature icons left on less-used screens (admin, merge, chat composer, expense form internals) could move to Fluent when those screens are next touched.

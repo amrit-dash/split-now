@@ -5,7 +5,6 @@
  * Pure, so every choice is tested; src/hooks/useVoice.ts and the components wire it up.
  * See docs/PENDING.md "Voice and Quick add" (owner's spec, 22 Oct 2026).
  */
-import type { AiSource } from './ai-config'
 
 export type Transcription = 'native' | 'ai'
 export type VoiceEngine = 'native' | 'ai'
@@ -19,8 +18,9 @@ export interface TranscribeOffer {
 
 /**
  * Can this person choose AI transcription? Only with the admin's switch on (aiTranscribe), AI on in
- * their settings, and a key for them: Split Now's transcription key when everyone may use it
- * (aiTranscribeShared) and it is set up, or their own Gemini key, as Which key allows.
+ * their settings, and a key for them: their own Gemini key, or else Split Now's transcription key
+ * when everyone may use it (aiTranscribeShared) and it is set up. Always that order, no choosing
+ * (shared/transcribe.ts planTranscribe). With neither, it asks for their own key.
  */
 export function transcribeOffer(o: {
   mode: 'firebase' | 'demo'
@@ -32,43 +32,16 @@ export function transcribeOffer(o: {
   status: { transcribe?: { configured: boolean } } | null | undefined
   hasOwnKey: boolean
   aiEnabled: boolean
-  keyChoice: AiSource
 }): TranscribeOffer {
   if (o.mode === 'demo') return { ai: false, why: 'AI transcription needs the online app. The demo uses your phone’s own speech recognition.' }
   if (!o.flag) return { ai: false, why: 'Transcription with AI is switched off for everyone right now.' }
   if (!o.aiEnabled) return { ai: false, why: 'Turn on Use AI in Settings → AI features first.' }
-  const own = o.hasOwnKey && o.keyChoice !== 'app'
-  const shared = o.sharedFlag && !!o.status?.transcribe?.configured && o.keyChoice !== 'own'
-  if (own || shared) return { ai: true, why: null }
+  const shared = o.sharedFlag && !!o.status?.transcribe?.configured
+  if (o.hasOwnKey || shared) return { ai: true, why: null }
   if (o.status === undefined && o.sharedFlag) return { ai: false, why: null }
-  if (o.keyChoice === 'own') return { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
   if (!o.sharedFlag) return { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' }
   if (o.status === null) return { ai: false, why: 'Can’t check right now. Try again when you’re online.' }
-  return { ai: false, why: 'Split Now’s transcription isn’t set up yet. Your own Gemini key works too (Settings → AI features).' }
-}
-
-/**
- * Settings → Preferences → Transcription: the choices to show, the one picked, and a line saying
- * why AI isn't there or what happens on a phone that can't recognise speech itself. AI shows when
- * it can serve the person (or is already picked, so it can be switched back).
- */
-export function transcriptionView(o: { offer: TranscribeOffer; aiChosen: boolean; nativeOk: boolean }): {
-  options: Transcription[]
-  value: Transcription
-  note: string | null
-} {
-  const value: Transcription = o.aiChosen ? 'ai' : 'native'
-  const options: Transcription[] = o.offer.ai || o.aiChosen ? ['native', 'ai'] : ['native']
-  const notes: string[] = []
-  if (!o.nativeOk)
-    notes.push(
-      o.offer.ai || o.aiChosen
-        ? 'This phone can’t recognise speech itself. Pick AI to talk to Quick add.'
-        : 'This phone can’t recognise speech itself, so Quick add has no mic here.',
-    )
-  else if (o.aiChosen && !o.offer.ai) notes.push('AI can’t be used right now, so your phone listens instead.')
-  if (!o.offer.ai && o.offer.why) notes.push(o.offer.why)
-  return { options, value, note: notes.length ? notes.join(' ') : null }
+  return { ai: false, why: 'Add your own Gemini key in Settings → AI features to transcribe with AI. Split Now’s isn’t set up yet.' }
 }
 
 /**
@@ -83,7 +56,7 @@ export function voiceEngine(o: {
   nativeDenied: boolean
   /** the microphone itself is blocked for this site (Permissions API) */
   micDenied: boolean
-  /** the person picked AI (Preferences → Transcription, or AI features → Transcribe with AI) */
+  /** the person picked AI (AI features → Voice → Transcribe with AI) */
   aiChosen: boolean
   /** transcribeOffer(...).ai, and online */
   aiReady: boolean
@@ -165,3 +138,48 @@ export function pickRecorderMime(supported: (t: string) => boolean): string | un
     }
   })
 }
+
+/** While holding + to talk, a finger that slides this far from where it pressed (any way) cancels on letting go. */
+export const HOLD_CANCEL_PX = 72
+
+/** Where the held finger has slid to: still talking, or letting go now cancels. */
+export const holdDrag = (dx: number, dy: number): 'talk' | 'cancel' => (Math.hypot(dx, dy) > HOLD_CANCEL_PX ? 'cancel' : 'talk')
+
+/** Two taps on + this close together, while it works out what was said, stop it. */
+export const DOUBLE_TAP_MS = 400
+
+export const isDoubleTap = (prev: number | null, now: number): boolean => prev !== null && now - prev >= 0 && now - prev <= DOUBLE_TAP_MS
+
+/** The running words in the talk pill: the latest ones, cut at a word with a leading ellipsis when long. */
+export function liveTail(text: string, max = 40): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= max) return t
+  const cut = t.slice(t.length - max)
+  const space = cut.indexOf(' ')
+  return `…${space > 0 && space < max - 8 ? cut.slice(space + 1) : cut}`
+}
+
+/**
+ * Whether the bars may open their own microphone stream next to the phone's speech recognition.
+ * Apple's WebKit (every iPhone browser, and Safari on a Mac) gives the microphone to one of them
+ * only: a second stream can leave recognition hearing nothing ("Didn't catch that") and asks for
+ * the microphone a second time. There the bars follow the words heard instead.
+ */
+export function meterBesideSpeech(ua: string): boolean {
+  if (/iPhone|iPad|iPod/.test(ua)) return false
+  if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return false
+  return true
+}
+
+/**
+ * The browser has speech recognition but no service behind it (Opera, Brave and other Chromium
+ * builds without Google's speech service answer "network" while online, or "service-not-allowed"):
+ * not a refused microphone, and worth trying the on-device recogniser before giving up.
+ */
+export const speechServiceMissing = (code: string | undefined, online: boolean): boolean =>
+  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online)
+
+/** A browser found to have no working recogniser is asked again after this long (it may have gained one). */
+export const SPEECH_NONE_TTL_MS = 7 * 24 * 3600 * 1000
+
+export const speechNoneStill = (since: number | null, now: number): boolean => since !== null && now - since >= 0 && now - since < SPEECH_NONE_TTL_MS

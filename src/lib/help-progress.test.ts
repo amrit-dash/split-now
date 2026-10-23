@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { celebration, earnsPro, helpProgress, MAX_DONE, parseHelpProgress, sectionFinished, withDone } from './help-progress'
+import { celebration, countsAsRead, dwellFor, earnsPro, helpProgress, MAX_DONE, parseHelpProgress, sectionFinished, withDone } from './help-progress'
 
 describe('parseHelpProgress', () => {
   it('keeps unique non-empty ids, drops anything else', () => {
@@ -50,5 +50,21 @@ describe('celebration', () => {
     expect(celebration(99, false, false)).toBeNull()
     expect(celebration(100, true, false)).toBeNull()
     expect(celebration(100, true, true)).toBe('claimed')
+  })
+})
+
+describe('dwell before a section counts', () => {
+  it('draws 5 to 7.5 s', () => {
+    expect(dwellFor(() => 0)).toBe(5000)
+    expect(dwellFor(() => 0.5)).toBe(6250)
+    expect(dwellFor(() => 0.9999999)).toBeLessThanOrEqual(7500)
+    expect(dwellFor(() => 0.9999999)).toBeGreaterThan(7490)
+    expect(dwellFor(() => 2)).toBeLessThanOrEqual(7500)
+    expect(dwellFor(() => -1)).toBe(5000)
+  })
+  it('needs both: finished and stayed', () => {
+    expect(countsAsRead(true, 6000, 5500)).toBe(true)
+    expect(countsAsRead(true, 5000, 5500)).toBe(false)
+    expect(countsAsRead(false, 9000, 5500)).toBe(false)
   })
 })

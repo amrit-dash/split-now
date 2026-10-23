@@ -7,8 +7,8 @@ import { StepPlayer, StepText } from '@/features/help/StepPlayer'
 import { StoryPlayer } from '@/features/help/StoryPlayer'
 import { APP_SEMVER, useWhatsNew } from '@/hooks/useWhatsNew'
 import { usePageTitle } from '@/lib/brand'
-import { countedSections, guideLayout, type HelpSection, pickStory, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
-import { EMPTY_HELP_PROGRESS, helpProgress, withDone } from '@/lib/help-progress'
+import { countedSections, guideLayout, guideOrder, type HelpSection, nextInGuide, pickStory, relatedOf, searchHelp, sectionsFor } from '@/lib/help'
+import { countsAsRead, dwellFor, EMPTY_HELP_PROGRESS, helpProgress, withDone } from '@/lib/help-progress'
 import { ProCelebration } from '@/features/help/ProCelebration'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
@@ -28,7 +28,8 @@ type Tab = 'guide' | 'new'
  */
 export default function Help() {
   const { sectionId } = useParams()
-  if (sectionId) return <SectionPage id={sectionId} />
+  // Keyed: Up next swaps the id in place, and a new section starts unread with its own clock.
+  if (sectionId) return <SectionPage key={sectionId} id={sectionId} />
   return <HelpHome />
 }
 
@@ -318,15 +319,50 @@ function ReleaseCard({ r, fresh, first }: { r: Release; fresh: boolean; first: b
   )
 }
 
+/**
+ * How long this section has been on screen, against this visit's random 5–7.5 s (src/lib/help-progress.ts):
+ * the clock runs only while the page is visible, and re-renders once, when the time is up.
+ */
+function useStayed(): { ms: number; need: number } {
+  const [need] = useState(() => dwellFor(Math.random))
+  const [ms, setMs] = useState(0)
+  useEffect(() => {
+    let total = 0
+    let since = document.visibilityState === 'visible' ? performance.now() : null
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const arm = () => {
+      clearTimeout(timer)
+      if (since === null) return
+      timer = setTimeout(() => setMs(total + (performance.now() - (since ?? performance.now()))), Math.max(0, need - total))
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') since ??= performance.now()
+      else if (since !== null) {
+        total += performance.now() - since
+        since = null
+      }
+      arm()
+    }
+    arm()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [need])
+  return { ms, need }
+}
+
 function SectionPage({ id }: { id: string }) {
   const { user } = useMe()
   const shown = sectionsFor(useMode(), SECTIONS)
   const progress = useHelpProgressLoaded()
   const [finished, setFinished] = useState(false)
+  const stayed = useStayed()
   const s = SECTIONS.find((x) => x.id === id)
   useEffect(() => {
-    if (finished && progress && !progress.done.includes(id)) void repo.saveHelpProgress(user.uid, withDone(progress, id))
-  }, [finished, progress, id, user.uid])
+    if (countsAsRead(finished, stayed.ms, stayed.need) && progress && !progress.done.includes(id)) void repo.saveHelpProgress(user.uid, withDone(progress, id))
+  }, [finished, stayed, progress, id, user.uid])
   usePageTitle(s ? s.title : 'Help')
   if (!s)
     return (
@@ -340,6 +376,7 @@ function SectionPage({ id }: { id: string }) {
       </div>
     )
   const related = relatedOf(s, shown)
+  const next = nextInGuide(s.id, guideOrder(CHAPTERS, shown))
   // Finished: saved once the account's progress has loaded (never over a list not seen yet).
   const finish = () => setFinished(true)
   return (
@@ -384,6 +421,18 @@ function SectionPage({ id }: { id: string }) {
             ))}
           </div>
         </section>
+      )}
+      {/* On to the next section in the guide's order, so reading on doesn't mean going back each time (owner). */}
+      {next && (
+        <Link to={`/help/${next.id}`} replace className="card flex min-h-16 items-center gap-3 p-4 transition active:scale-[0.99]" data-testid="help-up-next">
+          <span className="min-w-0 flex-1">
+            <span className="label block">Up next</span>
+            <span className="block truncate font-semibold">{next.title}</span>
+          </span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill" aria-hidden>
+            <ArrowRight size={18} />
+          </span>
+        </Link>
       )}
     </div>
   )

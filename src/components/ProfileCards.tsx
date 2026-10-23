@@ -10,7 +10,7 @@ import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus 
 import { appLocale } from '@/lib/locale'
 import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
-import { ProPill, ProRing } from './ProBadge'
+import { ProRing } from './ProBadge'
 import { badgeLabel } from '@/lib/pro'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
@@ -67,9 +67,11 @@ export function AccountCard({
           data-testid="profile-photo"
         >
           {pro ? (
-            <ProRing photo={60} word={pro}>
-              <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
-            </ProRing>
+            <span className="flex" data-testid="profile-pro">
+              <ProRing photo={60} word={pro}>
+                <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
+              </ProRing>
+            </span>
           ) : (
             <Avatar name={name || '?'} photoURL={photoURL} color="accent" size={60} />
           )}
@@ -89,15 +91,10 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-xl font-bold">{name || 'Your name'}</span>
-              {pro && (
-                // Your own badge: just the mark, nothing to tap.
-                <span className="flex shrink-0 items-center" data-testid="profile-pro">
-                  <ProPill h={12} word={pro} />
-                  <span className="sr-only">{badgeLabel(pro, false)}</span>
-                </span>
-              )}
+            {/* Your badge is the ring round the photo alone (owner): a pill by the name said it twice and outshouted the name. */}
+            <span className="block truncate text-xl font-bold">
+              {name || 'Your name'}
+              {pro && <span className="sr-only">, {badgeLabel(pro, false)}</span>}
             </span>
             <span className="text-muted block truncate text-sm">{sub}</span>
           </span>

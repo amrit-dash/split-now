@@ -17,7 +17,7 @@ import { primeAudio } from '@/lib/mic'
 import { plusTap } from '@/lib/plus-target'
 import { groupInText, lineFor } from '@/lib/quick-group'
 import { lastGroup } from '@/lib/recents'
-import { barHeights } from '@/lib/voice'
+import { barHeights, holdDrag, isDoubleTap, liveTail } from '@/lib/voice'
 import { whatsNewMayShow } from '@/lib/whats-new-spot'
 import { Aurora } from './Aurora'
 import { MicIcon } from './icons'
@@ -32,9 +32,11 @@ const NOT_HEARD = 'Didn’t catch that. Hold + again and talk, a little closer t
  * The tab bar's + (src/lib/plus-target.ts): a tap does what it always did (Add expense inside a
  * group, the Create sheet elsewhere). Press and hold talks to Quick add, wherever voice works
  * (src/hooks/useVoice.ts; without it a hold opens the Create sheet, as before): + turns into a mic
- * with a buzz and a soft blip, accent bars above it follow the voice and a ripple spreads from it.
- * Letting go: the bars fade, a spinner sits on + (it takes no taps until done), then Quick add's
- * result: the screen it opened, or a plain answer in a bubble. A line that needs a choice (two
+ * with a buzz and a soft blip, and a pill rises above it: five bars, centred, that grow up and down
+ * with the voice; once words are heard (the phone's recognition) it widens and they run beside the
+ * bars. Sliding the finger away turns the pill to "Let go to cancel". Letting go: the pill fades, a
+ * spinner sits on + (a double tap stops it), then Quick add's result: the screen it opened, or a
+ * plain answer in a bubble. A line that needs a choice (two
  * groups fit) opens the Create sheet with the line in Quick add. Bubbles from + also teach hold to
  * talk (src/lib/voice-teach.ts) until the account has tried it.
  */
@@ -55,9 +57,28 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
   }
   const [answer, setAnswer] = useState<Bubble | null>(null)
   const level = useRef(0)
+  /** the words heard so far (the phone's recognition; AI has none until it's done) */
+  const [words, setWords] = useState('')
+  /** the held finger slid away: letting go cancels */
+  const [cancel, setCancel] = useState(false)
+  const cancelRef = useRef(false)
+  const arm = (v: boolean) => {
+    if (cancelRef.current === v) return
+    cancelRef.current = v
+    setCancel(v)
+    try {
+      navigator.vibrate?.(8)
+    } catch {
+      /* not offered */
+    }
+  }
+  /** stopped with a double tap while it worked: nothing opens */
+  const stopped = useRef(false)
+  const lastTap = useRef<number | null>(null)
   const voice = useVoice({
     engine,
     meter: true,
+    onText: setWords,
     onLevel: (l) => {
       level.current = l
     },
@@ -86,15 +107,26 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
     closeBubble()
     // The first hold for voice, on any device: the teaching stops everywhere (no need to finish).
     if (!profile.voiceTried) void repo.markVoiceTried(user.uid)
+    setWords('')
+    arm(false)
+    stopped.current = false
     go('listening')
     if (!(await voice.start())) go('idle')
   }
 
   const endVoice = async () => {
     if (phaseRef.current !== 'listening') return
+    // Slid away before letting go: nothing was meant.
+    if (cancelRef.current) {
+      voice.cancel()
+      arm(false)
+      go('idle')
+      return toast('Cancelled')
+    }
     go('working')
     try {
       const r = await voice.stop()
+      if (stopped.current) return
       if (r.error) return toast(r.error, 'err')
       const text = r.text.trim()
       if (!text) return setAnswer({ kind: 'answer', text: NOT_HEARD })
@@ -107,8 +139,8 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       const l = lineFor({ text, named, groups, picked })
       // Two groups fit the words: the person says which, in Quick add, with the line in it.
       if (l.which) return onSheet(text)
-      const o = await run.send({ text, line: l.line, target: l.target, picked, fresh: l.fresh, named })
-      if (o.kind === 'answer') setAnswer({ kind: 'answer', text: o.text })
+      const o = await run.send({ text, line: l.line, target: l.target, picked, fresh: l.fresh, named, stopped: () => stopped.current })
+      if (o.kind === 'answer' && !stopped.current) setAnswer({ kind: 'answer', text: o.text })
     } finally {
       go('idle')
     }
@@ -117,6 +149,18 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
   const press = useLongPress({
     onDown: primeAudio,
     onTap: () => {
+      // Working it out: a double tap stops it (the first tap only arms it).
+      if (phaseRef.current === 'working') {
+        const now = Date.now()
+        if (isDoubleTap(lastTap.current, now)) {
+          lastTap.current = null
+          stopped.current = true
+          voice.cancel()
+          go('idle')
+          toast('Stopped')
+        } else lastTap.current = now
+        return
+      }
       if (phaseRef.current !== 'idle') return
       closeBubble()
       const a = plusTap(loc.pathname)
@@ -130,20 +174,16 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       else onSheet()
     },
     onHoldEnd: engine ? () => void endVoice() : undefined,
+    onHoldMove: (dx, dy) => {
+      if (phaseRef.current === 'listening') arm(holdDrag(dx, dy) === 'cancel')
+    },
   })
 
   const listening = phase === 'listening'
   const working = phase === 'working'
   return (
     <>
-      {/* While held: a soft ring spreads from + (still with reduced motion), under the button. */}
-      {listening && (
-        <span aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-[3.75rem] w-[3.75rem] -translate-x-1/2 -translate-y-[45%]">
-          <span className="voice-ripple absolute inset-0 rounded-full border-2 border-brand-400/70 dark:border-brand-300/60" />
-          <span className="voice-ripple voice-ripple-late absolute inset-0 rounded-full border-2 border-fill-to-400/60" />
-        </span>
-      )}
-      <VoiceBars on={listening} level={level} />
+      <TalkPill on={listening} level={level} words={words} cancel={cancel} />
       <button
         type="button"
         {...press}
@@ -153,9 +193,9 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
         style={{ WebkitTouchCallout: 'none' }}
         aria-label={
           listening
-            ? 'Listening. Let go when you’re done'
+            ? 'Listening. Let go when you’re done, or slide away to cancel'
             : working
-              ? 'Working it out'
+              ? 'Working it out. Double tap to stop'
               : groupId
                 ? engine
                   ? 'Add expense to this group (press and hold to talk)'
@@ -184,8 +224,16 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
   )
 }
 
-/** Four or five accent bars above + that follow the voice (heights written every frame, no re-render); they fade when it ends. */
-function VoiceBars({ on, level }: { on: boolean; level: { current: number } }) {
+/** A bar at rest is a dot as wide as it is tall; at full voice it fills the 28 px row. */
+const BAR_MIN = 5
+const barPx = (h: number) => Math.round(BAR_MIN + Math.max(0, (h - 0.15) / 0.85) * (28 - BAR_MIN))
+
+/**
+ * The talk pill above +: five bars, centred, that grow up and down with the voice. Words heard so far
+ * widen it and run on the right, wrapping to a few lines (the bars stay centred); a finger slid away turns it to "Let go to cancel". Heights are
+ * written every frame (no re-render); it fades when the hold ends.
+ */
+function TalkPill({ on, level, words, cancel }: { on: boolean; level: { current: number }; words: string; cancel: boolean }) {
   const bars = useRef<Array<HTMLSpanElement | null>>([])
   const [shown, setShown] = useState(false)
   useEffect(() => {
@@ -195,69 +243,81 @@ function VoiceBars({ on, level }: { on: boolean; level: { current: number } }) {
       const tick = (t: number) => {
         const h = barHeights(level.current, t)
         bars.current.forEach((b, i) => {
-          if (b) b.style.transform = `scaleY(${h[i]})`
+          // Real heights, not scaleY: a scaled bar squashes its round ends into corners.
+          if (b) b.style.height = `${barPx(h[i])}px`
         })
         raf = requestAnimationFrame(tick)
       }
       raf = requestAnimationFrame(tick)
       return () => cancelAnimationFrame(raf)
     }
-    // Let go: they settle and fade, then leave.
-    for (const b of bars.current) if (b) b.style.transform = 'scaleY(0.15)'
+    // Let go: they settle to dots and fade, then leave.
+    for (const b of bars.current) if (b) b.style.height = `${BAR_MIN}px`
     const t = setTimeout(() => setShown(false), 260)
     return () => clearTimeout(t)
   }, [on, level])
   if (!shown && !on) return null
+  // Up to about three lines of the latest words; the pill grows to hold them, the bars stay centred.
+  const text = cancel ? 'Let go to cancel' : liveTail(words, 90)
   return (
     <span
       aria-hidden
       data-testid="voice-bars"
-      className={`pointer-events-none absolute bottom-[calc(100%+2.25rem)] left-1/2 flex h-10 -translate-x-1/2 items-end gap-[3px] rounded-full bg-white/95 px-3 py-1.5 shadow-lg shadow-slate-900/15 ring-1 ring-slate-900/5 backdrop-blur dark:bg-ink-800/95 dark:shadow-black/40 dark:ring-white/10 transition-opacity duration-200 ${on ? 'opacity-100' : 'opacity-0'}`}
+      data-cancel={cancel || undefined}
+      className={`voice-pill voice-surface pointer-events-none absolute bottom-[calc(100%+3.25rem)] left-1/2 flex min-h-12 -translate-x-1/2 items-center gap-3 overflow-hidden px-4 py-2.5 transition-opacity duration-200 ${text ? 'rounded-3xl' : 'rounded-full'} ${cancel ? 'voice-cancel' : ''} ${on ? 'opacity-100' : 'opacity-0'}`}
+      style={text ? { width: 'min(20rem, calc(100vw - 2rem))' } : { maxWidth: '6rem' }}
     >
-      {[0, 1, 2, 3, 4].map((i) => (
+      <span className="relative flex h-7 shrink-0 items-center gap-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            ref={(el) => {
+              bars.current[i] = el
+            }}
+            className={`voice-bar block w-[5px] rounded-full bg-gradient-to-b from-fill to-fill-to-400 ${cancel ? 'opacity-0' : ''}`}
+            style={{ height: BAR_MIN }}
+          />
+        ))}
+        {cancel && <X size={20} strokeWidth={2.6} className="absolute inset-0 m-auto text-rose-600 dark:text-rose-300" />}
+      </span>
+      {text && (
         <span
-          key={i}
-          ref={(el) => {
-            bars.current[i] = el
-          }}
-          className="voice-bar block h-full w-[5px] origin-bottom rounded-full bg-gradient-to-t from-fill to-fill-to-400 shadow-sm"
-          style={{ transform: 'scaleY(0.15)' }}
-        />
-      ))}
+          className={`line-clamp-3 min-w-0 flex-1 text-sm font-semibold leading-snug ${cancel ? 'text-rose-700 dark:text-rose-200' : 'text-slate-800 dark:text-slate-100'}`}
+        >
+          {text}
+        </span>
+      )}
     </span>
   )
 }
 
-/** A speech bubble rising from +: the teaching tip, or Quick add's answer. ✕ or a sideways swipe closes it. */
+/** A speech bubble rising from +, with a gap above it: the teaching tip, or Quick add's answer. ✕ or a sideways swipe closes it. */
 function PlusBubble({ bubble, onClose }: { bubble: Bubble; onClose: () => void }) {
   const swipe = useSwipeDismiss(onClose)
   return (
     <div
-      className="voice-bubble fixed inset-x-4 bottom-[calc(var(--nav-h)+1.9rem)] z-40 mx-auto w-fit max-w-[18rem]"
+      className="voice-bubble fixed inset-x-3 bottom-[calc(var(--nav-h)+2.6rem)] z-40 mx-auto max-w-md"
       role="status"
       data-testid={bubble.kind === 'teach' ? 'voice-teach' : 'voice-answer'}
     >
-      <div
-        {...swipe.bind}
-        className="relative flex items-start gap-1 rounded-2xl bg-white py-2.5 pl-3.5 pr-1 text-sm shadow-xl shadow-slate-900/15 ring-1 ring-slate-900/5 dark:bg-ink-800 dark:shadow-black/40 dark:ring-white/10"
-      >
-        <span className="min-w-0 flex-1 py-0.5">
+      <div {...swipe.bind} className="voice-surface relative flex items-center gap-2 rounded-2xl py-2 pl-4 pr-1.5 text-sm">
+        <span className="min-w-0 flex-1 py-1">
           {bubble.title && <span className="block text-xs font-bold text-brand-700 dark:text-brand-300">{bubble.title}</span>}
           <span className="block font-semibold leading-snug text-slate-800 dark:text-slate-100">{bubble.text}</span>
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-black/5 dark:text-slate-300 dark:hover:bg-white/10"
           aria-label="Close"
           data-testid="voice-bubble-close"
         >
-          <X size={16} aria-hidden />
+          <X size={18} aria-hidden />
         </button>
-        {/* the tail, pointing down at + */}
+        {/* the tail, pointing down at +: the same surface, clipped to its lower half */}
         <span
           aria-hidden
-          className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 rounded-[3px] bg-white ring-1 ring-slate-900/5 [clip-path:polygon(100%_0,100%_100%,0_100%)] dark:bg-ink-800 dark:ring-white/10"
+          className="voice-surface absolute -bottom-[7px] left-1/2 h-3.5 w-3.5 -translate-x-1/2 rotate-45 rounded-[3px] !shadow-none [clip-path:polygon(100%_0,100%_100%,0_100%)]"
         />
       </div>
     </div>

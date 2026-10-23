@@ -60,19 +60,23 @@ describe('isDefaultMotion', () => {
 
 describe('activeMotion', () => {
   it('runs what is switched on', () => {
-    expect(activeMotion({ ...DEFAULT_MOTION, circles: false }, false)).toEqual({ fireworks: true, flow: true, circles: false, pro: true })
+    expect(activeMotion({ ...DEFAULT_MOTION, circles: false }, false)).toEqual({ fireworks: true, flow: true, circles: false, ring: true, shine: true })
   })
   it('stills everything when the master switch is off', () => {
-    expect(activeMotion({ ...DEFAULT_MOTION, on: false }, false)).toEqual({ fireworks: false, flow: false, circles: false, pro: false })
+    expect(activeMotion({ ...DEFAULT_MOTION, on: false }, false)).toEqual({ fireworks: false, flow: false, circles: false, ring: false, shine: false })
   })
   it('stills the Pro badges on their own switch, showing them still', () => {
-    expect(activeMotion({ ...DEFAULT_MOTION, pro: false }, false).pro).toBe(false)
-    expect(DEFAULT_MOTION.pro).toBe(true)
-    expect(parseMotion(JSON.stringify({ pro: false })).pro).toBe(false)
-    expect(parseMotion(JSON.stringify({ pro: 'no' })).pro).toBe(true)
+    expect(activeMotion({ ...DEFAULT_MOTION, ring: false }, false)).toMatchObject({ ring: false, shine: true })
+    expect(activeMotion({ ...DEFAULT_MOTION, shine: false }, false)).toMatchObject({ ring: true, shine: false })
+    expect(DEFAULT_MOTION).toMatchObject({ ring: true, shine: true })
+    expect(parseMotion(JSON.stringify({ ring: false })).ring).toBe(false)
+    expect(parseMotion(JSON.stringify({ shine: 'no' })).shine).toBe(true)
+    // The old single switch seeds both; a new one wins over it.
+    expect(parseMotion(JSON.stringify({ pro: false }))).toMatchObject({ ring: false, shine: false })
+    expect(parseMotion(JSON.stringify({ pro: false, shine: true }))).toMatchObject({ ring: false, shine: true })
   })
   it('lets the device reduce-motion setting win', () => {
-    expect(activeMotion(DEFAULT_MOTION, true)).toEqual({ fireworks: false, flow: false, circles: false, pro: false })
+    expect(activeMotion(DEFAULT_MOTION, true)).toEqual({ fireworks: false, flow: false, circles: false, ring: false, shine: false })
   })
 })
 

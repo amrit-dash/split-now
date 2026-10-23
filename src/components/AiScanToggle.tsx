@@ -10,7 +10,7 @@ import { aiAvailability } from '@/lib/ai-copy'
 import { aiScanEnabled, aiScanPossible, setAiScan } from '@/lib/ai'
 import { savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
 import { type ScanCardKind, scanAiButton, scanAiTitle, scanAiToggledText, scanAiWhyLink, scanAiWhyText } from '@/lib/scan-ai'
-import { BotIcon } from './icons'
+import { AiReadIcon } from './icons'
 import { type Hint, HintText, InfoTip } from './Hint'
 import { Switch } from './Switch'
 import { useToast } from './Toast'
@@ -49,7 +49,7 @@ function useAiScanSetting() {
 
 /**
  * Read with AI as an icon button in the top-right corner of a Scan card. A real toggle
- * (aria-pressed, a filled bot with "AI on" vs a line bot with "AI off"); when AI can't read here
+ * (aria-pressed, a filled brain with "AI on" vs a line one with "AI off"); when AI can't read here
  * it stays, and a tap says why. Hidden on Payment (read on the phone only) and in Simple.
  */
 export function ScanAiCorner({ kind, disabled }: { kind: ScanCardKind; disabled?: boolean }) {
@@ -75,29 +75,34 @@ export function ScanAiCorner({ kind, disabled }: { kind: ScanCardKind; disabled?
       return
     }
     s.set(!on)
-    toast(scanAiToggledText(!on, kind))
+    toast(scanAiToggledText(!on))
   }
+  // Top-right inside the card's padding: the state in words on the left (never colour alone), the
+  // switch itself a round icon button, filled in the accent when on.
   return (
     <button
       type="button"
       aria-pressed={on}
       aria-label={b.state === 'unavailable' ? 'Read with AI, not available here' : 'Read with AI'}
-      title={scanAiTitle(b, kind)}
+      title={scanAiTitle(b)}
       disabled={disabled}
       onClick={onClick}
       data-testid="scan-ai"
       data-state={b.state}
-      className="absolute top-1 right-1 z-10 flex h-11 min-w-11 items-center justify-center rounded-full disabled:opacity-40"
+      className="group absolute top-2 right-2 z-10 flex h-11 items-center gap-1.5 rounded-full pl-2 disabled:opacity-40"
     >
+      <span aria-hidden className={`text-xs font-semibold ${on ? 'text-brand-700 dark:text-brand-300' : 'text-muted'}`}>
+        {on ? 'AI on' : 'AI off'}
+      </span>
       <span
-        className={`flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold shadow-sm transition-colors duration-150 motion-reduce:transition-none ${
+        aria-hidden
+        className={`flex h-9 w-9 items-center justify-center rounded-full transition-[background-color,color,transform] duration-150 group-active:scale-95 motion-reduce:transition-none ${
           on
-            ? 'bg-fill text-on-fill'
-            : 'bg-white/90 text-slate-600 ring-1 ring-slate-200 backdrop-blur dark:bg-ink-900/85 dark:text-slate-300 dark:ring-white/10'
+            ? 'bg-fill text-on-fill shadow-sm'
+            : `bg-slate-100 text-slate-500 ring-1 ring-slate-200 dark:bg-ink-800 dark:text-slate-400 dark:ring-white/10 ${b.state === 'unavailable' ? 'opacity-60' : ''}`
         }`}
       >
-        <BotIcon size={18} solid={on} />
-        <span aria-hidden>{on ? 'AI on' : 'AI off'}</span>
+        <AiReadIcon size={20} solid={on} />
       </span>
     </button>
   )

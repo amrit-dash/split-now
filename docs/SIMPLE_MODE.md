@@ -43,7 +43,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Groups | Recently deleted, archived | Import from Splitwise, personal wallets (every list, picker and form; the wallets stay) |
 | Group chat | The chat, tools, tags, replies, the header's mute bell; About this chat's explainer and How to use it | About this chat → Your settings (suggest tools, AI suggestions, mute switch) |
 | Create sheet | Quick add, Add expense, New group, Scan | |
-| Voice (9.1) | Quick add's mic, holding + to talk (with its bars, answer and teaching bubbles), Settings → Preferences → Voice → Transcription, Settings → AI features → Voice (Transcribe with AI, Which key) | |
+| Voice (9.1) | Quick add's mic, holding + to talk (its talk pill with live words, slide away to cancel, double tap to stop, answer and teaching bubbles), Settings → AI features → Voice (Phone | AI; its one home, owner 22 Oct 2026) | |
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |
 | Group balances, Balances | Remind and Nudge | |

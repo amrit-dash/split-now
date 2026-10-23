@@ -42,7 +42,7 @@ export const STORY_BEATS: Record<StoryKind, number> = {
   jug: 3,
   jars: 3,
   doors: 3,
-  pro: 3,
+  pro: 4,
 }
 
 export interface HelpSection {
@@ -107,7 +107,7 @@ export const STORY_ANIM_MS: Record<StoryKind, number[]> = {
   jug: [900, 4100, 700],
   jars: [1350, 1800, 1850],
   doors: [1700, 1500, 2300],
-  pro: [1600, 1650, 1300],
+  pro: [1600, 2100, 1300, 1300],
 }
 
 /** An explainer beat stays until its caption is read and its picture has finished, plus a moment to take it in. */
@@ -188,6 +188,20 @@ export function guideLayout(
       .map((chapter) => ({ chapter, sections: listed.filter((s) => s.chapter === chapter.id && !s.core && !howItWorks(s)) }))
       .filter((c) => c.sections.length),
   }
+}
+
+/**
+ * The guide in reading order, as its front page lists it: How it works, the main features, then
+ * each chapter. nextInGuide is the section after `id` in it (null after the last one, or for a
+ * section the guide doesn't list), for the Up next card at the end of a section.
+ */
+export function guideOrder(chapters: Chapter[], sections: HelpSection[]): HelpSection[] {
+  const g = guideLayout(chapters, sections)
+  return [...g.stories, ...g.core, ...g.chapters.flatMap((c) => c.sections)]
+}
+export function nextInGuide(id: string, order: HelpSection[]): HelpSection | null {
+  const i = order.findIndex((s) => s.id === id)
+  return i < 0 ? null : (order[i + 1] ?? null)
 }
 
 /**

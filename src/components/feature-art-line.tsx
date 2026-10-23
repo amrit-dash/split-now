@@ -557,6 +557,15 @@ const art: Record<UiIconName, ReactElement> = {
       </g>
     </>
   ),
+  paymentProof: (
+    <>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+        <path d="M22 12c0 4.7 0 7-1.5 8.5C19.1 22 16.7 22 12 22s-7 0-8.5-1.5C2 19.1 2 16.7 2 12s0-7 1.5-8.5C4.9 2 7.3 2 12 2" />
+        <path strokeLinejoin="round" d="m13 7 2 2 5-5" />
+        <path d="M2 12.5 3.8 11c.9-.8 2.2-.8 3 0l4.4 4.4a2 2 0 0 0 2.5.2l.3-.2a3 3 0 0 1 3.8.2l3.2 2.9" opacity=".5" />
+      </g>
+    </>
+  ),
   phone: (
     <>
       <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
@@ -675,6 +684,14 @@ const art: Record<UiIconName, ReactElement> = {
           d="m18.6 15.7 1.8-5.2c1.5-4.5 2.2-6.7 1-8s-3.4-.4-8 1.1l-5 1.8Q2.9 7 2.3 8a3 3 0 0 0 0 2.7c.5.9 2.3 1.5 6 2.7l1 .5q.5.2.6.6l.5 1c1.2 3.7 1.8 5.5 2.7 6a3 3 0 0 0 2.7 0c1-.5 1.5-2.3 2.7-6Z"
         />
         <path fill="currentColor" d="M16.2 8.8a.8.8 0 0 0-1-1zm-5.5 5.5 5.5-5.5-1-1-5.6 5.5z" opacity=".5" />
+      </g>
+    </>
+  ),
+  shares: (
+    <>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">
+        <path d="M2 14c0-3.8 0-5.7 1.2-6.8C4.3 6 6.2 6 10 6h4c3.8 0 5.7 0 6.8 1.2C22 8.3 22 10.2 22 14s0 5.7-1.2 6.8C19.7 22 17.8 22 14 22h-4c-3.8 0-5.7 0-6.8-1.2C2 19.7 2 17.8 2 14" />
+        <path d="M16 6q.1-2.7-.6-3.4T12 2q-2.7-.1-3.4.6T8 6m1.8 4.5h4.4m-4.4 2.1h4.4m-3.6-2.1q2.6.2 2.6 2c0 1.9-.9 2.2-2.6 2.2h-.9l3.4 3.3" opacity=".5" />
       </g>
     </>
   ),

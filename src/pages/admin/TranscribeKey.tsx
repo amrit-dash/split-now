@@ -32,7 +32,10 @@ export function TranscribeKey({
   usedToday: number
 }) {
   const toast = useToast()
-  const t = status.transcribe
+  // What the last Save / Remove answered wins over the status until the status agrees: aiStatus can
+  // lag the save by a moment, and the screen must show the key just saved (with Test), not the paste box again.
+  const [saved, setSaved] = useState<{ configured: boolean; hint?: string; billing?: string } | null>(null)
+  const t = saved && saved.configured !== !!status.transcribe?.configured ? { ...status.transcribe, ...saved } : status.transcribe
   const configured = !!t?.configured
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
@@ -45,6 +48,8 @@ export function TranscribeKey({
     try {
       const r = await repo.transcribeKey(action, action === 'set' ? draft : undefined)
       setResult(action === 'remove' ? null : r)
+      if (action === 'set') setSaved({ configured: true, hint: r.hint ?? undefined, billing: r.billing })
+      if (action === 'remove') setSaved({ configured: false })
       setDraft('')
       setEditing(false)
       toast(

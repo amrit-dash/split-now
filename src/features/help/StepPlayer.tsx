@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { Camera, Check, ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from 'lucide-react'
 import { Collapsible } from '@/components/Collapsible'
 import { useMotion } from '@/hooks/useMotion'
 import { boldParts, clampStep, type HelpShot, type HelpStep, nextStep, stepMs } from '@/lib/help'
@@ -48,10 +48,10 @@ export function StepPlayer({ sectionId, steps, onLast }: { sectionId: string; st
               type="button"
               onClick={() => p.go(n)}
               aria-current={n === step ? 'step' : undefined}
-              className={`flex min-h-11 w-full items-start gap-3 rounded-2xl px-2 py-2 text-left text-sm leading-6 transition-colors duration-200 ${n === step ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm leading-5 transition-colors duration-200 ${n === step ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
               data-testid="help-step"
             >
-              {/* 24 px, the text's line height: the number sits level with the first line. */}
+              {/* Centred on the row, with the text beside it, however many lines it takes. */}
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors duration-200 ${n === step ? 'bg-fill text-on-fill' : n < step ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'}`}
               >
@@ -140,29 +140,40 @@ export function usePlayer(times: number[], onLast?: () => void) {
 
 /** Back, Play or Pause with where it is ("step 2 of 4"), and Next. */
 export function PlayControls({ p, count, noun }: { p: ReturnType<typeof usePlayer>; count: number; noun: string }) {
+  const last = p.step === count - 1
+  // One height for all three; the arrows are round icon buttons, the middle one says where you are (owner).
   return (
     <div className="mb-3 flex items-center gap-2">
-      <button type="button" className="chip min-h-11" onClick={() => p.go(p.step - 1)} aria-label={`Previous ${noun}`} data-testid="help-prev">
-        <ChevronLeft size={16} aria-hidden />
+      <button
+        type="button"
+        className="chip h-11 w-11 shrink-0 justify-center !p-0"
+        onClick={() => p.go(p.step - 1)}
+        aria-label={`Previous ${noun}`}
+        data-testid="help-prev"
+      >
+        <ChevronLeft size={18} aria-hidden />
       </button>
       <button
         type="button"
-        className="chip min-h-11 flex-1 justify-center"
+        className="chip h-11 min-w-0 flex-1 justify-center"
         onClick={() => p.setPlaying((x) => !x)}
         aria-pressed={p.playing}
         data-testid="help-play"
       >
-        {p.playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />} {p.playing ? 'Pause' : 'Play'} · {noun} {p.step + 1} of {count}
+        {p.playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
+        <span className="truncate">
+          {p.playing ? 'Pause' : 'Play'} · {noun} {p.step + 1} of {count}
+        </span>
       </button>
       {/* The way on: each step waits for it (owner). On the last one it starts again. */}
       <button
         type="button"
-        className="btn-primary btn-sm min-h-11 !px-3"
+        className="btn-primary flex h-11 w-11 shrink-0 items-center justify-center !rounded-full !p-0"
         onClick={() => p.go(p.step + 1)}
-        aria-label={p.step === count - 1 ? `Back to the first ${noun}` : `Next ${noun}`}
+        aria-label={last ? `Back to the first ${noun}` : `Next ${noun}`}
         data-testid="help-next"
       >
-        {p.step === count - 1 ? 'Again' : 'Next'} <ChevronRight size={16} aria-hidden />
+        {last ? <RotateCcw size={18} aria-hidden /> : <ChevronRight size={20} aria-hidden />}
       </button>
     </div>
   )

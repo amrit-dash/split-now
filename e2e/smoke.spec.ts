@@ -467,12 +467,10 @@ test('Voice: without speech recognition there is no mic, and holding + inside a 
   await expect(page.getByTestId('nav-create')).toHaveAttribute('aria-label', /press and hold for more/)
   await page.getByTestId('nav-create').click({ button: 'right' })
   await expect(page.getByRole('dialog').getByTestId('create-quick-add')).toBeVisible()
-  // Preferences → Voice: the demo has no server, so Native alone, with the reason.
+  // Transcription lives in AI features → Voice alone (owner): Preferences has no Voice section.
   await page.goto('/settings/preferences')
-  const t = page.getByTestId('transcription')
-  await expect(t.getByRole('radio')).toHaveCount(1)
-  await expect(t.getByRole('radio', { name: /Native/ })).toHaveAttribute('aria-checked', 'true')
-  await expect(t.getByTestId('transcription-note')).toContainText('needs the online app')
+  await expect(page.getByTestId('mode')).toBeVisible()
+  await expect(page.getByTestId('transcription')).toHaveCount(0)
 })
 
 test('Voice: Quick add’s mic is a toggle; the words land in the box and wait for send', async ({ page }) => {
@@ -511,6 +509,86 @@ test('Voice: hold + inside a group to talk; letting go runs Quick add and opens 
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
   await expect(amountField(page)).toHaveValue(/1200/)
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
+})
+
+test('Voice: a browser without a speech service (Opera) moves to its on-device recogniser and the words still come', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>
+    w.__installed = false
+    class NoService {
+      lang = ''
+      processLocally = false
+      onresult: ((e: unknown) => void) | null = null
+      onerror: ((e: unknown) => void) | null = null
+      onend: (() => void) | null = null
+      onaudiostart: (() => void) | null = null
+      timers: ReturnType<typeof setTimeout>[] = []
+      static available = async () => (w.__installed ? 'available' : 'downloadable')
+      static install = async () => {
+        w.__installed = true
+        return true
+      }
+      start() {
+        // The cloud service isn't there: Chromium answers "network" while online.
+        if (!this.processLocally) {
+          setTimeout(() => {
+            this.onerror?.({ error: 'network' })
+            this.onend?.()
+          }, 30)
+          return
+        }
+        this.onaudiostart?.()
+        const words = 'Dinner 1200 with Rahul, I paid'.split(' ')
+        let i = 0
+        const tick = () => {
+          i += 1
+          this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: words.slice(0, i).join(' ') }], { isFinal: i === words.length })] })
+          if (i < words.length) this.timers.push(setTimeout(tick, 60))
+        }
+        this.timers.push(setTimeout(tick, 60))
+      }
+      stop() {
+        for (const t of this.timers) clearTimeout(t)
+        setTimeout(() => this.onend?.(), 20)
+      }
+      abort() {
+        this.stop()
+      }
+    }
+    w.SpeechRecognition = NoService
+    w.webkitSpeechRecognition = NoService
+    if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('no microphone here', 'NotFoundError'))
+  })
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
+  await page.mouse.up()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+  // Remembered: the next time goes straight to the device's recogniser.
+  expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
+})
+
+test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  const box = await plus.boundingBox()
+  if (!box) throw new Error('no +')
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  const pill = page.getByTestId('voice-bars')
+  await expect(pill).toContainText('Dinner 1200')
+  await page.mouse.move(x, y - 120, { steps: 6 })
+  await expect(pill).toHaveAttribute('data-cancel', 'true')
+  await expect(pill).toContainText('Let go to cancel')
+  await page.mouse.up()
+  await expect(page.getByTestId('toasts')).toContainText('Cancelled')
+  await expect(plus).toHaveAttribute('data-voice', 'idle')
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
 
 test('Voice: a line Quick add can’t act on gets a plain answer, not an empty form', async ({ page }) => {
@@ -1429,24 +1507,19 @@ test('group list: sort by amount or date added, filter expenses only', async ({ 
   // no pills until something is on
   await expect(page.getByTestId('list-pills')).toHaveCount(0)
   await page.getByTestId('list-options-open').click()
-  // Sort by starts folded, its choice in the header
-  await expect(page.getByTestId('list-sort-summary')).toHaveText('Date spent, newest first')
-  await page
-    .getByTestId('list-sort')
-    .getByRole('button', { name: /Sort by/ })
-    .click()
-  await page.getByTestId('sort-amount-desc').click()
-  await expect(page.getByTestId('list-sort-summary')).toHaveText('Amount, biggest first')
+  // Sort by is a dropdown showing its choice
+  const sortBy = page.getByRole('combobox', { name: 'Sort by' })
+  await expect(sortBy).toContainText('Date spent, newest first')
+  await sortBy.click()
+  await page.getByRole('option', { name: 'Amount, biggest first' }).click()
+  await expect(sortBy).toContainText('Amount, biggest first')
   await page.getByTestId('list-done').click()
   await expect(page.getByRole('heading', { level: 2, name: 'Biggest first' })).toBeVisible()
   await expect(page.getByTestId('list-options-open')).toHaveAccessibleName(/1 on/)
   await expect(page.getByTestId('list-pill')).toHaveText(['Biggest first'])
   await page.getByTestId('list-options-open').click()
-  await page
-    .getByTestId('list-sort')
-    .getByRole('button', { name: /Sort by/ })
-    .click()
-  await page.getByTestId('sort-added-desc').click()
+  await page.getByRole('combobox', { name: 'Sort by' }).click()
+  await page.getByRole('option', { name: 'Date added, newest first' }).click()
   await page.getByTestId('list-kind').getByRole('radio', { name: 'Expenses' }).click()
   // Quick filters: one sideways row of chips
   await page.getByTestId('quick-me').click()
@@ -1981,7 +2054,7 @@ test('help: Profile → Help finds a feature, plays its steps and goes there', a
   await page.getByRole('navigation').getByRole('link', { name: 'Profile' }).click()
   await page.getByTestId('profile-help').click()
   await expect(page).toHaveURL(/\/help$/)
-  await expect(page.getByTestId('help-core-card')).toHaveCount(10)
+  await expect(page.getByTestId('help-core-card')).toHaveCount(12)
   // search by a word that's only in a section's keywords
   await page.getByTestId('help-search').fill('refund')
   await page.getByTestId('help-results').getByTestId('help-row').first().click()
@@ -2426,13 +2499,19 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await page.goto('/help')
   const ring = page.getByTestId('help-ring')
   await expect(ring).toHaveAttribute('aria-label', /Help 0% done/)
-  // An explainer is read once its last part has been shown.
+  // Rushed: the last part shown at once, then gone before 5 s. It doesn't count.
   await page.goto('/help/modes-explained')
   await expect(page.getByTestId('help-story')).toBeVisible()
   await page.getByTestId('help-beat').last().click()
   await expect(page.getByTestId('help-story')).toHaveAttribute('data-beat', '2')
   await page.goto('/help?q=pocket%20knife')
   const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
+  await expect(row).not.toHaveAttribute('data-done', 'true')
+  // Read: its last part shown and the page kept open for longer than 7.5 s. Now it counts.
+  await page.goto('/help/modes-explained')
+  await page.getByTestId('help-beat').last().click()
+  await page.waitForTimeout(7800)
+  await page.goto('/help?q=pocket%20knife')
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
 })
@@ -2445,7 +2524,9 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   await expect(caption).toHaveText(first ?? '')
   const steps = await page.getByTestId('help-step').count()
   for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
-  await expect(page.getByTestId('help-next')).toContainText('Again')
+  await expect(page.getByTestId('help-next')).toHaveAttribute('aria-label', 'Back to the first step')
+  // A section counts after up to 7.5 s on it (src/lib/help-progress.ts): stay past that.
+  await page.waitForTimeout(1800)
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
 })

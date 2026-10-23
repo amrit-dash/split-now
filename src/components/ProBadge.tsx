@@ -12,14 +12,14 @@ import { mayRestart, PASS_MS, passTravel, type ShimmerKind, type ShimmerPass, sh
  * The badge (docs/PENDING.md, src/lib/pro.ts): PRO, DEV or PRO DEV in the accent gradient, as a
  * pill beside a name or bent into a ring around a photo or a 1:1's tile. Geometry and timing are pure
  * and tested (src/lib/pro-ring.ts, pro-shimmer.ts); this file only draws and runs them.
- * Settings → Animations → Pro badge, the master switch and the device's reduce-motion setting
- * still the shine and the turning; the badges stay, still.
+ * Settings → Animations → Badges (Turning ring, Shine), the master switch and the device's
+ * reduce-motion setting still them; the badges stay, still.
  */
 
-/** Whether the badges move right now. */
-function useProMoving(): boolean {
+/** Whether the rings turn / the pills' letters shine right now (two switches in Settings → Animations). */
+function useProMoving(what: 'ring' | 'shine'): boolean {
   const { prefs, reduced } = useMotion()
-  return activeMotion(prefs, reduced).pro
+  return activeMotion(prefs, reduced)[what]
 }
 
 /* ---------------------------------------------------------------- the one shared clock
@@ -71,7 +71,7 @@ function subscribeShimmer(fn: (kind: ShimmerKind) => void): () => void {
  */
 export function ProWord({ h, word = 'pro', className = '' }: { h: number; word?: BadgeWord; className?: string }) {
   const mask = useMemo(() => glyphMask(word), [word])
-  const moving = useProMoving()
+  const moving = useProMoving('shine')
   const sweep = useRef<HTMLSpanElement>(null)
   const glint = useRef<HTMLSpanElement>(null)
   // The flow starts where every other badge's flow is, so they move as one.
@@ -180,7 +180,7 @@ const gid = (raw: string) => `pro${raw.replace(/[^a-zA-Z0-9_-]/g, '')}`
  * photo; the ring sits outside it without taking space (the holder keeps room around it).
  */
 export function ProRing({ photo, word = 'pro', children }: { photo: number; word?: BadgeWord; children: ReactNode }) {
-  const moving = useProMoving()
+  const moving = useProMoving('ring')
   const art = useMemo(() => proRing(photo, word), [photo, word])
   const id = gid(useId())
   return (
@@ -200,7 +200,7 @@ const TILE_LOOP_MS = 40_000
  * paths are re-bent in place (a few times a second's worth of change, no React render).
  */
 export function ProTileRing({ tile, radius, word = 'pro', children }: { tile: number; radius: number; word?: BadgeWord; children: ReactNode }) {
-  const moving = useProMoving()
+  const moving = useProMoving('ring')
   const art = useMemo(() => proTileRing(tile, radius, 0, word), [tile, radius, word])
   const id = gid(useId())
   const group = useRef<SVGGElement | null>(null)

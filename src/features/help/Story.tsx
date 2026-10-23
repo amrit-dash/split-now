@@ -1920,18 +1920,24 @@ const Jug: View = ({ beat, still }) => {
 // ---- Earn Pro: a café stamp card ------------------------------------------------------------------
 
 /*
- * Help is a stamp card, like a café's: each section you finish presses a stamp in. A full card says
+ * Help is a stamp card, like a café's: each section you finish presses a stamp in, but only after a
+ * few seconds on it (src/lib/help-progress.ts): a ring sweeps round the next slot first. A full card says
  * Congratulations; turned over, its back is the reward itself: your photo with the real PRO ring and
  * the badge by your name (the app's own ProRing and ProPill, so it moves and looks as it will).
  */
 const STAMP_CARD = { x: 70, y: 50, w: 220, h: 124 }
 const STAMP_COUNT = 5
+/** how long the fourth slot's ring takes to go round, and its length (2πr, r = 18) */
+const SWEEP_MS = 1500
+const SWEEP_LEN = 113.1
 const stampX = (i: number) => STAMP_CARD.w / 2 + (i - (STAMP_COUNT - 1) / 2) * 40
 
 const Pro: View = ({ beat }) => {
-  // Stamped by the end of the beat, and when each new one presses in.
-  const stamped = beat === 0 ? 3 : STAMP_COUNT
-  const pressAt = (i: number) => (beat === 0 ? (i < 3 ? 500 + i * 320 : undefined) : beat === 1 && i >= 3 ? 300 + (i - 3) * 360 : undefined)
+  // Stamped by the end of the beat, and when each new one presses in. Beat 1: the fourth waits for
+  // its ring to go round (the time on the page) and only then lands.
+  const stamped = beat === 0 ? 3 : beat === 1 ? 4 : STAMP_COUNT
+  const pressAt = (i: number) =>
+    beat === 0 ? (i < 3 ? 500 + i * 320 : undefined) : beat === 1 && i === 3 ? SWEEP_MS + 250 : beat === 2 && i === 4 ? 300 : undefined
   const face = 'absolute inset-0 overflow-hidden rounded-[20px] [backface-visibility:hidden]'
   return (
     <>
@@ -1941,7 +1947,7 @@ const Pro: View = ({ beat }) => {
       >
         <div
           className="relative h-full w-full [transform-style:preserve-3d]"
-          style={beat === 2 ? { transform: 'rotateY(180deg)', animation: 'hm-flip 1000ms cubic-bezier(0.45, 0, 0.2, 1) 250ms both' } : undefined}
+          style={beat === 3 ? { transform: 'rotateY(180deg)', animation: 'hm-flip 1000ms cubic-bezier(0.45, 0, 0.2, 1) 250ms both' } : undefined}
         >
           {/* the front: the card in the accent, with its row of stamps */}
           <div
@@ -1972,6 +1978,22 @@ const Pro: View = ({ beat }) => {
               return (
                 <div key={stampX(i)} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: stampX(i), top: STAMP_CARD.h / 2 }}>
                   <span className="block h-[30px] w-[30px] rounded-full border-2 border-dashed border-white/55" />
+                  {beat === 1 && i === 3 && (
+                    // the time on the page: a ring that goes round once before the stamp may land
+                    <svg className="absolute -inset-[5px] -rotate-90" width="40" height="40" viewBox="0 0 40 40" aria-hidden>
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="18"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={SWEEP_LEN}
+                        style={{ '--len': SWEEP_LEN, animation: `hm-sweep ${SWEEP_MS}ms linear 150ms both` } as CSSProperties}
+                      />
+                    </svg>
+                  )}
                   {i < stamped && (
                     <span
                       className="absolute inset-0 flex items-center justify-center rounded-full bg-white text-brand-600 shadow-md"
@@ -2015,7 +2037,12 @@ const Pro: View = ({ beat }) => {
         </div>
       </div>
       {beat === 1 && (
-        <At x={180} y={STAMP_CARD.y + STAMP_CARD.h + 30} style={pop(1150)}>
+        <At x={180} y={STAMP_CARD.y + STAMP_CARD.h + 30} style={pop(200)}>
+          <Pill>Stay a few seconds</Pill>
+        </At>
+      )}
+      {beat === 2 && (
+        <At x={180} y={STAMP_CARD.y + STAMP_CARD.h + 30} style={pop(800)}>
           <Pill tone="up">✓ Card full · Congratulations</Pill>
         </At>
       )}

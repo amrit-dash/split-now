@@ -41,8 +41,10 @@ export interface MotionPrefs {
   speed: FlowSpeed
   /** The circles floating in the Home card. */
   circles: boolean
-  /** The PRO badges' shine and their rings' slow turn (src/components/ProBadge.tsx); off, they stay still. */
-  pro: boolean
+  /** The badge rings' slow turn round a photo or a 1:1's tile (PRO, DEV and PRO DEV alike; src/components/ProBadge.tsx). */
+  ring: boolean
+  /** The light passing over the badge pills' letters. Off, ring and pill stay still. */
+  shine: boolean
 }
 
 export const DEFAULT_MOTION: MotionPrefs = {
@@ -57,7 +59,8 @@ export const DEFAULT_MOTION: MotionPrefs = {
   flow: true,
   speed: 'normal',
   circles: true,
-  pro: true,
+  ring: true,
+  shine: true,
 }
 export const MOTION_KEY = 'splitit-motion'
 
@@ -90,7 +93,9 @@ export function parseMotion(raw: string | null | undefined): MotionPrefs {
     flow: bool('flow'),
     speed: SPEEDS.includes(o.speed as FlowSpeed) ? (o.speed as FlowSpeed) : DEFAULT_MOTION.speed,
     circles: bool('circles'),
-    pro: bool('pro'),
+    // Before the ring and the shine had their own switches one `pro` switch held both: it seeds them.
+    ring: typeof o.ring === 'boolean' ? o.ring : typeof o.pro === 'boolean' ? o.pro : DEFAULT_MOTION.ring,
+    shine: typeof o.shine === 'boolean' ? o.shine : typeof o.pro === 'boolean' ? o.pro : DEFAULT_MOTION.shine,
   }
 }
 
@@ -99,9 +104,9 @@ export function isDefaultMotion(p: MotionPrefs): boolean {
 }
 
 /** What actually moves, after the master switch and the device's reduce-motion setting. */
-export function activeMotion(p: MotionPrefs, reduced: boolean): { fireworks: boolean; flow: boolean; circles: boolean; pro: boolean } {
+export function activeMotion(p: MotionPrefs, reduced: boolean): { fireworks: boolean; flow: boolean; circles: boolean; ring: boolean; shine: boolean } {
   const on = p.on && !reduced
-  return { fireworks: on && p.fireworks, flow: on && p.flow, circles: on && p.circles, pro: on && p.pro }
+  return { fireworks: on && p.fireworks, flow: on && p.flow, circles: on && p.circles, ring: on && p.ring, shine: on && p.shine }
 }
 
 /** Burst size multiplier: how far the sparks fly (and how many there are, so a big burst isn't sparse). */

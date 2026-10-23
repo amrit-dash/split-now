@@ -41,7 +41,7 @@ export function scanAiButton(o: ScanAiInput): ScanAiButton {
 
 /** The line a tap on an unavailable button shows. */
 export function scanAiWhyText(why: ScanAiWhy, kind: ScanCardKind): string {
-  const fallback = kind === 'statement' ? 'Statements need it to be read.' : 'Bills are read on this phone.'
+  const fallback = kind === 'statement' ? 'Statements are read on this phone.' : 'Bills are read on this phone.'
   switch (why) {
     case 'demo':
       return kind === 'statement'
@@ -64,15 +64,15 @@ export function scanAiWhyLink(why: ScanAiWhy, admin: boolean): { label: string; 
 }
 
 /** The toast after switching: where the photo goes is a privacy line, so it is always said. */
-export function scanAiToggledText(on: boolean, kind: ScanCardKind): string {
+export function scanAiToggledText(on: boolean): string {
   if (on) return 'Read with AI on: the photo is sent to Google Gemini'
-  return kind === 'statement' ? 'Read with AI off: statements can’t be read without it' : 'Read with AI off: photos are read on this phone'
+  return 'Read with AI off: read on this phone, nothing is sent'
 }
 
 /** The button's tooltip, which also says where the photo goes. */
-export function scanAiTitle(b: ScanAiButton, kind: ScanCardKind): string {
+export function scanAiTitle(b: ScanAiButton): string {
   if (!b.show) return ''
   if (b.state === 'on') return 'Read with AI is on: the photo is sent to Google Gemini'
-  if (b.state === 'off') return kind === 'statement' ? 'Read with AI is off: statements can’t be read without it' : 'Read with AI is off: read on this phone'
+  if (b.state === 'off') return 'Read with AI is off: read on this phone'
   return 'Read with AI isn’t available here'
 }

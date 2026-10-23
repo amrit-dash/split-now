@@ -29,7 +29,7 @@ export const SECTIONS: HelpSection[] = [
   // ---- How it works: explainers, an everyday picture instead of taps ----------------------
   {
     id: 'how-it-works',
-    icon: 'jar',
+    icon: 'shares',
     chapter: 'start',
     title: 'What Split Now does',
     summary: 'A shared pot that keeps count for you.',
@@ -354,7 +354,8 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'It reads the total, merchant, date and items.',
-      'Read on your phone, or by AI first when AI is on: the bot in the card’s corner, or Settings → AI features.',
+      'Read on your phone, or by AI first when AI is on: the AI switch in the card’s corner, or Settings → AI features.',
+      '**Statement** turns payment-app screenshots into a list to pick from, read on your phone or by AI the same way.',
       'It knows Indian bills: ₹, lakh, CGST and SGST, Grand Total.',
       'Nothing is added until you pick a group.',
       'AI never reads a private group’s bills.',
@@ -391,6 +392,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'voice',
+    core: true,
     icon: 'mic',
     chapter: 'expenses',
     title: 'Talk to add',
@@ -398,17 +400,20 @@ export const SECTIONS: HelpSection[] = [
     keywords: ['voice', 'talk', 'speak', 'say', 'mic', 'microphone', 'hold', 'dictate', 'transcription', 'transcribe'],
     steps: [
       { text: 'Press and hold **+**. It turns into a mic.', mark: 'hold' },
-      { text: 'Say it: “dinner 1200 with Rahul, I paid”. The bars move as you talk.', mark: 'speak' },
+      { text: 'Say it: “dinner 1200 with Rahul, I paid”. Your words show above + as you talk.', mark: 'speak' },
       { text: 'Let go. Quick add works it out.', mark: 'release' },
       { text: 'Add expense opens filled in. Check it and tap **Save**.', mark: 'save' },
     ],
     points: [
       'Your phone does the listening. It’s free.',
       'It keeps listening until you let go, even when you pause.',
+      'Changed your mind? Slide your finger away from + before letting go. It says **Let go to cancel**.',
+      'While it works out what you said, double tap **+** to stop it.',
       'In a group, a tap still adds an expense. Holding is for talking.',
       'A line it can’t act on gets a short answer instead.',
       'No speech on your phone? Holding + opens the Create sheet as before.',
-      'Transcription in Settings → Preferences: Native is your phone, AI sends the recording to Google’s Flash-Lite. AI shows only when it’s available to you.',
+      'On a computer, Chrome, Edge and Safari listen. Opera and Brave use their on-device recogniser, set up the first time.',
+      'Settings → AI features → Voice: **Phone** listens for free and shows your words as you talk. **AI** sends the recording to Google’s Flash-Lite, on your own Gemini key first, then Split Now’s.',
     ],
     open: { label: 'Home', to: '/' },
     related: ['quick-add', 'add-expense'],
@@ -529,7 +534,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'Profile → **Help**.', mark: 'profile' },
       { text: 'Search, or open a section and play its steps.', mark: 'search' },
       { text: '**What’s new** lists each release. Tap a line to read more.', mark: 'whatsnew' },
-      { text: 'The ring at the top shows how much you’ve read. A tick marks each section you’ve finished.', mark: 'ring' },
+      { text: 'The ring at the top shows how much you’ve read. A tick marks each section you’ve finished and stayed on a few seconds.', mark: 'ring' },
     ],
     points: [
       'A dot marks a section you haven’t read yet.',
@@ -892,6 +897,7 @@ export const SECTIONS: HelpSection[] = [
   },
   {
     id: 'approvals',
+    core: true,
     advanced: true,
     icon: 'checkCircle',
     chapter: 'groups',
@@ -1709,13 +1715,17 @@ export const SECTIONS: HelpSection[] = [
     chapter: 'account',
     title: 'Animations',
     summary: 'Turn the fireworks and motion up, down or off.',
-    keywords: ['animations', 'motion', 'fireworks', 'reduce motion', 'background', 'still'],
+    keywords: ['animations', 'motion', 'fireworks', 'reduce motion', 'background', 'still', 'badge', 'ring', 'shine'],
     steps: [
       { text: 'Settings → **Animations**.', mark: 'open' },
       { text: 'Turn **All animations** off for a still app.', mark: 'all' },
       { text: 'Or tune **Fireworks** and the **Background**.', mark: 'tune' },
     ],
-    points: ['Your device’s reduce motion setting always wins.', 'Off also stills Help’s pictures.'],
+    points: [
+      'Your device’s reduce motion setting always wins.',
+      'Off also stills Help’s pictures.',
+      '**Badges**: the ring round a PRO, DEV or PRO DEV photo turning, and the shine on the badge, each on its own switch.',
+    ],
     open: { label: 'Animations', to: '/settings/animations' },
     related: ['look-and-detail'],
   },
@@ -1796,11 +1806,17 @@ export const SECTIONS: HelpSection[] = [
       kind: 'pro',
       beats: [
         'Help is a stamp card: each section you finish gets a stamp.',
+        'A stamp waits until you’ve stayed a few seconds. Rushing through leaves its slot empty.',
         'Fill the card and Help says Congratulations.',
         'Turn it over: your reward is Pro, a ring round your photo and a badge by your name.',
       ],
     },
-    points: ['Others see it on Members and in 1:1s.', 'It’s yours to keep.'],
+    points: [
+      'A section counts when you’ve played its steps to the end, or read to its end, and stayed on it a few seconds.',
+      'Scroll past or skip ahead quickly and it isn’t ticked. Come back and read it.',
+      'Others see it on Members and in 1:1s.',
+      'It’s yours to keep.',
+    ],
     related: ['help-guide'],
   },
 ]

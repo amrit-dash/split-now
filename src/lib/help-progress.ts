@@ -52,3 +52,18 @@ export function celebration(pct: number, earned: boolean, claimedNow: boolean): 
   if (claimedNow) return 'claimed'
   return earnsPro(pct) && !earned ? 'claim' : null
 }
+
+/*
+ * Against speed-running the guide for Pro (owner, 22 Oct 2026; Help → Earn Pro says so): a section also
+ * needs the person to have stayed on it a while, a random 5 to 7.5 s drawn per visit (so there's
+ * no exact number to game), counting only time the page is on screen. Finishing the steps or
+ * scrolling to the end before then ticks it once the time is up; leaving earlier doesn't.
+ */
+export const DWELL_MIN_MS = 5000
+export const DWELL_MAX_MS = 7500
+
+/** This visit's time to stay, from a random number in [0, 1). */
+export const dwellFor = (rand: () => number): number => DWELL_MIN_MS + Math.floor(Math.min(0.999999, Math.max(0, rand())) * (DWELL_MAX_MS - DWELL_MIN_MS))
+
+/** The section counts once it was finished and the person stayed long enough on it. */
+export const countsAsRead = (finished: boolean, stayedMs: number, needMs: number): boolean => finished && stayedMs >= needMs
