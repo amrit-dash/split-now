@@ -445,6 +445,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'Encrypted on your phone: names, notes, comments, chat and photos.',
+      'Your UPI ID and other payment details are encrypted too. They reach a private group once you open it on your phone.',
       'Readable on purpose: amounts, splits, who paid and dates.',
       'Home leaves private groups out. Balances counts one only while open.',
       'Notifications, invites and Pay me links say only “A private group”.',
@@ -582,7 +583,7 @@ export const SECTIONS: HelpSection[] = [
     summary: 'A refund one person got that belongs to several.',
     keywords: ['refund', 'reimbursement', 'cashback', 'got back', 'received'],
     steps: [
-      { text: 'In Add expense, switch to **Money received**.', mark: 'switch' },
+      { text: 'In Add expense, switch from **Money spent** to **Money received**.', mark: 'switch' },
       { text: 'Pick who got it and who shares it.', mark: 'who' },
       { text: 'Tap **Save**.', mark: 'save' },
     ],

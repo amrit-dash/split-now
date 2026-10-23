@@ -5,7 +5,6 @@ import { useAiState } from '@/hooks/data'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
-import { useSimple } from '@/hooks/useMode'
 import { aiAvailability } from '@/lib/ai-copy'
 import { aiScanEnabled, aiScanPossible, setAiScan } from '@/lib/ai'
 import { savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
@@ -56,7 +55,6 @@ function useAiScanSetting() {
  */
 export function useScanAi(kind: ScanCardKind, deviceFirst = false) {
   const s = useAiScanSetting()
-  const simple = useSimple()
   const input = {
     kind,
     demo: !aiScanPossible(),
@@ -65,7 +63,7 @@ export function useScanAi(kind: ScanCardKind, deviceFirst = false) {
     masterOn: s.prefs ? s.prefs.aiEnabled : undefined,
     on: s.on,
   }
-  return { kind, s, button: scanAiButton({ ...input, simple }), reader: scanReader({ ...input, deviceFirst }) }
+  return { kind, s, button: scanAiButton(input), reader: scanReader({ ...input, deviceFirst }) }
 }
 
 export type ScanAi = ReturnType<typeof useScanAi>
@@ -73,7 +71,7 @@ export type ScanAi = ReturnType<typeof useScanAi>
 /**
  * Read with AI as an icon button in the top-right corner of a Scan card. A real toggle
  * (aria-pressed, a filled brain with "AI on" vs a line one with "AI off"); when AI can't read here
- * it stays, and a tap says why. Hidden on Payment (read on the phone only) and in Simple.
+ * it stays, and a tap says why. Hidden on Payment (read on the phone only); shown in Simple too.
  */
 export function ScanAiCorner({ ai, disabled }: { ai: ScanAi; disabled?: boolean }) {
   const { s, kind, button: b } = ai

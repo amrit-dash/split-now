@@ -411,7 +411,7 @@ Object.assign(SCENES, {
   ],
   'money-received': [
     settings('Add expense', [
-      { kind: 'chips', mark: 'switch', items: [{ label: 'Expense' }, { label: 'Money received', on: true }] },
+      { kind: 'chips', mark: 'switch', items: [{ label: 'Money spent' }, { label: 'Money received', on: true }] },
       { kind: 'field', label: 'Amount in INR', value: '₹1,000' },
       { kind: 'row', label: 'Received by', value: 'Rahul', mark: 'who' },
       { kind: 'row', label: 'Shared with', value: 'Everyone' },

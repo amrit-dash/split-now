@@ -13,7 +13,6 @@ export type ScanAiButton = { show: false } | { show: true; state: 'on' | 'off' }
 export interface ScanAiInput {
   kind: ScanCardKind
   /** Simple mode: the Settings choice applies and the card has no AI button */
-  simple: boolean
   /** demo mode (localRepo): nothing is read with AI */
   demo: boolean
   /** the admin's switch for reading pictures with AI (flags.aiImages) */
@@ -31,7 +30,8 @@ export interface ScanAiInput {
  * reader for them), so that card never has it; Simple hides it on every card.
  */
 export function scanAiButton(o: ScanAiInput): ScanAiButton {
-  if (o.kind === 'payment' || o.simple) return { show: false }
+  // Shown in Simple too (owner, 24 Oct 2026): whether AI reads a bill is everyone's choice.
+  if (o.kind === 'payment') return { show: false }
   if (o.demo) return { show: true, state: 'unavailable', why: 'demo' }
   if (!o.adminOn) return { show: true, state: 'unavailable', why: 'admin' }
   if (o.available === false) return { show: true, state: 'unavailable', why: 'account' }
@@ -93,11 +93,11 @@ export type ScanReader = 'ai' | 'phone' | 'phoneFirst' | 'demo'
  * makes it unavailable or off (demo, the admin's switch, the account, the master switch, the bills
  * switch) means the phone reads it. Payment screenshots are always read on the phone.
  */
-export function scanReader(o: Omit<ScanAiInput, 'simple'> & { deviceFirst?: boolean }): ScanReader {
+export function scanReader(o: ScanAiInput & { deviceFirst?: boolean }): ScanReader {
   if (o.kind === 'payment') return 'phone'
   // Demo bills really are read on this phone; a demo statement shows a sample.
   if (o.demo) return o.kind === 'statement' ? 'demo' : 'phone'
-  const b = scanAiButton({ ...o, simple: false })
+  const b = scanAiButton(o)
   if (!b.show || b.state !== 'on') return 'phone'
   return o.deviceFirst && o.kind === 'receipt' ? 'phoneFirst' : 'ai'
 }

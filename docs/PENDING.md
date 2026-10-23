@@ -5,8 +5,8 @@ remove an item when its release merges, and add anything left half-done.
 
 ## Next batch (owner, 23 Oct 2026)
 
-- [ ] Quick add, left from the revamp (AI side built and tested against the real model, 23 Oct): the phone's own reader (AI off) for "they paid" and uneven splits; "remind Rahul"; unknown names offered as new people in an existing group.
-- [ ] Server-side profile copying (a trigger on users/{uid}): name, photo and badge reach all a person's groups at once, and a new member's photo fills in on joining.
+- [ ] Quick add phone reader (built, on the batch branch): two voice e2e tests fail since "Rahul" isn't in the demo's Goa Trip and the line now asks about him: check the question sheet shows from the + hold, then update the tests; the real-model eval script (scripts/quick-eval.ts) over src/lib/quick-cases.ts; Help steps and the CHANGELOG line for its questions; "remind Rahul".
+- [ ] Release 9.5.0: `npm run help:media -- --only money-received,scan-receipt,profile-account` (the switch now says Money spent; Scan shows its AI switch in Simple; the photo sheet is icons only).
 - [ ] Voice in Opera / Brave without AI: an in-page recogniser (Vosk, ~45 MB once, only where the browser's own fails) if Admin → Logs → Voice shows Opera's recogniser failing. Owner to say yes.
 
 ## Left from 9.2.0 / 9.3.0 / 9.4.0 (check by hand)

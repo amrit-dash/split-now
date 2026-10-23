@@ -6,6 +6,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Add expense: the switch at the top reads **Money spent** / **Money received** (it said Expense / Money received), so the two read as a pair.
+- Scan: the AI switch in the Bill and Statement cards shows in Simple mode too, so you can choose AI reading there without going to Settings.
+- Quick add: one spinner while it works, beside the status words at the top of the card; the box and the send button no longer spin as well.
+- Private groups: your name, photo link and payment details (like your UPI ID) are now encrypted in the copy each private group keeps of your profile, and reach it once you open the group on your phone. Before, saving your profile put a readable copy into private groups too. Nothing readable is accepted there any more, even from an older version of the app.
 - Profile photo: the actions are icons only (camera, picture, Google, bin), set apart from your photo by a thin line, with more room above them and above the centred line under them.
 - Messages (like “Photo updated”) now float just above a sheet that takes half the screen or less, instead of covering its buttons; over a taller sheet they stay at the bottom as before.
 - Sign in: the Install Split Now banner sits at the bottom of the screen, clear of the home bar, instead of right under the last button; the sign-in buttons and Join a live table have more room around them.

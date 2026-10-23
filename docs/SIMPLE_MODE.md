@@ -27,7 +27,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 | Settings → Encrypted groups | Shown; explainer moves to Help behind a ? button | |
 | Settings → AI features | Use AI, free AI (when the admin offers it), Voice (when the admin's transcription switch is on), Your key and models | Per-feature switches, icons |
 | Settings → Data, Admin | As is | |
-| Scan | Camera and Photo per kind; on every tab the line saying who reads it (Google Gemini or this phone) and the "Nothing is added until…" foot | The AI toggle (Settings' choice applies) |
+| Scan | Camera and Photo per kind, the AI switch in the Bill and Statement cards' corner (owner, 24 Oct 2026); on every tab the line saying who reads it (Google Gemini or this phone) and the "Nothing is added until…" foot | |
 | New group, Edit group | Everything else | Approvals section (all off by default) |
 | Members | Everything else | Merge, "Needs my OK" switch |
 | Live table, private groups | Shown | |

@@ -11,7 +11,7 @@ import {
   scanReaderLine,
 } from './scan-ai'
 
-const base: ScanAiInput = { kind: 'receipt', simple: false, demo: false, adminOn: true, available: true, masterOn: true, on: true }
+const base: ScanAiInput = { kind: 'receipt', demo: false, adminOn: true, available: true, masterOn: true, on: true }
 
 describe('scanAiButton', () => {
   it('shows on Bill and Statement, following the bills switch', () => {
@@ -24,11 +24,9 @@ describe('scanAiButton', () => {
     expect(scanAiButton({ ...base, kind: 'payment' })).toEqual({ show: false })
   })
 
-  it('hides on every card in Simple, even when AI is unavailable', () => {
-    for (const kind of ['receipt', 'payment', 'statement'] as const) {
-      expect(scanAiButton({ ...base, kind, simple: true })).toEqual({ show: false })
-      expect(scanAiButton({ ...base, kind, simple: true, demo: true })).toEqual({ show: false })
-    }
+  it('shows the same in Simple and Advanced: the mode is not an input', () => {
+    expect(scanAiButton({ ...base, kind: 'receipt' })).toEqual({ show: true, state: 'on' })
+    expect(scanAiButton({ ...base, kind: 'statement', on: false })).toEqual({ show: true, state: 'off' })
   })
 
   it('says why instead of toggling, in the same order as the old switch', () => {
