@@ -1,4 +1,5 @@
-import { useFeature } from '@/hooks/useMode'
+import { useFeature, useSimple } from '@/hooks/useMode'
+import { offersReceivedSwitch } from '@/lib/mode'
 import { useBack } from '@/hooks/useBack'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -171,6 +172,7 @@ export function ExpenseEditor({
   // Money received (shared/received.ts): offered for a new entry while the flag is on; an existing one keeps its switch.
   const receivedOn = useFlag('moneyReceived')
   const receivedFeature = useFeature('moneyReceived')
+  const simple = useSimple()
   const seedArgs = (g: Group, o: MemberId[], m: MemberId): SeedArgs => ({
     group: g,
     order: o,
@@ -326,7 +328,9 @@ export function ExpenseEditor({
   const title = existing ? `Edit ${what}` : capture ? 'Captured payment' : draft.received && !personal ? 'Add money received' : 'Add expense'
   usePageTitle(title)
   // Simple doesn't offer Money received for a new entry (docs/SIMPLE_MODE.md); an existing one keeps its switch.
-  const showReceived = !personal && !capture && !openItem && (existing ? isReceived(existing) : (receivedFeature && receivedOn) || draft.received)
+  // Simple keeps it in a private group (src/lib/mode.ts offersReceivedSwitch).
+  const offerReceived = offersReceivedSwitch({ featureShown: receivedFeature, simple, vault: !!group.vault })
+  const showReceived = !personal && !capture && !openItem && (existing ? isReceived(existing) : (offerReceived && receivedOn) || draft.received)
   const [asOpenItem, setAsOpenItem] = useState(false)
 
   // Duplicate warning: the same amount within a day, with a similar description, already in this group.

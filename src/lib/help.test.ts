@@ -96,7 +96,7 @@ describe('Simple’s guide and Advanced’s', () => {
     expect(simple.some((s) => s.advanced)).toBe(false)
     const hidden = SECTIONS.filter((s) => s.advanced).map((s) => s.id)
     // docs/SIMPLE_MODE.md: Automation, approvals settings, merging, Money received, wallets, Animations, Admin
-    for (const id of ['auto-capture-setup', 'capture-keys', 'approvals', 'merge-people', 'money-received', 'personal-wallet', 'animations', 'admin-console'])
+    for (const id of ['auto-capture-setup', 'capture-keys', 'approvals', 'merge-people', 'personal-wallet', 'animations', 'admin-console'])
       expect(hidden, id).toContain(id)
     // What arrives for someone still shows in Simple, and so do the mode's own section and Earn Pro
     for (const id of ['approve-expense', 'captured-payment', 'confirm-payment', 'private-groups', 'live-table', 'simple-advanced', 'earn-pro'])
@@ -111,10 +111,13 @@ describe('Simple’s guide and Advanced’s', () => {
     expect(SECTIONS[SECTIONS.length - 1].id).toBe('earn-pro')
   })
   it('Simple’s Related links leave out the sections it hides', () => {
-    const simple = sectionsFor('simple', SECTIONS)
+    // Money received shows in Simple (private groups keep its switch); marked Advanced here, it drops out of Related.
+    const all = SECTIONS.map((s) => (s.id === 'money-received' ? { ...s, advanced: true as const } : s))
+    const simple = sectionsFor('simple', all)
     const add = simple.find((s) => s.id === 'add-expense')!
     expect(relatedOf(add, simple).some((s) => s.id === 'money-received')).toBe(false)
-    expect(relatedOf(add, SECTIONS).some((s) => s.id === 'money-received')).toBe(true)
+    expect(relatedOf(add, all).some((s) => s.id === 'money-received')).toBe(true)
+    expect(sectionsFor('simple', SECTIONS).some((s) => s.id === 'money-received')).toBe(true)
   })
   it('the guide has no dashes used as punctuation', () => {
     for (const s of SECTIONS) {

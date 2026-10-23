@@ -569,7 +569,6 @@ export const SECTIONS: HelpSection[] = [
   // ---- Expenses ------------------------------------------------------------------------
   {
     id: 'money-received',
-    advanced: true,
     icon: 'arrowBack',
     chapter: 'expenses',
     title: 'Money received',
@@ -582,6 +581,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'Whoever got it owes the others their share.',
+      'In Simple, the switch shows in private groups only.',
       'It isn’t spending. Totals, budgets and Insights leave it out.',
       'Quick add reads “Rahul received 1000 refund”.',
     ],
@@ -1743,7 +1743,12 @@ export const SECTIONS: HelpSection[] = [
       { text: 'In Advanced, **Signing in** links Google.', mark: 'signin' },
       { text: '**Add another email** so groups that know it reach you.', mark: 'email' },
     ],
-    points: ['No passwords: Google or an email link.', 'Signing out clears this device’s offline copy.', 'People in your groups see your name and photo.'],
+    points: [
+      'No passwords: Google or an email link.',
+      'Tap your photo for **Camera**, **Choose**, **Google** or **Remove**.',
+      'Signing out clears this device’s offline copy.',
+      'People in your groups see your name and photo.',
+    ],
     open: { label: 'Profile', to: '/profile' },
     related: ['sign-in', 'people-without-account', 'upi-id', 'delete-account'],
   },

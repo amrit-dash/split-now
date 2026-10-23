@@ -191,7 +191,7 @@ export default function Home() {
                 aria-label="Balances and settle up"
                 title="Settle up"
                 data-testid="home-settle"
-                className="absolute -right-2.5 -top-3 flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-on-fill transition duration-150 hover:bg-on-fill/10 active:scale-90 active:bg-on-fill/20"
+                className="absolute -right-2.5 -top-3 z-10 flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-on-fill transition duration-150 hover:bg-on-fill/10 active:scale-90 active:bg-on-fill/20"
               >
                 <ChequeIcon size={50} play="loop" currency={home} />
               </Link>

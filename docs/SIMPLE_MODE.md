@@ -47,7 +47,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |
 | Group balances, Balances | Remind and Nudge | |
-| Expense form | Every split type, Repeat, Save as an open item, icon picker, Split at the table, currency picker and the converted amount | Expense / Money received switch, editing the exchange rate |
+| Expense form | Every split type, Repeat, Save as an open item, icon picker, Split at the table, currency picker and the converted amount | Expense / Money received switch (except in a private group, where Simple keeps it: owner, Oct 2026; the group menu's Money received stays hidden), editing the exchange rate |
 | Expense detail | Everything | |
 | Settle up | Read from screenshot, method chips, note | Waive the rest |
 | Inbox | Every item, sort pickers, bulk add | Auto-capture promo |

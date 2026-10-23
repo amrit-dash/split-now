@@ -28,6 +28,7 @@ import { paymentRegion } from '@/lib/locale'
 import { isIfsc, isUpiId } from '@/lib/payments'
 import { squareJpeg } from '@/lib/image'
 import { paymentSummary } from '@/lib/profileSummary'
+import { Spinner } from '@/components/Misc'
 import { Avatar } from '@/components/Avatar'
 import { Collapsible } from '@/components/Collapsible'
 import { Detail, HintText, InfoTip, useShows, type Hint } from '@/components/Hint'
@@ -502,44 +503,53 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
       if (camera.current) camera.current.value = ''
     }
   }
-  const row = 'flex w-full min-h-11 items-center gap-3 rounded-2xl px-3 py-3 text-left font-medium hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-ink-800'
+  const actions = 1 + (coarsePointer() ? 1 : 0) + (googlePhotoURL && profile.photoURL !== googlePhotoURL ? 1 : 0) + (profile.photoURL ? 1 : 0)
+  // One row: the photo on the left, its actions as small tiles beside it (icon over a short word).
+  const tile =
+    'flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl bg-slate-100 px-1 py-2 text-xs font-semibold transition active:scale-95 disabled:opacity-50 dark:bg-ink-800'
 
   return (
     <Sheet open={open} onClose={onClose} title="Profile photo">
-      <div className="mb-3 flex justify-center">
-        <Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="accent" size={96} />
-      </div>
       <input ref={pick} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} data-testid="photo-input" />
       <input ref={camera} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-      <div className="space-y-1">
-        {coarsePointer() && (
-          <button type="button" className={row} disabled={busy} onClick={() => camera.current?.click()}>
-            <CameraIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> Take photo
+      <div className="flex items-center gap-3">
+        {/* four actions on a 320px phone need the photo's room */}
+        <Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="accent" size={actions > 3 ? 56 : 72} />
+        <div className="flex min-w-0 flex-1 gap-2">
+          {coarsePointer() && (
+            <button type="button" className={tile} disabled={busy} onClick={() => camera.current?.click()} data-testid="photo-camera">
+              <CameraIcon size={22} className="text-brand-600 dark:text-brand-300" aria-hidden /> Camera
+            </button>
+          )}
+          <button type="button" className={tile} disabled={busy} onClick={() => pick.current?.click()} aria-label="Choose photo" data-testid="photo-choose">
+            {busy ? <Spinner className="!h-5 !w-5" label="Uploading" /> : <ImageIcon size={22} className="text-brand-600 dark:text-brand-300" aria-hidden />}
+            {busy ? 'Uploading' : 'Choose'}
           </button>
-        )}
-        <button type="button" className={row} disabled={busy} onClick={() => pick.current?.click()}>
-          <ImageIcon size={20} className="text-brand-600 dark:text-brand-300" aria-hidden /> {busy ? 'Uploading…' : 'Choose photo'}
-        </button>
-        {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
-          <button
-            type="button"
-            className={row}
-            disabled={busy}
-            onClick={() => apply({ photoURL: googlePhotoURL, photoSource: 'google' }, 'Using your Google photo')}
-          >
-            <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="accent" size={20} /> Use Google photo
-          </button>
-        )}
-        {profile.photoURL && (
-          <button
-            type="button"
-            className={`${row} text-rose-700 dark:text-rose-400`}
-            disabled={busy}
-            onClick={() => apply({ photoURL: undefined, photoSource: 'none' }, 'Photo removed')}
-          >
-            <TrashIcon size={20} aria-hidden /> Remove photo
-          </button>
-        )}
+          {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
+            <button
+              type="button"
+              className={tile}
+              disabled={busy}
+              onClick={() => apply({ photoURL: googlePhotoURL, photoSource: 'google' }, 'Using your Google photo')}
+              aria-label="Use Google photo"
+              data-testid="photo-google"
+            >
+              <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="accent" size={22} /> Google
+            </button>
+          )}
+          {profile.photoURL && (
+            <button
+              type="button"
+              className={`${tile} text-rose-700 dark:text-rose-400`}
+              disabled={busy}
+              onClick={() => apply({ photoURL: undefined, photoSource: 'none' }, 'Photo removed')}
+              aria-label="Remove photo"
+              data-testid="photo-remove"
+            >
+              <TrashIcon size={22} aria-hidden /> Remove
+            </button>
+          )}
+        </div>
       </div>
       <HintText hint={PHOTO_HINT} className="text-muted mt-3 text-xs" />
     </Sheet>

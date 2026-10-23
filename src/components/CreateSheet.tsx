@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
@@ -8,7 +8,7 @@ import { useFlag } from '@/hooks/useAppConfig'
 import { liveTripFor } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
 import { lastGroup } from '@/lib/recents'
-import { type Hint, HintText, useShows } from './Hint'
+import { type Hint, HintText } from './Hint'
 import { QuickAddCard } from './QuickAddCard'
 import { Sheet } from './Sheet'
 
@@ -41,9 +41,6 @@ export function CreateSheet({
 }) {
   const nav = useNavigate()
   const quickAdd = useFlag('quickAdd')
-  // The Minimal look keeps the sheet to its tiles: Quick add sits behind a small link instead.
-  const showQuickAdd = useShows(2)
-  const [quickOpen, setQuickOpen] = useState(false)
   const allGroups = usePickableGroups()
   // Shared, open groups only: the personal wallet has nobody to split with.
   const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
@@ -58,7 +55,8 @@ export function CreateSheet({
   return (
     <Sheet open={open} onClose={onClose} title="Create">
       {/* Quick add first: one typed or spoken line does most of what the tiles below do. */}
-      {quickAdd && (showQuickAdd || quickOpen || !!initialText) && (
+      {/* Every look shows it: the Minimal look trims hints, not the main way in (it used to hide behind a link there). */}
+      {quickAdd && (
         <>
           {/* With no groups yet the line sets one up. */}
           <QuickAddCard
@@ -96,16 +94,6 @@ export function CreateSheet({
         <Tile icon={<GroupsIcon size={22} />} title="New group" text={GROUP_HINT} onClick={() => go('/groups/new')} testId="create-group" />
         <Tile icon={<ScanIcon size={22} />} title="Scan" text={SCAN_HINT} onClick={() => go('/scan')} testId="create-scan" />
       </div>
-      {quickAdd && !showQuickAdd && !quickOpen && (
-        <button
-          type="button"
-          onClick={() => setQuickOpen(true)}
-          className="mx-auto mt-3 flex min-h-11 items-center px-3 text-sm font-semibold text-brand-600 dark:text-brand-300"
-          data-testid="create-quick-add-open"
-        >
-          Quick add
-        </button>
-      )}
     </Sheet>
   )
 }

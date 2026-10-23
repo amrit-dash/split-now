@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Create: Quick add is always at the top of the sheet. Before, the Minimal look (Settings → Preferences) hid it behind a small “Quick add” link under the tiles, which looked like something to turn on first.
+- Quick add: a little more room between the group's picture and “Into” in the group chip.
+- Profile photo: one compact row, your photo on the left and Camera (on a phone), Choose, Google and Remove beside it. Before, it was a tall sheet with the actions listed under a big photo.
+- Simple: the Expense / Money received switch shows when adding to a private group (Simple hides it elsewhere, and the group menu's Money received stays hidden).
+- Home: the whole settle up circle on the balance card takes a tap. Before, its lower half sat under the amount line, so a tap on the bottom of the cheque often did nothing.
+
 ## 9.3.1 — October 2026
 
 - Your PRO, DEV or PRO DEV badge now shows beside you in a group's Members. Before, the group's security check ran out of its step allowance on most groups (a few people with photos were enough) and refused the update, so the badge, and a new name or photo, never reached the group.
