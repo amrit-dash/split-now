@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.3.1 — October 2026
+
+- Your PRO, DEV or PRO DEV badge now shows beside you in a group's Members. Before, the group's security check ran out of its step allowance on most groups (a few people with photos were enough) and refused the update, so the badge, and a new name or photo, never reached the group.
+- Profile photo: Choose photo, Remove photo and Use Google photo work again. Before, the save also wrote to every group you were ever in, and one in Recently deleted refused it, so the whole save was undone: you saw “Photo updated”, then “Something went wrong”, and nothing changed.
+- Profile: the PRO or DEV pill sits centred on your name's line (it sat a little high).
+
 ## 9.3.0 — October 2026
 
 - Voice with AI shows your words as you talk again: the phone's own recognition runs alongside, only to show them, and AI's text replaces them when you let go (if AI hears nothing or fails, the phone's words are kept). Before, with AI chosen the pill and the Quick add box stayed empty until AI answered. With Phone chosen nothing goes to AI, as before.

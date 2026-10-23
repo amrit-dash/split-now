@@ -560,43 +560,60 @@ service cloud.firestore {
       //  - adding a removed person back restores their entry as a placeholder (removedAt and any
       //    uid dropped, nothing else changed); someone with an account then rejoins with the invite,
       //  - memberUids never gains a uid here and only shrinks as above.
-      function validMembershipChange() {
+      // Membership checks, with the members diff worked out once and handed down as arguments.
+      // Rules allow 1000 evaluation steps per request, and diffing the members map walks every
+      // entry: recomputed for each test (as plain lets were), a group of a few people with emails
+      // and photos ran out of steps and every member write was refused as "permission denied".
+      // An update that leaves the members map and memberUids as they were skips the diff.
+      function membershipOk() {
         let before = resource.data;
         let after = request.resource.data;
-        let mdiff = after.members.diff(before.members);
-        let uidsAdded = after.memberUids.toSet().difference(before.memberUids.toSet());
-        let uidsRemoved = before.memberUids.toSet().difference(after.memberUids.toSet());
-        let op = after.get('memberOpId', '');
-        let changedOnly = mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
-          && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op]);
-        return uidsAdded.size() == 0
-          && (
+        return (after.members == before.members && after.memberUids == before.memberUids)
+          || membershipOkWith(before, after, after.get('memberOpId', ''), after.members.diff(before.members),
+            before.memberUids.toSet(), after.memberUids.toSet());
+      }
+      function membershipOkWith(before, after, op, mdiff, uidsBefore, uidsAfter) {
+        return uidsAfter.difference(uidsBefore).size() == 0
+          && membershipChangeOk(before, after, op, mdiff, uidsBefore.difference(uidsAfter));
+      }
+      function membershipChangeOk(before, after, op, mdiff, uidsRemoved) {
+        return isOwnMemberEdit(before, after, op, mdiff, uidsRemoved)
+          || validMembershipChange(before, op, mdiff, uidsRemoved, after.members.get(op, {}));
+      }
+
+      function validMembershipChange(before, op, mdiff, uidsRemoved, m) {
+        let added = mdiff.addedKeys();
+        let removed = mdiff.removedKeys();
+        let changed = mdiff.changedKeys();
+        let changedOnly = added.size() == 0 && removed.size() == 0 && changed.size() == 1 && changed.hasOnly([op]);
+        let opener = (before.get('vault', false) != true && before.get('approveJoins', false) != true) || before.createdBy == uid();
+        return (
             // no membership change at all
-            (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && uidsRemoved.size() == 0)
+            (changed.size() == 0 && added.size() == 0 && removed.size() == 0 && uidsRemoved.size() == 0)
             // mark one member as removed: the entry gains only removedAt; a placeholder by anyone,
             // someone with an account by themselves or the creator (their uid leaves memberUids)
             || (changedOnly
                 && !('removedAt' in before.members[op])
-                && after.members[op].diff(before.members[op]).affectedKeys().hasOnly(['removedAt'])
-                && after.members[op].removedAt is int
+                && m.diff(before.members[op]).affectedKeys().hasOnly(['removedAt'])
+                && m.removedAt is int
                 && (('uid' in before.members[op]
                       && uidsRemoved == [before.members[op].uid].toSet()
                       && (before.members[op].uid == uid() || before.createdBy == uid()))
                     || (!('uid' in before.members[op]) && uidsRemoved.size() == 0)))
             // add a removed person back, as a placeholder (in a private group, or one whose new people need its creator's OK, only its creator adds people)
-            || (((before.get('vault', false) != true && before.get('approveJoins', false) != true) || before.createdBy == uid()) && changedOnly
+            || (opener && changedOnly
                 && 'removedAt' in before.members[op]
-                && !('removedAt' in after.members[op]) && !('uid' in after.members[op])
-                && after.members[op].diff(before.members[op]).affectedKeys().hasOnly(['removedAt', 'uid'])
+                && !('removedAt' in m) && !('uid' in m)
+                && m.diff(before.members[op]).affectedKeys().hasOnly(['removedAt', 'uid'])
                 && uidsRemoved.size() == 0)
             // add one placeholder (in a private group, or one whose new people need its creator's OK, only its creator)
-            || (((before.get('vault', false) != true && before.get('approveJoins', false) != true) || before.createdBy == uid()) && mdiff.changedKeys().size() == 0 && mdiff.removedKeys().size() == 0 && mdiff.addedKeys().size() == 1 && mdiff.addedKeys().hasOnly([op])
-                && !('uid' in after.members[op]) && uidsRemoved.size() == 0)
+            || (opener && changed.size() == 0 && removed.size() == 0 && added.size() == 1 && added.hasOnly([op])
+                && !('uid' in m) && uidsRemoved.size() == 0)
             // remove one placeholder (older apps; this app soft-removes)
-            || (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+            || (changed.size() == 0 && added.size() == 0 && removed.size() == 1 && removed.hasOnly([op])
                 && !('uid' in before.members[op]) && uidsRemoved.size() == 0)
             // remove one joined member (yourself, or anyone if you created the group; older apps)
-            || (mdiff.changedKeys().size() == 0 && mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 1 && mdiff.removedKeys().hasOnly([op])
+            || (changed.size() == 0 && added.size() == 0 && removed.size() == 1 && removed.hasOnly([op])
                 && 'uid' in before.members[op]
                 && uidsRemoved == [before.members[op].uid].toSet()
                 && (before.members[op].uid == uid() || before.createdBy == uid()))
@@ -606,15 +623,11 @@ service cloud.firestore {
       // A member with an account may edit their own entry's name, photo and badge marks (copied from
       // their profile by their app, src/lib/pro.ts: `pro` is cosmetic and unchecked; `dev: true` only
       // from an admin, so nobody can pass as one), named in memberOpId. Nothing else about membership changes.
-      function isOwnMemberEdit() {
-        let before = resource.data;
-        let after = request.resource.data;
-        let op = after.get('memberOpId', '');
-        let mdiff = after.members.diff(before.members);
+      function isOwnMemberEdit(before, after, op, mdiff, uidsRemoved) {
         let m = after.members[op];
         return mdiff.addedKeys().size() == 0 && mdiff.removedKeys().size() == 0
           && mdiff.changedKeys().size() == 1 && mdiff.changedKeys().hasOnly([op])
-          && after.memberUids.toSet() == before.memberUids.toSet()
+          && uidsRemoved.size() == 0
           && 'uid' in before.members[op] && before.members[op].uid == uid()
           && m.diff(before.members[op]).affectedKeys().hasOnly(['name', 'photoURL', 'pro', 'dev'])
           && (!('pro' in m) || m.pro is bool)
@@ -652,7 +665,7 @@ service cloud.firestore {
           && validGroupShape(request.resource.data)
           && validArchiveChange()
           && validDeleteChange()
-          && (validMembershipChange() || isOwnMemberEdit()))
+          && membershipOk())
         || isJoining());
 
       // Deleting is safe (shared/group-trash.ts): it sets deletedAt + deletedBy and nothing else,
@@ -668,7 +681,9 @@ service cloud.firestore {
         let wasDeleted = 'deletedAt' in resource.data;
         let isDeleted = 'deletedAt' in request.resource.data;
         let keys = request.resource.data.diff(resource.data).affectedKeys();
-        return (!wasDeleted && !isDeleted && !keys.hasAny(['deletedBy']))
+        // (deletedBy compared directly, not through the whole-document diff: on a big group that diff
+        // alone costs a large share of the rules' 1000 steps, see membershipOk)
+        return (!wasDeleted && !isDeleted && request.resource.data.get('deletedBy', null) == resource.data.get('deletedBy', null))
           || (!wasDeleted && isDeleted
             && keys.hasOnly(['deletedAt', 'deletedBy'])
             && request.resource.data.deletedBy == uid()
@@ -693,7 +708,9 @@ service cloud.firestore {
         let legacyAfter = request.resource.data.get('archived', false) == true;
         // whoever leaves the group in this write (themselves, or removed by the creator) may leave it too
         let leaving = resource.data.memberUids.toSet().difference(request.resource.data.memberUids.toSet());
-        return (legacyAfter == legacyBefore
+        // Nobody's archive changed (most writes): done, without the set arithmetic over every member.
+        return (legacyAfter == legacyBefore && after == before)
+          || (legacyAfter == legacyBefore
             && after.difference(before).hasOnly([uid()])
             && before.difference(after).difference(leaving.union([uid()].toSet())).size() == 0)
           || (legacyBefore && !legacyAfter
