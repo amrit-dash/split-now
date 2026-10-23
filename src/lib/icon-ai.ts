@@ -199,6 +199,24 @@ export function pictureModelOptions(
 export const pictureCostFor = (o: { via: 'own' | 'app' | null; ownModel?: string; appModel?: string }): string =>
   pictureCost((o.via === 'own' ? o.ownModel : o.via === 'app' ? o.appModel : '') || PICTURE_MODELS[0])
 
+/** A picture drawn this session, and the line said under it (drawnByLine). */
+export interface Drawn {
+  src: string
+  by: string | null
+}
+
+/** Which words drawn pictures are kept under: the same words in any case or spacing are the same pictures. */
+export const drawnKey = (words: string) => words.replace(/\s+/g, ' ').trim().toLowerCase()
+
+/**
+ * Pictures already drawn for these words, newest first, so a paid picture is never thrown away by
+ * drawing another, typing, or closing the sheet: the earlier ones stay to go back to. A few at most
+ * (each is up to ICON_IMAGE_MAX); the same picture twice is kept once.
+ */
+export function keepDrawn(list: readonly Drawn[], pic: Drawn, max = 4): Drawn[] {
+  return [pic, ...list.filter((d) => d.src !== pic.src)].slice(0, max)
+}
+
 /** Under a drawn picture: which model drew it and what it cost ("Nano Banana 2 Lite · about US$0.03"); null when unknown. */
 export function drawnByLine(model: string | undefined): string | null {
   const id = model?.replace(/^models\//, '')

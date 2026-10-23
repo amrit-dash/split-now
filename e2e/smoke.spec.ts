@@ -2034,6 +2034,13 @@ test.describe('Draw a picture prices', () => {
     await expect(sheet.getByTestId('icon-picture-by')).toContainText('Nano Banana 2 Lite')
     // the price in the person's money first (rupees in the demo), Google's dollars after
     await expect(sheet.getByTestId('icon-picture-by')).toContainText(/₹[\d.]+ \(US\$0\.03\)/)
+    // Draw another keeps the first one to go back to: each picture was paid for.
+    const first = await sheet.getByTestId('icon-picture-use').locator('img').getAttribute('src')
+    await sheet.getByTestId('icon-picture-again').click()
+    const earlier = sheet.getByTestId('icon-picture-earlier').getByRole('button')
+    await expect(earlier).toHaveCount(2)
+    await earlier.nth(1).click()
+    await expect(sheet.getByTestId('icon-picture-use').locator('img')).toHaveAttribute('src', first ?? '')
     await sheet.getByTestId('icon-picture-use').click()
     await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png);base64,/)
     // the magenta backdrop is keyed out and the object cropped to fill the icon

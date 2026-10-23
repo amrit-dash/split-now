@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   aiRowShown,
   drawnByLine,
+  drawnKey,
+  keepDrawn,
   autoPickOffered,
   pictureCostFor,
   pictureModelOptions,
@@ -222,5 +224,18 @@ describe('why Draw a picture isn’t offered', () => {
     expect(pictureWhy({ ...free, hasOwnKey: true, prefs: { ...prefs, aiSource: 'app' } })).toMatch(/Only Split Now’s key/)
     expect(pictureWhy({ ...free, prefs: { ...prefs, aiIcons: false } })).toBeNull()
     expect(pictureWhy({ ...free, mode: 'demo' })).toBeNull()
+  })
+})
+
+describe('keepDrawn', () => {
+  const d = (src: string) => ({ src, by: null })
+  it('puts the new picture first, keeps earlier ones, drops repeats and caps the list', () => {
+    expect(keepDrawn([], d('a'))).toEqual([d('a')])
+    expect(keepDrawn([d('a'), d('b')], d('c')).map((x) => x.src)).toEqual(['c', 'a', 'b'])
+    expect(keepDrawn([d('a'), d('b')], d('b')).map((x) => x.src)).toEqual(['b', 'a'])
+    expect(keepDrawn([d('a'), d('b'), d('c'), d('d')], d('e')).map((x) => x.src)).toEqual(['e', 'a', 'b', 'c'])
+  })
+  it('keys pictures by the words, ignoring case and spacing', () => {
+    expect(drawnKey('  Goa   Trip ')).toBe(drawnKey('goa trip'))
   })
 })

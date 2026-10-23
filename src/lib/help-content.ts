@@ -469,6 +469,7 @@ export const SECTIONS: HelpSection[] = [
       'For a new group, AI may offer a few more good fits under the name.',
       'An icon you chose, or a drawn picture, is never replaced.',
       'Draw a picture needs a key that pays for pictures, about US$0.03 each.',
+      'Draw another keeps the earlier pictures below it. Tap one to go back to it.',
       'No AI buttons? The icon sheet says why.',
       'Open items get icons the same way.',
       'Never in a private group.',
