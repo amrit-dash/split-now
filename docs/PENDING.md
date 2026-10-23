@@ -5,8 +5,7 @@ remove an item when its release merges, and add anything left half-done.
 
 ## Next batch (owner, 23 Oct 2026)
 
-- [ ] Quick add revamp: who paid ("they paid", "Rahul paid"), who's in it, split (60/40, percent, shares, "Rahul 700 rest me"), date, category, notes; off-group: a group of exactly me + the named people, else ask which, else offer a new group (1:1 for one person), unknown names offered as new people; actions: record a payment, an open item, create a group, remind. All Simple. Rule-based first; the AI side needs a working GEMINI_API_KEY in the environment (the one in the cloud environment is rejected by Google, 401).
-- [ ] New group: Group and Personal wallet tiles use the same illustration style as 1:1's handshake; in Simple (no wallet) the two tiles split 50/50.
+- [ ] Quick add, left from the revamp (AI side built and tested against the real model, 23 Oct): the phone's own reader (AI off) for "they paid" and uneven splits; "remind Rahul"; unknown names offered as new people in an existing group.
 - [ ] Server-side profile copying (a trigger on users/{uid}): name, photo and badge reach all a person's groups at once, and a new member's photo fills in on joining.
 - [ ] Voice in Opera / Brave without AI: an in-page recogniser (Vosk, ~45 MB once, only where the browser's own fails) if Admin → Logs → Voice shows Opera's recogniser failing. Owner to say yes.
 
