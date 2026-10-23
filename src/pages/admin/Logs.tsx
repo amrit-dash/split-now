@@ -163,6 +163,7 @@ export default function Logs() {
                 { value: 'crash', label: 'Crashes' },
                 { value: 'unhandled', label: 'Unhandled errors' },
                 { value: 'save', label: 'Refused saves' },
+                { value: 'voice', label: 'Voice' },
               ]}
             />
           )}
@@ -246,7 +247,7 @@ export default function Logs() {
                   key={r.id}
                   testId="app-error-row"
                   badge={r.kind.toUpperCase()}
-                  tone={TONE[r.kind === 'save' ? 'warn' : 'error']}
+                  tone={TONE[r.kind === 'save' || r.kind === 'voice' ? 'warn' : 'error']}
                   head={r.message}
                   sub={`${formatDateTime(r.at)} · ${r.route ?? ''} · ${r.version ?? ''} · ${r.mode ?? ''}`}
                   full={r}

@@ -45,29 +45,104 @@ export function transcribeOffer(o: {
 }
 
 /**
- * Who hears the person. AI only when they chose it and it can serve them now (online, a key);
- * else the phone's own recognition when the phone has it and it wasn't refused. null: no voice at
- * all, so no mic in Quick add and no hold-for-voice on + (the hold does what it did before).
+ * Who hears the person. AI only when they chose it (an option, never a fallback: owner, 23 Oct
+ * 2026) and it can serve them now (online, a key); else the browser's own recognition when it has a
+ * working one. null when neither: no mic in Quick add, and a hold on + opens the Create sheet.
+ *
+ * A refused microphone no longer hides the mic (it used to, remembered on the device, and a
+ * permission granted later, or a refusal that was really the prompt being dismissed by letting go,
+ * left voice gone for good): the press explains how to allow it instead (micPreflight).
  */
 export function voiceEngine(o: {
-  /** the browser has speech recognition */
+  /** the browser has speech recognition with a service behind it (not found missing lately) */
   native: boolean
-  /** speech recognition was refused here (remembered after a not-allowed error) */
-  nativeDenied: boolean
-  /** the microphone itself is blocked for this site (Permissions API) */
-  micDenied: boolean
   /** the person picked AI (AI features → Voice → Transcribe with AI) */
   aiChosen: boolean
   /** transcribeOffer(...).ai, and online */
   aiReady: boolean
+  /** AI's answer is still loading (aiStatus) while they chose it */
+  aiPending?: boolean
   /** the browser can record audio (MediaRecorder) */
   recorder: boolean
 }): VoiceEngine | null {
-  if (o.micDenied) return null
-  if (o.aiChosen && o.aiReady && o.recorder) return 'ai'
-  if (o.native && !o.nativeDenied) return 'native'
+  if (o.aiChosen && o.recorder && (o.aiReady || (o.aiPending && !o.native))) return 'ai'
+  if (o.native) return 'native'
   return null
 }
+
+/** The site's microphone permission as the browser reports it ('unknown' where it can't say). */
+export type MicPermission = 'granted' | 'denied' | 'prompt' | 'unknown'
+
+/**
+ * What a press for voice does before listening. 'go': listen now. 'ask': open the microphone first,
+ * which shows the browser's permission prompt; once allowed, listening carries on if the finger is
+ * still down, else the person is told it's ready (never "didn't catch that" for a prompt they had to
+ * let go to answer). 'blocked': the site's microphone is blocked, so say how to allow it. `okBefore`:
+ * voice has worked on this device before (browsers that can't report the permission).
+ */
+export function micPreflight(o: { perm: MicPermission; okBefore: boolean }): 'go' | 'ask' | 'blocked' {
+  if (o.perm === 'granted') return 'go'
+  if (o.perm === 'denied') return 'blocked'
+  if (o.perm === 'prompt') return 'ask'
+  return o.okBefore ? 'go' : 'ask'
+}
+
+/** What went wrong opening the microphone, from the DOMException's name (getUserMedia). */
+export type MicFailure = 'refused' | 'busy' | 'missing' | 'insecure' | 'other'
+export function micFailure(name: string | undefined): MicFailure {
+  switch (name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'refused'
+    case 'NotReadableError':
+    case 'TrackStartError':
+    case 'AbortError':
+      return 'busy'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+    case 'OverconstrainedError':
+      return 'missing'
+    case 'SecurityError':
+    case 'TypeError':
+      return 'insecure'
+    default:
+      return 'other'
+  }
+}
+
+/**
+ * Plain words for a microphone that couldn't be used. `perm` tells a refusal the browser now
+ * remembers ('denied': only the site settings can undo it) from one it will ask about again.
+ * `android` / `ios` name where the switch is.
+ */
+export function micProblemText(f: MicFailure, perm: MicPermission, where: { android: boolean; ios: boolean; standalone: boolean }): string {
+  if (f === 'refused' || perm === 'denied') {
+    if (perm !== 'denied') return 'Allow the microphone when your phone asks, then try again.'
+    if (where.ios) return 'The microphone is off for Split Now. Turn it on in Settings → Apps → Safari → Microphone (or the site’s aA menu), then try again.'
+    if (where.android && where.standalone)
+      return 'The microphone is off for Split Now. Press and hold the app’s icon → App info → Permissions → Microphone → Allow, then try again.'
+    return 'The microphone is blocked for this site. Tap the icon left of the address (or ⋮ → Site settings) → Microphone → Allow, then try again.'
+  }
+  if (f === 'busy') return 'Another app is using the microphone. Close it (a call, a recorder, an assistant) and try again.'
+  if (f === 'missing') return 'No microphone was found.'
+  if (f === 'insecure') return 'The microphone only works on the secure (https) app.'
+  return 'Couldn’t open the microphone. Try again, or type it.'
+}
+
+/**
+ * Whether the phone's own recognition may run next to an AI recording, only to show the words live
+ * (owner, 23 Oct 2026). Not on Android: Chrome there hands recognition to Google's app, a second
+ * app on the microphone, and Android gives the microphone to one of them, so the recording (or the
+ * recognition) heard nothing and the next press found the microphone "refused".
+ */
+export const liveWordsBesideRecording = (ua: string): boolean => !/Android/i.test(ua)
+
+/**
+ * A press that heard nothing, before voice has ever worked on this device: the permission prompt
+ * took the press (the finger had to come off to answer it), so it gets a how-to, not an error.
+ */
+export const VOICE_FIRST_TEXT = 'Ready. Hold + and speak, then let go.'
+export const VOICE_ALLOW_TEXT = 'Allow the microphone when asked. Then hold + and speak.'
 
 /** A press on the mic shorter than this is a tap (it keeps listening until the next tap); longer is hold-to-talk. */
 export const HOLD_TO_TALK_MS = 350
@@ -161,12 +236,15 @@ export function liveTail(text: string, max = 40): string {
 
 /**
  * Whether the bars may open their own microphone stream next to the phone's speech recognition.
- * Apple's WebKit (every iPhone browser, and Safari on a Mac) gives the microphone to one of them
- * only: a second stream can leave recognition hearing nothing ("Didn't catch that") and asks for
- * the microphone a second time. There the bars follow the words heard instead.
+ * Apple's WebKit (every iPhone browser, and Safari on a Mac) and Android give the microphone to one
+ * of them only: a second stream can leave recognition hearing nothing ("Didn't catch that"), or
+ * refused, and asks for the microphone a second time. There the bars follow the words heard instead.
  */
 export function meterBesideSpeech(ua: string): boolean {
   if (/iPhone|iPad|iPod/.test(ua)) return false
+  // Android: Chrome hands recognition to Google's app, a second app on the microphone; a stream
+  // opened here takes the microphone from it ("refused", or nothing heard).
+  if (/Android/i.test(ua)) return false
   if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return false
   return true
 }
@@ -176,8 +254,41 @@ export function meterBesideSpeech(ua: string): boolean {
  * builds without Google's speech service answer "network" while online, or "service-not-allowed"):
  * not a refused microphone, and worth trying the on-device recogniser before giving up.
  */
-export const speechServiceMissing = (code: string | undefined, online: boolean): boolean =>
-  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online)
+export const speechServiceMissing = (code: string | undefined, online: boolean, googleBuilt = false): boolean =>
+  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online && !googleBuilt)
+
+/**
+ * The browser is one whose makers run the speech service behind it: Google Chrome and Microsoft Edge
+ * (their brands, User-Agent Client Hints), or Safari / any iPhone browser (Apple's). There a "network"
+ * error is the network, never a missing service: it used to hide the mic for a week on an Android
+ * phone after one bad connection. Opera, Brave and Vivaldi share Chrome's engine but not Google's
+ * speech key, which only Google's own Chrome build carries, so a website can't lend it to them.
+ */
+export function googleBuiltSpeech(o: { brands?: ReadonlyArray<{ brand: string }>; ua: string }): boolean {
+  if (o.brands?.some((b) => /^(Google Chrome|Microsoft Edge)$/.test(b.brand))) return true
+  if (/iPhone|iPad|iPod/.test(o.ua)) return true
+  if (/OPR\/|Opera|Brave|Vivaldi|YaBrowser|SamsungBrowser|Firefox\//.test(o.ua)) return false
+  // Safari on a Mac (no client hints there)
+  return /Safari\//.test(o.ua) && !/Chrome|Chromium|Edg\//.test(o.ua)
+}
+
+/**
+ * The words the recogniser has settled on so far, from each final result in turn. Chrome on Android
+ * repeats earlier words in a later final result ("dinner", then "dinner 1200 with Rahul"), and adding
+ * them up wrote "dinner dinner 1200 with Rahul": a result that starts with what came before replaces
+ * it, one already said is dropped.
+ */
+export function addFinal(settled: string, next: string): string {
+  const a = settled.replace(/\s+/g, ' ').trim()
+  const b = next.replace(/\s+/g, ' ').trim()
+  if (!b) return a
+  if (!a) return b
+  const la = a.toLowerCase()
+  const lb = b.toLowerCase()
+  if (lb.startsWith(la)) return b
+  if (la.endsWith(lb) || la.includes(lb)) return a
+  return `${a} ${b}`
+}
 
 /** A browser found to have no working recogniser is asked again after this long (it may have gained one). */
 export const SPEECH_NONE_TTL_MS = 7 * 24 * 3600 * 1000

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  liveWordsBesideRecording,
+  micFailure,
+  micPreflight,
+  micProblemText,
   barHeights,
   finalVoiceText,
   holdDrag,
@@ -10,6 +14,8 @@ import {
   SPEECH_NONE_TTL_MS,
   speechNoneStill,
   speechServiceMissing,
+  googleBuiltSpeech,
+  addFinal,
   micRelease,
   pickRecorderMime,
   rmsToLevel,
@@ -56,23 +62,60 @@ describe('transcribeOffer', () => {
 })
 
 describe('voiceEngine', () => {
-  const base = { native: true, nativeDenied: false, micDenied: false, aiChosen: false, aiReady: false, recorder: true }
+  const base = { native: true, aiChosen: false, aiReady: false, recorder: true }
   it('the phone’s own recognition first, free', () => {
     expect(voiceEngine(base)).toBe('native')
     expect(voiceEngine({ ...base, aiReady: true })).toBe('native')
   })
-  it('AI only when chosen and able to serve now', () => {
+  it('AI when chosen and able to serve now', () => {
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: true })).toBe('ai')
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: false })).toBe('native')
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: true, recorder: false })).toBe('native')
   })
-  it('no recognition, or refused: no voice, unless AI is on for the person', () => {
+  it('AI is an option, never a fallback: without the browser’s recognition and without choosing AI, no voice', () => {
     expect(voiceEngine({ ...base, native: false })).toBeNull()
-    expect(voiceEngine({ ...base, nativeDenied: true })).toBeNull()
+    expect(voiceEngine({ ...base, native: false, aiReady: true })).toBeNull()
     expect(voiceEngine({ ...base, native: false, aiChosen: true, aiReady: true })).toBe('ai')
   })
-  it('a blocked microphone stops both', () => {
-    expect(voiceEngine({ ...base, micDenied: true, aiChosen: true, aiReady: true })).toBeNull()
+  it('while AI’s answer loads, someone who chose it keeps a mic: the phone’s, or AI where the phone has none', () => {
+    expect(voiceEngine({ ...base, aiChosen: true, aiPending: true })).toBe('native')
+    expect(voiceEngine({ ...base, native: false, aiChosen: true, aiPending: true })).toBe('ai')
+  })
+})
+
+describe('micPreflight', () => {
+  it('granted listens; blocked explains; a prompt (or a browser that can’t say, first time) asks first', () => {
+    expect(micPreflight({ perm: 'granted', okBefore: false })).toBe('go')
+    expect(micPreflight({ perm: 'denied', okBefore: true })).toBe('blocked')
+    expect(micPreflight({ perm: 'prompt', okBefore: true })).toBe('ask')
+    expect(micPreflight({ perm: 'unknown', okBefore: false })).toBe('ask')
+    expect(micPreflight({ perm: 'unknown', okBefore: true })).toBe('go')
+  })
+})
+
+describe('micFailure and micProblemText', () => {
+  const phone = { android: true, ios: false, standalone: true }
+  it('names the problem from the browser’s error name', () => {
+    expect(micFailure('NotAllowedError')).toBe('refused')
+    expect(micFailure('NotReadableError')).toBe('busy')
+    expect(micFailure('AbortError')).toBe('busy')
+    expect(micFailure('NotFoundError')).toBe('missing')
+    expect(micFailure('SecurityError')).toBe('insecure')
+    expect(micFailure(undefined)).toBe('other')
+  })
+  it('a refusal the browser will ask about again asks; a remembered block says where the switch is', () => {
+    expect(micProblemText('refused', 'prompt', phone)).toMatch(/when your phone asks/)
+    expect(micProblemText('refused', 'denied', phone)).toMatch(/App info → Permissions → Microphone/)
+    expect(micProblemText('refused', 'denied', { ...phone, standalone: false })).toMatch(/Site settings/)
+    expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: false })).toMatch(/Safari/)
+    expect(micProblemText('busy', 'granted', phone)).toMatch(/Another app/)
+  })
+})
+
+describe('liveWordsBesideRecording', () => {
+  it('not on Android, where the recogniser is a second app on the microphone', () => {
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Linux; Android 15; Pixel 8) Chrome/141.0 Mobile')).toBe(false)
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/141.0')).toBe(true)
   })
 })
 
@@ -171,12 +214,13 @@ describe('liveTail', () => {
 })
 
 describe('meterBesideSpeech', () => {
-  it('skips the second microphone on Apple WebKit only', () => {
+  it('skips the second microphone on Apple WebKit and Android', () => {
     expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/130.0 Mobile/15E148 Safari/604.1')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(true)
-    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(true)
+    // Android: Google's app does the recognising, a second app on the microphone
+    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(false)
   })
 })
 
@@ -189,6 +233,32 @@ describe('speech service missing', () => {
     expect(speechServiceMissing('not-allowed', true)).toBe(false)
     expect(speechServiceMissing('no-speech', true)).toBe(false)
   })
+  it('in Google’s and Apple’s own browsers a network error is the network, not a missing service', () => {
+    expect(speechServiceMissing('network', true, true)).toBe(false)
+    expect(speechServiceMissing('service-not-allowed', true, true)).toBe(true)
+  })
+  it('knows which browsers carry their maker’s speech service', () => {
+    const chrome = 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36'
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Chromium' }, { brand: 'Google Chrome' }], ua: chrome })).toBe(true)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Microsoft Edge' }], ua: 'x' })).toBe(true)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Chromium' }, { brand: 'Opera GX' }], ua: `${chrome} OPR/120.0` })).toBe(false)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Brave' }, { brand: 'Chromium' }], ua: chrome })).toBe(false)
+    expect(googleBuiltSpeech({ ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1' })).toBe(true)
+    expect(googleBuiltSpeech({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15' })).toBe(true)
+  })
+})
+
+describe('addFinal', () => {
+  it('adds new words, and doesn’t repeat what Chrome on Android says again', () => {
+    expect(addFinal('', 'dinner')).toBe('dinner')
+    expect(addFinal('dinner', '1200 with Rahul')).toBe('dinner 1200 with Rahul')
+    expect(addFinal('dinner', 'Dinner 1200 with Rahul')).toBe('Dinner 1200 with Rahul')
+    expect(addFinal('dinner 1200 with Rahul', 'with Rahul')).toBe('dinner 1200 with Rahul')
+    expect(addFinal('dinner', '  ')).toBe('dinner')
+  })
+})
+
+describe('no speech service, remembered', () => {
   it('remembers it for a week', () => {
     expect(speechNoneStill(null, 5)).toBe(false)
     expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS - 1)).toBe(true)

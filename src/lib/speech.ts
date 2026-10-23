@@ -4,12 +4,20 @@
  * (src/lib/voice.ts voiceEngine). Some Chromium browsers (Opera, Opera GX, Brave) have the API but
  * not Google's speech service behind it: there it moves to the browser's on-device recogniser
  * (processLocally, Chrome 139+, the model installed once) when the browser has one, and otherwise
- * says so plainly and remembers it for a week (AI transcription still works there). Nothing is
- * recorded by the app and no audio leaves it through us; the browser does the recognition. Where
- * the API doesn't exist, or the person refused it, the mic isn't shown (unless they chose AI
- * transcription, src/lib/mic.ts).
+ * says so plainly and remembers it for a week, and voice moves to AI transcription where the person
+ * can use it (src/lib/voice.ts voiceEngine). Nothing is recorded by the app and no audio leaves it
+ * through us; the browser does the recognition. A refused microphone doesn't hide the mic: the
+ * press explains how to allow it (src/hooks/useVoice.ts).
  */
-import { joinHeard, speechNoneStill, speechServiceMissing } from './voice'
+import { addFinal, googleBuiltSpeech, joinHeard, speechNoneStill, speechServiceMissing } from './voice'
+
+/** Google's or Apple's own browser: its speech service is there, so "network" means the network. */
+const googleBuilt = (): boolean =>
+  typeof navigator !== 'undefined' &&
+  googleBuiltSpeech({
+    brands: (navigator as unknown as { userAgentData?: { brands?: Array<{ brand: string }> } }).userAgentData?.brands,
+    ua: navigator.userAgent,
+  })
 
 interface RecognitionResultEvent {
   resultIndex: number
@@ -44,6 +52,12 @@ function ctor(): RecognitionCtor | undefined {
 }
 
 export const speechSupported = (): boolean => !!ctor() && !speechNoneStill(readNum(NONE_KEY), Date.now())
+/** Told when the browser is found to have no working recogniser, so voice moves to AI (where it can) on the next press. */
+const noneSubs = new Set<() => void>()
+export function subscribeSpeechSupport(f: () => void): () => void {
+  noneSubs.add(f)
+  return () => noneSubs.delete(f)
+}
 
 // ---- No speech service here ----------------------------------------------------------------
 // LOCAL_KEY: the language to recognise on the device (the cloud one isn't there); NONE_KEY: when
@@ -77,11 +91,15 @@ function write(k: string, v: string | null) {
 /** The on-device recogniser for `lang` (else US English), installing its model once if the browser offers it; null when there's none. */
 async function localLang(C: RecognitionCtor, lang: string): Promise<string | null> {
   if (!C.available) return null
+  // Browsers without the on-device component answer "downloading" for ever and never finish
+  // install() (Brave, brave-browser#55414): give each a limit, so a hold can't hang on it.
+  const within = <T>(p: Promise<T>, ms: number): Promise<T | 'timeout'> => Promise.race([p, new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), ms))])
   for (const l of [...new Set([lang, 'en-US'])]) {
     try {
-      const a = await C.available({ langs: [l], processLocally: true })
+      const a = await within(C.available({ langs: [l], processLocally: true }), 3000)
       if (a === 'available') return l
-      if ((a === 'downloadable' || a === 'downloading') && C.install && (await C.install({ langs: [l], processLocally: true }))) return l
+      if ((a === 'downloadable' || a === 'downloading') && C.install && (await within(C.install({ langs: [l], processLocally: true }), 20_000)) === true)
+        return l
     } catch {
       /* try the next */
     }
@@ -89,43 +107,32 @@ async function localLang(C: RecognitionCtor, lang: string): Promise<string | nul
   return null
 }
 
-const NO_SERVICE_TEXT = 'This browser can’t turn speech into text. Chrome, Edge and Safari can, or turn on Transcribe with AI in Settings → AI features.'
+export const NO_SERVICE_TEXT = 'This browser can’t turn speech into text. Chrome, Edge and Safari can, or turn on Transcribe with AI in Settings → AI features.'
 
-// ---- Refused on this device -------------------------------------------------------------
-// After a not-allowed error the mic hides (a button that only ever fails is worse than none);
-// when the site's microphone permission later reads "granted", it comes back (src/lib/mic.ts).
-const DENIED_KEY = 'splitnow-speech-denied'
-const deniedSubs = new Set<() => void>()
-export function speechDenied(): boolean {
-  try {
-    return localStorage.getItem(DENIED_KEY) === '1'
-  } catch {
-    return false
+// ---- Refused: never remembered ----------------------------------------------------------
+// Earlier versions hid the mic after a not-allowed error and remembered it on the device. On
+// Android that error also comes when the permission prompt takes the press, or when another app
+// has the microphone, so voice vanished for good on phones that had allowed it. The key is cleared
+// once here; a press now explains a refusal instead (src/lib/voice.ts micPreflight).
+try {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('splitnow-speech-denied')
+    // Chrome, Edge or Safari marked "no speech service" (or moved to on-device) after a bad
+    // connection by an earlier version: they have the service, so start over with it.
+    if (googleBuilt()) {
+      localStorage.removeItem(NONE_KEY)
+      localStorage.removeItem(LOCAL_KEY)
+    }
   }
+} catch {
+  /* private mode */
 }
-export function setSpeechDenied(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(DENIED_KEY, '1')
-    else localStorage.removeItem(DENIED_KEY)
-  } catch {
-    /* private mode */
-  }
-  for (const f of deniedSubs) f()
-}
-export function subscribeSpeechDenied(f: () => void): () => void {
-  deniedSubs.add(f)
-  return () => deniedSubs.delete(f)
-}
-
-// Only the person's own refusal hides the mic until the microphone is allowed again;
-// "service-not-allowed" is the browser lacking the service (handled above), not a refusal.
-const refused = (code: string | undefined) => code === 'not-allowed'
 
 /** Plain words for the API's error codes. */
 export function speechErrorText(code: string | undefined): string {
   switch (code) {
     case 'not-allowed':
-      return 'Microphone access was refused. Allow it in the browser to speak an expense.'
+      return 'Allow the microphone when asked, then try again.'
     case 'service-not-allowed':
     case 'language-not-supported':
       return NO_SERVICE_TEXT
@@ -156,7 +163,15 @@ export interface SpeechSession {
  * `onAudio` fires when the browser has the microphone (a level meter can open its own then).
  * null when unsupported.
  */
-export function listen(opts: { lang?: string; onText: (text: string) => void; onEnd: (error?: string) => void; onAudio?: () => void }): SpeechSession | null {
+export function listen(opts: {
+  lang?: string
+  onText: (text: string) => void
+  /** once: an error message when something went wrong, and the browser's own code (for Logs) */
+  onEnd: (error?: string, code?: string) => void
+  onAudio?: () => void
+  /** only showing words beside an AI recording: its problems change nothing remembered on the device */
+  side?: boolean
+}): SpeechSession | null {
   const C = ctor()
   if (!C) return null
   let settled = ''
@@ -164,6 +179,7 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
   let stopped = false
   let ended = false
   let error: string | undefined
+  let code: string | undefined
   let current: Recognition | null = null
   let restarts = 0
   /** recognising on the device: set once the cloud service was found missing (or remembered so) */
@@ -173,7 +189,7 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
   const finish = () => {
     if (ended) return
     ended = true
-    opts.onEnd(error)
+    opts.onEnd(error, code)
   }
   const begin = () => {
     const r = new C()
@@ -188,20 +204,25 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
       let now = ''
       for (let i = 0; i < e.results.length; i++) {
         const t = e.results[i][0]?.transcript ?? ''
-        if (e.results[i].isFinal) done += ` ${t}`
+        if (e.results[i].isFinal) done = addFinal(done, t)
         else now += ` ${t}`
       }
       hearing = joinHeard(done, now)
       opts.onText(joinHeard(settled, hearing))
     }
     r.onerror = (e) => {
-      // Silence is not an ending: the session restarts below. A refusal hides the mic from now on.
+      // Silence is not an ending: the session restarts below.
       if (e.error === 'no-speech' || e.error === 'aborted') return
-      if (refused(e.error)) setSpeechDenied(true)
+      code = e.error
+      // Beside a recording only: nothing to remember or switch, the recording still counts.
+      if (opts.side) {
+        stopped = true
+        return
+      }
       // The device's recogniser went away (its model was removed): back to the cloud one next time.
-      if (local && speechServiceMissing(e.error, true)) write(LOCAL_KEY, null)
+      if (local && speechServiceMissing(e.error, true, googleBuilt())) write(LOCAL_KEY, null)
       // No speech service behind the API: try the device's own recogniser before giving up.
-      if (!local && !switching && speechServiceMissing(e.error, navigator.onLine)) {
+      if (!local && !switching && speechServiceMissing(e.error, navigator.onLine, googleBuilt())) {
         switching = true
         return
       }
@@ -217,6 +238,7 @@ export function listen(opts: { lang?: string; onText: (text: string) => void; on
           switching = false
           if (!l) {
             write(NONE_KEY, String(Date.now()))
+            for (const f of noneSubs) f()
             error = NO_SERVICE_TEXT
             return finish()
           }

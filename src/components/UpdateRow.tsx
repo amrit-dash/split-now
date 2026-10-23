@@ -3,6 +3,10 @@ import { ChevronRight, Loader2 } from 'lucide-react'
 import { RowUpdateIcon } from '@/components/icons'
 import { applyUpdate, getUpdate, profileRowShown, subscribeUpdate } from '@/lib/app-update'
 import { RowTile } from '@/components/RowTile'
+import { type Hint, HintText } from '@/components/Hint'
+
+/** Like Profile's other rows: the line under the title follows the look, so Simple shows the title alone. */
+const UPDATE_ROW_HINT: Hint = { full: 'Tap to update now. It also updates the next time the app opens.', short: 'Tap to update now', tier: 'help' }
 
 /**
  * Profile's "New version ready" row: while a new version is downloaded and waiting, even after
@@ -26,7 +30,7 @@ export function UpdateRow() {
       <RowTile>{updating ? <Loader2 size={19} className="animate-spin" /> : <RowUpdateIcon size={22} />}</RowTile>
       <span className="min-w-0 flex-1">
         <span className="block">New version ready</span>
-        <span className="text-muted block text-xs font-normal">Tap to update now. It also updates the next time the app opens.</span>
+        <HintText hint={UPDATE_ROW_HINT} as="span" className="text-muted block text-xs font-normal" />
       </span>
       <ChevronRight size={18} className="text-slate-400" aria-hidden />
     </button>

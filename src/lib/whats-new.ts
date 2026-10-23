@@ -24,6 +24,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.4.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Voice works again on Android, and the first hold just asks for the microphone', section: 'voice' },
+      { text: 'Quick add is always at the top of Create', section: 'quick-add' },
+      { text: 'Money received in Simple, in every group', section: 'money-received' },
+      { text: 'A smaller, one-row profile photo sheet', section: 'profile-account' },
+    ],
+  },
+  {
     version: '9.3.1',
     date: 'October 2026',
     items: [

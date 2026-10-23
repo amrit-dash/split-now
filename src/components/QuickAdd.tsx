@@ -85,6 +85,9 @@ export function QuickAdd({
       setText(t)
     },
     onError: (m) => setProblem(errText(m)),
+    // Allowed after the press ended to answer the prompt: ready for the real one.
+    onReady: () => setAnswer('Microphone on. Tap the mic and speak.'),
+    onAsk: () => setAnswer('Allow the microphone when asked. Then tap the mic and speak.'),
   })
   const listening = voice.state === 'listening'
   const transcribing = voice.state === 'transcribing'
@@ -155,6 +158,8 @@ export function QuickAdd({
   }
   const stopMic = async () => {
     const r = await voice.stop()
+    // The browser's prompt took the press: say what to do, not an error ("Microphone on" follows).
+    if (r.asking) return setAnswer('Allow the microphone when asked. Then tap the mic and speak.')
     if (r.error) setProblem(errText(r.error))
     else if (r.text) {
       voiced.current = true
@@ -256,7 +261,9 @@ export function QuickAdd({
                 className={`${chip} bg-brand-50 pl-1.5 pr-2.5 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200`}
                 data-testid={`${testId}-group-chip`}
               >
-                <GroupIcon emoji={match.emoji} group={match} size={24} />
+                <span className="mr-1 flex shrink-0">
+                  <GroupIcon emoji={match.emoji} group={match} size={24} />
+                </span>
                 <span className="truncate">{match.name}</span>
                 <X size={15} className="shrink-0 opacity-70" aria-hidden />
               </button>
@@ -270,7 +277,8 @@ export function QuickAdd({
                 triggerClassName={`${chip} !w-auto bg-slate-100 pl-1.5 pr-2.5 text-slate-700 hover:bg-slate-200/70 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 ${which ? 'ring-2 ring-amber-400' : ''}`}
                 renderTrigger={(sel, open) => (
                   <>
-                    {sel?.icon ?? <span className="w-1" aria-hidden />}
+                    {/* a little more room after the group's picture than between the words */}
+                    {sel?.icon ? <span className="mr-1 flex shrink-0">{sel.icon}</span> : <span className="w-1" aria-hidden />}
                     <span className="text-muted shrink-0 font-medium">Into</span>
                     <span className="truncate">{sel ? sel.text : 'Which group?'}</span>
                     <ChevronDown size={16} className={`shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />

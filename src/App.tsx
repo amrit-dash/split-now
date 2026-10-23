@@ -39,11 +39,13 @@ import { primeAiStatus, useAiStatus } from './hooks/useAiStatus'
 import { useAppConfig, useBlocked } from './hooks/useAppConfig'
 import { lockVault, startAutoLock } from './lib/vault-keys'
 import { lockMinutesFor, lockMs, lockOnLeave, readLockPrefs } from './lib/vault-lock-prefs'
-import { appErrorReport, reportGate, type AppErrorKind } from './lib/app-errors'
+import { appErrorReport, reportGate, setAppErrorSink, type AppErrorKind } from './lib/app-errors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 /** A few error reports per session at most, each message once (lib/app-errors.ts). */
 const reportGateOnce = reportGate()
+// Voice has its own few per session, so a run of voice problems can't crowd out a crash report.
+const voiceGateOnce = reportGate(6)
 import { useViewportStats } from './hooks/useViewportStats'
 import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
 import Login from './pages/Login'
@@ -120,10 +122,14 @@ export default function App() {
         standalone: isStandalone(),
         now: Date.now(),
       })
-      if (reportGateOnce(r)) repo.reportError(r)
+      if ((kind === 'voice' ? voiceGateOnce : reportGateOnce)(r)) repo.reportError(r)
     },
     [uidForReports],
   )
+  useEffect(() => {
+    setAppErrorSink(report)
+    return () => setAppErrorSink(null)
+  }, [report])
   useEffect(() => {
     const onError = (ev: ErrorEvent) => report(ev.error ?? ev.message, 'unhandled')
     const onRejection = (ev: PromiseRejectionEvent) => report(ev.reason, 'unhandled')

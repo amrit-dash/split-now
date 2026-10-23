@@ -7,9 +7,9 @@ import {
   hintLookForMode,
   lookForMode,
   resolveModeChoice,
-  SIMPLE_HIDES,
   settleAuto,
   showsFeature,
+  SIMPLE_HIDES,
 } from './mode'
 import { DEFAULT_MOTION } from './motion'
 

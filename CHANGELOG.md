@@ -6,6 +6,26 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.4.0 — October 2026
+
+- Profile: in Simple, the New version ready row is its title alone, like the rows around it (it showed a line of subtext).
+
+- Voice: works again on phones where the mic had vanished. Before, one “refused” answer from the browser hid the mic and hold-to-talk for good, and on Android that answer also came when the permission prompt took the press, or when the phone's own recogniser (a second app) held the microphone next to an AI recording; holding + then opened the Create sheet. Now the mic always shows where voice can work, and a refusal says how to allow it.
+- Voice: a first hold that only answered the browser's microphone prompt shows “Allow the microphone when asked. Then hold + and speak.”, then “Microphone on” once allowed, instead of “Didn’t catch that” or “refused”. A blocked microphone says where to allow it (the site's settings, or the app's permissions on Android).
+- Voice with AI on Android: the recording has the microphone to itself (the live words beside it were Google's app on the same microphone, which could leave the recording silent and the next press refused).
+- Voice on Android: the phone's own recognition has the microphone to itself. Before, the bars above + opened a second microphone stream next to Google's recogniser, which could stop it hearing or make it report the microphone as refused.
+- Voice on Android: words aren't repeated any more (Chrome there sends earlier words again with later ones, and “dinner dinner 1200” could come out).
+- Voice in Chrome, Edge and Safari: a bad connection no longer marks the browser as having no speech service, which hid the mic for a week. Phones marked that way by an earlier version get their mic back.
+- Voice in Opera and Brave: the on-device recogniser is tried with time limits, so a hold can't hang waiting on a browser that never finishes setting it up.
+- Voice: the microphone is opened again after a moment when another app had it, and with plain settings when the phone rejects the speech ones.
+- Admin → Logs has a Voice kind: each voice failure with the browser's own code, the engine, the microphone permission and what the browser supports, so a phone's problem can be read instead of guessed.
+
+- Create: Quick add is always at the top of the sheet. Before, the Minimal look (Settings → Preferences) hid it behind a small “Quick add” link under the tiles, which looked like something to turn on first.
+- Quick add: a little more room between the group's picture and “Into” in the group chip.
+- Profile photo: one compact row, your photo on the left and Camera (on a phone), Choose, Google and Remove beside it. Before, it was a tall sheet with the actions listed under a big photo.
+- Simple: Add expense has the Expense / Money received switch at the top in every group, as in Advanced. Before, Simple hid it. The group menu's Money received stays an Advanced item.
+- Home: the whole settle up circle on the balance card takes a tap. Before, its lower half sat under the amount line, so a tap on the bottom of the cheque often did nothing.
+
 ## 9.3.1 — October 2026
 
 - Your PRO, DEV or PRO DEV badge now shows beside you in a group's Members. Before, the group's security check ran out of its step allowance on most groups (a few people with photos were enough) and refused the update, so the badge, and a new name or photo, never reached the group.
