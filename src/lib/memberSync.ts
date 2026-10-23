@@ -66,3 +66,12 @@ export function ownMemberSyncs(
   }
   return out
 }
+
+/**
+ * The groups a profile save copies the shared part into (groups/{id}/profiles/{uid}): the ones
+ * still in use. A group in Recently deleted refuses the write (the rules' groupLive), and in one
+ * batch with the profile that refusal used to undo the whole save, photo and all.
+ */
+export function profileCopyTargets(groups: ReadonlyArray<{ id: string; data: { deletedAt?: unknown } }>): string[] {
+  return groups.filter((g) => typeof g.data.deletedAt !== 'number').map((g) => g.id)
+}

@@ -333,7 +333,7 @@ function NameLine({ name, pro }: { name: string; pro: BadgeWord | null }) {
       {shown !== name && <span className="sr-only">{name}</span>}
       {pro && (
         // Kept in the page when it doesn't fit (hidden, out of the flow) so its width can be measured.
-        <span ref={pill} className={fit.pill ? 'shrink-0' : 'pointer-events-none invisible absolute right-0'} aria-hidden data-testid="profile-pill">
+        <span ref={pill} className={fit.pill ? 'flex shrink-0' : 'pointer-events-none invisible absolute right-0 flex'} aria-hidden data-testid="profile-pill">
           <ProPill h={8} word={pro} />
         </span>
       )}

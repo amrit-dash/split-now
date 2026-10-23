@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.3.1',
+    date: 'October 2026',
+    items: [
+      { text: 'Your badge shows beside you in a group’s Members', section: 'earn-pro' },
+      { text: 'Changing or removing your profile photo works again', section: 'profile-account' },
+    ],
+  },
+  {
     version: '9.3.0',
     date: 'October 2026',
     items: [

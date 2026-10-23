@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
-import { ownMemberSyncs, sharedPhotoURL } from './memberSync'
+import { ownMemberSyncs, profileCopyTargets, sharedPhotoURL } from './memberSync'
 
 const g = (id: string, members: Group['members']): Group => ({
   id,
@@ -68,5 +68,17 @@ describe('ownMemberSyncs', () => {
   })
   it('never touches other members', () => {
     expect(ownMemberSyncs(groups, 'u2', { displayName: 'Mallory', photoURL: photo })).toEqual([])
+  })
+})
+
+describe('profileCopyTargets', () => {
+  it('skips groups in Recently deleted', () => {
+    expect(
+      profileCopyTargets([
+        { id: 'a', data: {} },
+        { id: 'b', data: { deletedAt: 5 } },
+        { id: 'c', data: { deletedAt: undefined } },
+      ]),
+    ).toEqual(['a', 'c'])
   })
 })

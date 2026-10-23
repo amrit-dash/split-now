@@ -1,3 +1,4 @@
+import { profileCopyTargets } from '@/lib/memberSync'
 import { EMPTY_HELP_PROGRESS, parseHelpProgress } from '@/lib/help-progress'
 import { OPEN_ITEM_EDIT_FIELDS } from '@/lib/open-items'
 import { withProAwarded } from '@/lib/pro'
@@ -791,24 +792,24 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       }
       // merge: true would keep a removed photo, so clear the fields explicitly.
       const own = { ...p, photoURL: p.photoURL ?? deleteField(), photoSource: p.photoSource ?? (p.photoURL ? undefined : deleteField()) }
+      // The profile is its own write, so it saves whatever the groups say. Then a copy of the shared
+      // part goes to each group still in use, one write per group: in one batch with the profile, a
+      // group that refused (Recently deleted, or the rules' limit of 20 documents read per batch on
+      // someone in many groups) undid the whole save, and the photo change silently didn't happen.
+      fire(writeBatch(db).set(doc(db, 'users', p.uid), own, { merge: true }), 'Saving your profile')
       // The server's list when it answers (the cache resolves empty, not failing, for a query
       // this device has never run, e.g. Profile opened before Groups on a fresh install).
-      let groupIds: string[] = []
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', p.uid))
-      const ids = (s: { docs: Array<{ id: string }> }) => s.docs.map((d) => d.id)
+      const live = (s: { docs: Array<{ id: string; data: () => { deletedAt?: unknown } }> }) =>
+        profileCopyTargets(s.docs.map((d) => ({ id: d.id, data: d.data() })))
       const fromCache = () =>
         getDocsFromCache(q)
-          .then(ids)
+          .then(live)
           .catch(() => [] as string[])
-      groupIds = online() ? ((await within(getDocs(q).then(ids).catch(fromCache), 3000, null)) ?? (await fromCache())) : await fromCache()
-      const refs: Array<[DocumentReference, object, boolean]> = [
-        [doc(db, 'users', p.uid), own, true],
-        ...groupIds.map((g) => [memberProfileRef(g, p.uid), shared, false] as [DocumentReference, object, boolean]),
-      ]
-      for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
-        const batch = writeBatch(db)
-        for (const [r, data, merge] of refs.slice(i, i + BATCH_LIMIT)) batch.set(r, data, merge ? { merge: true } : {})
-        fire(batch, 'Saving your profile')
+      const groupIds = online() ? ((await within(getDocs(q).then(live).catch(fromCache), 3000, null)) ?? (await fromCache())) : await fromCache()
+      for (const g of groupIds) {
+        // Background: one group refusing is that group's business, not a failed save.
+        track(setDoc(memberProfileRef(g, p.uid), shared)).catch((e) => console.warn('Could not share your profile with', g, e))
       }
       if (oldUpload?.startsWith(`avatars/${p.uid}/`)) deleteFileLater(oldUpload)
     },
