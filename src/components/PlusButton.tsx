@@ -56,7 +56,7 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
   const nav = useNavigate()
   const toast = useToast()
   const { user, profile } = useMe()
-  const { engine, offer } = useVoiceSetup()
+  const { engine } = useVoiceSetup()
   const allGroups = usePickableGroups()
   // Shared, open groups only, as in the Create sheet: the personal wallet has nobody to split with.
   const groups = useMemo(() => (allGroups ?? []).filter((g) => !g.archived && g.type !== 'personal'), [allGroups])
@@ -99,7 +99,11 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
     },
     // Allowed after the finger came off to answer the prompt: ready for the real hold.
     onReady: () => setAnswer({ kind: 'teach', title: 'Microphone on', text: VOICE_FIRST_TEXT }),
-    aiFallback: offer.ai,
+    // The browser's prompt ended the hold by itself: what to do, not an error.
+    onAsk: () => {
+      go('idle')
+      setAnswer({ kind: 'teach', title: 'Microphone', text: VOICE_ALLOW_TEXT })
+    },
   })
   const run = useQuickRun({ groups, onBusy: () => {} })
   const { banner } = useWhatsNew()
@@ -146,7 +150,7 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       if (r.asking) return setAnswer({ kind: 'teach', title: 'Microphone', text: VOICE_ALLOW_TEXT })
       if (r.error) return toast(r.error, 'err')
       const text = r.text.trim()
-      if (!text) return setAnswer(r.first ? { kind: 'teach', title: 'Microphone', text: VOICE_FIRST_TEXT } : { kind: 'answer', text: NOT_HEARD })
+      if (!text) return setAnswer({ kind: 'answer', text: NOT_HEARD })
       // The first time it works something out: say how to stop it (owner, 23 Oct 2026).
       if (stopTipDue()) setAnswer({ kind: 'teach', title: 'Tip', text: 'Double tap + to stop it while it works.' })
       // Still loading the groups: Quick add in the sheet takes it from here.

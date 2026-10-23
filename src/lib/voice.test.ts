@@ -14,6 +14,8 @@ import {
   SPEECH_NONE_TTL_MS,
   speechNoneStill,
   speechServiceMissing,
+  googleBuiltSpeech,
+  addFinal,
   micRelease,
   pickRecorderMime,
   rmsToLevel,
@@ -70,10 +72,10 @@ describe('voiceEngine', () => {
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: false })).toBe('native')
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: true, recorder: false })).toBe('native')
   })
-  it('a browser without a speech service is heard through AI when AI can serve the person, chosen or not', () => {
+  it('AI is an option, never a fallback: without the browser’s recognition and without choosing AI, no voice', () => {
     expect(voiceEngine({ ...base, native: false })).toBeNull()
-    expect(voiceEngine({ ...base, native: false, aiReady: true })).toBe('ai')
-    expect(voiceEngine({ ...base, native: false, aiReady: true, recorder: false })).toBeNull()
+    expect(voiceEngine({ ...base, native: false, aiReady: true })).toBeNull()
+    expect(voiceEngine({ ...base, native: false, aiChosen: true, aiReady: true })).toBe('ai')
   })
   it('while AI’s answer loads, someone who chose it keeps a mic: the phone’s, or AI where the phone has none', () => {
     expect(voiceEngine({ ...base, aiChosen: true, aiPending: true })).toBe('native')
@@ -212,12 +214,13 @@ describe('liveTail', () => {
 })
 
 describe('meterBesideSpeech', () => {
-  it('skips the second microphone on Apple WebKit only', () => {
+  it('skips the second microphone on Apple WebKit and Android', () => {
     expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/130.0 Mobile/15E148 Safari/604.1')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15')).toBe(false)
     expect(meterBesideSpeech('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(true)
-    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(true)
+    // Android: Google's app does the recognising, a second app on the microphone
+    expect(meterBesideSpeech('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe(false)
   })
 })
 
@@ -230,6 +233,32 @@ describe('speech service missing', () => {
     expect(speechServiceMissing('not-allowed', true)).toBe(false)
     expect(speechServiceMissing('no-speech', true)).toBe(false)
   })
+  it('in Google’s and Apple’s own browsers a network error is the network, not a missing service', () => {
+    expect(speechServiceMissing('network', true, true)).toBe(false)
+    expect(speechServiceMissing('service-not-allowed', true, true)).toBe(true)
+  })
+  it('knows which browsers carry their maker’s speech service', () => {
+    const chrome = 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36'
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Chromium' }, { brand: 'Google Chrome' }], ua: chrome })).toBe(true)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Microsoft Edge' }], ua: 'x' })).toBe(true)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Chromium' }, { brand: 'Opera GX' }], ua: `${chrome} OPR/120.0` })).toBe(false)
+    expect(googleBuiltSpeech({ brands: [{ brand: 'Brave' }, { brand: 'Chromium' }], ua: chrome })).toBe(false)
+    expect(googleBuiltSpeech({ ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1' })).toBe(true)
+    expect(googleBuiltSpeech({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15' })).toBe(true)
+  })
+})
+
+describe('addFinal', () => {
+  it('adds new words, and doesn’t repeat what Chrome on Android says again', () => {
+    expect(addFinal('', 'dinner')).toBe('dinner')
+    expect(addFinal('dinner', '1200 with Rahul')).toBe('dinner 1200 with Rahul')
+    expect(addFinal('dinner', 'Dinner 1200 with Rahul')).toBe('Dinner 1200 with Rahul')
+    expect(addFinal('dinner 1200 with Rahul', 'with Rahul')).toBe('dinner 1200 with Rahul')
+    expect(addFinal('dinner', '  ')).toBe('dinner')
+  })
+})
+
+describe('no speech service, remembered', () => {
   it('remembers it for a week', () => {
     expect(speechNoneStill(null, 5)).toBe(false)
     expect(speechNoneStill(1000, 1000 + SPEECH_NONE_TTL_MS - 1)).toBe(true)

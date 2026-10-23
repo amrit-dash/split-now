@@ -77,7 +77,7 @@ export function QuickAdd({
   const voiced = useRef(false)
   /** when the finger went down on the mic (null: not a press that started listening) */
   const pressed = useRef<number | null>(null)
-  const { engine, offer } = useVoiceSetup()
+  const { engine } = useVoiceSetup()
   const voice = useVoice({
     engine,
     onText: (t) => {
@@ -87,7 +87,7 @@ export function QuickAdd({
     onError: (m) => setProblem(errText(m)),
     // Allowed after the press ended to answer the prompt: ready for the real one.
     onReady: () => setAnswer('Microphone on. Tap the mic and speak.'),
-    aiFallback: offer.ai,
+    onAsk: () => setAnswer('Allow the microphone when asked. Then tap the mic and speak.'),
   })
   const listening = voice.state === 'listening'
   const transcribing = voice.state === 'transcribing'
@@ -160,7 +160,6 @@ export function QuickAdd({
     const r = await voice.stop()
     // The browser's prompt took the press: say what to do, not an error ("Microphone on" follows).
     if (r.asking) return setAnswer('Allow the microphone when asked. Then tap the mic and speak.')
-    if (r.first && !r.text) return setAnswer('Microphone on. Tap the mic and speak.')
     if (r.error) setProblem(errText(r.error))
     else if (r.text) {
       voiced.current = true

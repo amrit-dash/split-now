@@ -45,11 +45,9 @@ export function transcribeOffer(o: {
 }
 
 /**
- * Who hears the person. AI when they chose it and it can serve them now (online, a key); else the
- * phone's own recognition when the browser has a working one; else AI anyway when it can serve
- * them (a browser with no speech service behind it, like Opera or Brave: the recording is the only
- * way to be heard there). null only when neither can: no mic in Quick add, and a hold on + opens
- * the Create sheet as before.
+ * Who hears the person. AI only when they chose it (an option, never a fallback: owner, 23 Oct
+ * 2026) and it can serve them now (online, a key); else the browser's own recognition when it has a
+ * working one. null when neither: no mic in Quick add, and a hold on + opens the Create sheet.
  *
  * A refused microphone no longer hides the mic (it used to, remembered on the device, and a
  * permission granted later, or a refusal that was really the prompt being dismissed by letting go,
@@ -69,7 +67,6 @@ export function voiceEngine(o: {
 }): VoiceEngine | null {
   if (o.aiChosen && o.recorder && (o.aiReady || (o.aiPending && !o.native))) return 'ai'
   if (o.native) return 'native'
-  if (o.aiReady && o.recorder) return 'ai'
   return null
 }
 
@@ -239,12 +236,15 @@ export function liveTail(text: string, max = 40): string {
 
 /**
  * Whether the bars may open their own microphone stream next to the phone's speech recognition.
- * Apple's WebKit (every iPhone browser, and Safari on a Mac) gives the microphone to one of them
- * only: a second stream can leave recognition hearing nothing ("Didn't catch that") and asks for
- * the microphone a second time. There the bars follow the words heard instead.
+ * Apple's WebKit (every iPhone browser, and Safari on a Mac) and Android give the microphone to one
+ * of them only: a second stream can leave recognition hearing nothing ("Didn't catch that"), or
+ * refused, and asks for the microphone a second time. There the bars follow the words heard instead.
  */
 export function meterBesideSpeech(ua: string): boolean {
   if (/iPhone|iPad|iPod/.test(ua)) return false
+  // Android: Chrome hands recognition to Google's app, a second app on the microphone; a stream
+  // opened here takes the microphone from it ("refused", or nothing heard).
+  if (/Android/i.test(ua)) return false
   if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return false
   return true
 }
@@ -254,8 +254,41 @@ export function meterBesideSpeech(ua: string): boolean {
  * builds without Google's speech service answer "network" while online, or "service-not-allowed"):
  * not a refused microphone, and worth trying the on-device recogniser before giving up.
  */
-export const speechServiceMissing = (code: string | undefined, online: boolean): boolean =>
-  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online)
+export const speechServiceMissing = (code: string | undefined, online: boolean, googleBuilt = false): boolean =>
+  code === 'service-not-allowed' || code === 'language-not-supported' || (code === 'network' && online && !googleBuilt)
+
+/**
+ * The browser is one whose makers run the speech service behind it: Google Chrome and Microsoft Edge
+ * (their brands, User-Agent Client Hints), or Safari / any iPhone browser (Apple's). There a "network"
+ * error is the network, never a missing service: it used to hide the mic for a week on an Android
+ * phone after one bad connection. Opera, Brave and Vivaldi share Chrome's engine but not Google's
+ * speech key, which only Google's own Chrome build carries, so a website can't lend it to them.
+ */
+export function googleBuiltSpeech(o: { brands?: ReadonlyArray<{ brand: string }>; ua: string }): boolean {
+  if (o.brands?.some((b) => /^(Google Chrome|Microsoft Edge)$/.test(b.brand))) return true
+  if (/iPhone|iPad|iPod/.test(o.ua)) return true
+  if (/OPR\/|Opera|Brave|Vivaldi|YaBrowser|SamsungBrowser|Firefox\//.test(o.ua)) return false
+  // Safari on a Mac (no client hints there)
+  return /Safari\//.test(o.ua) && !/Chrome|Chromium|Edg\//.test(o.ua)
+}
+
+/**
+ * The words the recogniser has settled on so far, from each final result in turn. Chrome on Android
+ * repeats earlier words in a later final result ("dinner", then "dinner 1200 with Rahul"), and adding
+ * them up wrote "dinner dinner 1200 with Rahul": a result that starts with what came before replaces
+ * it, one already said is dropped.
+ */
+export function addFinal(settled: string, next: string): string {
+  const a = settled.replace(/\s+/g, ' ').trim()
+  const b = next.replace(/\s+/g, ' ').trim()
+  if (!b) return a
+  if (!a) return b
+  const la = a.toLowerCase()
+  const lb = b.toLowerCase()
+  if (lb.startsWith(la)) return b
+  if (la.endsWith(lb) || la.includes(lb)) return a
+  return `${a} ${b}`
+}
 
 /** A browser found to have no working recogniser is asked again after this long (it may have gained one). */
 export const SPEECH_NONE_TTL_MS = 7 * 24 * 3600 * 1000

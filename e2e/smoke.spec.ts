@@ -75,6 +75,20 @@ async function fakeSpeech(page: Page, said = 'Dinner 1200 with Rahul, I paid') {
       timers: ReturnType<typeof setTimeout>[] = []
       start() {
         w.__listening = true
+        // The browser's own prompt, while __promptMs lasts: nothing heard until it's answered.
+        const prompt = Number(w.__promptMs ?? 0)
+        if (prompt > 0) {
+          w.__promptMs = 0
+          // Answered whether or not the press is still on (the timer outlives stop()).
+          void setTimeout(() => {
+            const p = w.__perm as { state: string; onchange?: () => void } | undefined
+            if (p) {
+              p.state = 'granted'
+              p.onchange?.()
+            }
+          }, prompt)
+          return
+        }
         const words = String(w.__said).split(' ')
         let i = 0
         this.onaudiostart?.()
@@ -578,6 +592,9 @@ async function fakeMicPermission(page: Page, state: 'prompt' | 'denied', delay =
   await page.addInitScript(
     ([st, ms]) => {
       const perm = { state: st as string, onchange: null }
+      const w = window as unknown as Record<string, unknown>
+      w.__perm = perm
+      if (st === 'prompt') w.__promptMs = ms
       Object.defineProperty(navigator, 'permissions', { value: { query: () => Promise.resolve(perm) }, configurable: true })
       if (!navigator.mediaDevices) return
       navigator.mediaDevices.getUserMedia = () =>

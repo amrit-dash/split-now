@@ -9,7 +9,15 @@
  * through us; the browser does the recognition. A refused microphone doesn't hide the mic: the
  * press explains how to allow it (src/hooks/useVoice.ts).
  */
-import { joinHeard, speechNoneStill, speechServiceMissing } from './voice'
+import { addFinal, googleBuiltSpeech, joinHeard, speechNoneStill, speechServiceMissing } from './voice'
+
+/** Google's or Apple's own browser: its speech service is there, so "network" means the network. */
+const googleBuilt = (): boolean =>
+  typeof navigator !== 'undefined' &&
+  googleBuiltSpeech({
+    brands: (navigator as unknown as { userAgentData?: { brands?: Array<{ brand: string }> } }).userAgentData?.brands,
+    ua: navigator.userAgent,
+  })
 
 interface RecognitionResultEvent {
   resultIndex: number
@@ -83,11 +91,15 @@ function write(k: string, v: string | null) {
 /** The on-device recogniser for `lang` (else US English), installing its model once if the browser offers it; null when there's none. */
 async function localLang(C: RecognitionCtor, lang: string): Promise<string | null> {
   if (!C.available) return null
+  // Browsers without the on-device component answer "downloading" for ever and never finish
+  // install() (Brave, brave-browser#55414): give each a limit, so a hold can't hang on it.
+  const within = <T>(p: Promise<T>, ms: number): Promise<T | 'timeout'> => Promise.race([p, new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), ms))])
   for (const l of [...new Set([lang, 'en-US'])]) {
     try {
-      const a = await C.available({ langs: [l], processLocally: true })
+      const a = await within(C.available({ langs: [l], processLocally: true }), 3000)
       if (a === 'available') return l
-      if ((a === 'downloadable' || a === 'downloading') && C.install && (await C.install({ langs: [l], processLocally: true }))) return l
+      if ((a === 'downloadable' || a === 'downloading') && C.install && (await within(C.install({ langs: [l], processLocally: true }), 20_000)) === true)
+        return l
     } catch {
       /* try the next */
     }
@@ -103,7 +115,15 @@ export const NO_SERVICE_TEXT = 'This browser can’t turn speech into text. Chro
 // has the microphone, so voice vanished for good on phones that had allowed it. The key is cleared
 // once here; a press now explains a refusal instead (src/lib/voice.ts micPreflight).
 try {
-  if (typeof localStorage !== 'undefined') localStorage.removeItem('splitnow-speech-denied')
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('splitnow-speech-denied')
+    // Chrome, Edge or Safari marked "no speech service" (or moved to on-device) after a bad
+    // connection by an earlier version: they have the service, so start over with it.
+    if (googleBuilt()) {
+      localStorage.removeItem(NONE_KEY)
+      localStorage.removeItem(LOCAL_KEY)
+    }
+  }
 } catch {
   /* private mode */
 }
@@ -184,7 +204,7 @@ export function listen(opts: {
       let now = ''
       for (let i = 0; i < e.results.length; i++) {
         const t = e.results[i][0]?.transcript ?? ''
-        if (e.results[i].isFinal) done += ` ${t}`
+        if (e.results[i].isFinal) done = addFinal(done, t)
         else now += ` ${t}`
       }
       hearing = joinHeard(done, now)
@@ -200,9 +220,9 @@ export function listen(opts: {
         return
       }
       // The device's recogniser went away (its model was removed): back to the cloud one next time.
-      if (local && speechServiceMissing(e.error, true)) write(LOCAL_KEY, null)
+      if (local && speechServiceMissing(e.error, true, googleBuilt())) write(LOCAL_KEY, null)
       // No speech service behind the API: try the device's own recogniser before giving up.
-      if (!local && !switching && speechServiceMissing(e.error, navigator.onLine)) {
+      if (!local && !switching && speechServiceMissing(e.error, navigator.onLine, googleBuilt())) {
         switching = true
         return
       }

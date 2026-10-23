@@ -22,7 +22,7 @@ import {
   subscribeMicPermission,
   type Recording,
 } from '@/lib/mic'
-import { listen, NO_SERVICE_TEXT, speechSupported, subscribeSpeechSupport, type SpeechSession } from '@/lib/speech'
+import { listen, speechSupported, subscribeSpeechSupport, type SpeechSession } from '@/lib/speech'
 import {
   finalVoiceText,
   liveWordsBesideRecording,
@@ -82,10 +82,8 @@ export type VoiceState = 'idle' | 'listening' | 'transcribing'
 export interface VoiceResult {
   text: string
   error?: string
-  /** the browser's permission prompt took the press: onReady follows once it's answered */
+  /** the browser's permission prompt took the press: a how-to, not "didn't catch that"; onReady follows once it's allowed */
   asking?: boolean
-  /** nothing heard, and voice has never worked on this device: a how-to, not "didn't catch that" */
-  first?: boolean
 }
 
 interface Live {
@@ -107,6 +105,20 @@ interface Live {
   released?: boolean
   /** the browser had the microphone (audio started, or a recording ran) */
   heardAudio?: boolean
+  /** the browser's own prompt took this press */
+  firstPrompt?: boolean
+}
+
+/** Once the site's microphone permission reads "granted" (where the browser reports it): call `f` once. */
+function whenAllowed(f: () => void) {
+  if (micPermission() === 'granted') return
+  const off = subscribeMicPermission(() => {
+    if (micPermission() !== 'granted') return
+    off()
+    f()
+  })
+  // Don't wait forever on a prompt nobody answers.
+  setTimeout(off, 120_000)
 }
 
 const where = () => {
@@ -131,8 +143,8 @@ export function useVoice(opts: {
   onError?: (message: string) => void
   /** the microphone was allowed after the press ended: say it's ready */
   onReady?: () => void
-  /** AI transcription can serve this person (useVoiceSetup offer.ai): where the browser has no speech service, the next press uses it */
-  aiFallback?: boolean
+  /** the browser's prompt took the press while the finger was still down: say what to do */
+  onAsk?: () => void
   meter?: boolean
   sound?: boolean
 }) {
@@ -225,11 +237,23 @@ export function useVoice(opts: {
       },
       onEnd: (err, code) => {
         if (code) log('speech', code)
+        // Refused before voice ever worked here, with the browser still able to ask: that was the
+        // prompt taking the press (or answered late), not a no. Say what to do instead.
+        if (code === 'not-allowed' && !micAllowedBefore() && micPermission() !== 'denied') {
+          l.firstPrompt = true
+          err = undefined
+        }
         // No speech service in this browser: the next press goes to AI when AI can serve them.
-        l.error = err === NO_SERVICE_TEXT && o.current.aiFallback ? 'This browser can’t turn speech into text itself. Try again: AI will write it down.' : err
+        l.error = err
         done()
         // Ended by itself (a refusal, no microphone): the session is over.
         if (live.current === l && l.error && !l.stopping) fail(l, l.error)
+        // The prompt ended it while the finger was still down: say what to do, and when it's ready.
+        else if (live.current === l && l.firstPrompt && !l.stopping) {
+          fail(l, '')
+          o.current.onAsk?.()
+          whenAllowed(() => o.current.onReady?.())
+        }
       },
       // The browser has the microphone now; the bars' meter opens its own where that's safe (Chrome
       // shares it). On Apple's WebKit a second stream can starve recognition: the words drive the bars.
@@ -257,15 +281,19 @@ export function useVoice(opts: {
     if (o.current.sound !== false) blip('start')
     buzz(12)
 
-    // The microphone first, where the browser hasn't been allowed yet (its prompt shows now), and
-    // always for AI (the recording needs the stream). A blocked one says where to allow it.
+    // A blocked microphone says where to allow it, before anything else.
     const pre = micPreflight({ perm: micPermission(), okBefore: micAllowedBefore() })
     if (pre === 'blocked') {
       log('mic', 'blocked')
       fail(l, micProblemText('refused', 'denied', where()))
       return false
     }
-    if (pre === 'ask' || engine === 'ai') {
+    // The browser's own recognition asks for the microphone itself and must have it to itself: no
+    // stream is opened here (on Android a second one took it from Google's recogniser).
+    if (engine === 'native') return listenNative(l)
+
+    // AI records: the stream first (its prompt shows now, where the browser hasn't been allowed yet).
+    {
       l.asking = pre === 'ask'
       let stream: MediaStream
       try {
@@ -274,11 +302,6 @@ export function useVoice(opts: {
         const name = (e as { name?: string })?.name
         log('mic', name)
         const f = micFailure(name)
-        // The phone's recognition opens the microphone its own way: anything short of a refusal, let it try.
-        if (engine === 'native' && f !== 'refused' && live.current === l && !l.released) {
-          l.asking = false
-          return listenNative(l)
-        }
         // A refusal asks again only while the browser will; else where the switch is.
         const perm = await micPermissionNow()
         fail(l, micProblemText(f, perm, where()))
@@ -297,12 +320,8 @@ export function useVoice(opts: {
         o.current.onReady?.()
         return false
       }
-      // The phone's recognition opens its own; a stream held here could starve it (Apple, Android).
-      if (engine === 'native') closeMic(stream)
-      else l.stream = stream
+      l.stream = stream
     }
-
-    if (engine === 'native') return listenNative(l)
 
     if (!l.stream) {
       fail(l, 'Couldn’t open the microphone. Try again, or type it.')
@@ -350,8 +369,11 @@ export function useVoice(opts: {
       const text = l.text.trim()
       if (l.error) return { text, error: l.error }
       // Nothing heard and the browser never had the microphone, on a device where voice hasn't worked
-      // yet: the press went to a prompt (iPhone asks for speech recognition separately).
-      if (!text && !l.heardAudio && !micAllowedBefore()) return { text: '', first: true }
+      // yet: the press went to the browser's prompt (iPhone asks for speech recognition separately).
+      if (!text && (l.firstPrompt || (!l.heardAudio && !micAllowedBefore()))) {
+        whenAllowed(() => o.current.onReady?.())
+        return { text: '', asking: true }
+      }
       return { text }
     }
     // Let go before the microphone even opened: nothing was said.
