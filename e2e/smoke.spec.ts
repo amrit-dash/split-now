@@ -1896,6 +1896,19 @@ test('icons: an expense picks its own from what it is for, and press and hold op
   await expect(page.getByTestId('expense-detail-icon')).toContainText('⛴️')
 })
 
+test('Edit group: a picked icon is saved at once, without Save', async ({ page }) => {
+  await page.goto('/groups/g_goa/edit')
+  await page.getByTestId('group-icon').click()
+  const sheet = page.getByTestId('group-icon-sheet')
+  await sheet.getByTestId('icon-search').fill('camp')
+  await sheet.getByRole('radio', { name: 'Icon 🏕️' }).click()
+  await expect(page.getByTestId('toasts')).toContainText('Icon saved')
+  // Leave without Save, come back: the group kept the new icon.
+  await page.goto('/groups')
+  await page.goto('/groups/g_goa/edit')
+  await expect(page.getByTestId('group-icon')).toContainText('🏕️')
+})
+
 test('icons: a group name suggests a telling icon, and every icon is a search away', async ({ page }) => {
   await page.goto('/groups/new')
   await page

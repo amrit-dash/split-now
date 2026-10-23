@@ -467,24 +467,42 @@ export default function GroupForm() {
   const chooseKind = (k: Kind) => {
     if (k !== kind) chooseType(k === 'group' ? lastShared.current : k)
   }
+  /**
+   * Edit group: a picked icon is saved at once (owner, 23 Oct 2026: changing the icon and leaving
+   * without Save lost it). Only the icon; the rest of the form still waits for Save. The base moves
+   * with it, so that Save doesn't count the icon as a change again.
+   */
+  const saveIcon = (icon: { emoji?: string; iconSvg?: string; iconImage?: string }) => {
+    const base = loaded.current?.base
+    if (!existing || !base) return
+    const patch = { emoji: icon.emoji ?? base.emoji, iconSvg: icon.iconSvg, iconImage: icon.iconImage }
+    loaded.current = { key: existing.id, base: { ...base, ...patch } }
+    repo
+      .updateGroupSettings(base, patch)
+      .then(() => toast('Icon saved'))
+      .catch((e) => toast(errText(e), 'err'))
+  }
   const chooseIcon = (e: string) => {
     setIconTouched(true)
     setIconChosen(true)
     setEmoji(e)
     setIconSvg(undefined)
     setIconImage(undefined)
+    saveIcon({ emoji: e })
   }
   const chooseSvg = (svg: string) => {
     setIconTouched(true)
     setIconChosen(true)
     setIconSvg(svg)
     setIconImage(undefined)
+    saveIcon({ iconSvg: svg })
   }
   const chooseImage = (image: string) => {
     setIconTouched(true)
     setIconChosen(true)
     setIconImage(image)
     setIconSvg(undefined)
+    saveIcon({ iconImage: image })
   }
 
   const onName = (v: string) => {

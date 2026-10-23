@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Edit group: a picked icon (emoji, drawn icon or picture) is saved at once, with “Icon saved”. Before, leaving without Save lost it; the rest of the form still waits for Save.
+
 - Settings → Encrypted groups: help is a round **?** in the corner instead of the lifebuoy.
 - Preferences → Mode: choosing Advanced (or Simple) keeps the switch under your finger; the rows that appear or go above it no longer make the page seem to jump.
 
