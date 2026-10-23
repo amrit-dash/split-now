@@ -1751,10 +1751,11 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'No passwords: Google or an email link.',
-      'Tap your photo for **Camera**, **Choose**, **Google** or **Remove**.',
+      'Tap your photo, then the camera to take one, the picture to choose one, your Google photo, or the bin to remove it.',
       'Signing out clears this device’s offline copy.',
       'People in your groups see your name and photo.',
       'A new name or photo reaches all your groups straight away.',
+      'A short sheet keeps messages just above it, so they never cover its buttons.',
     ],
     open: { label: 'Profile', to: '/profile' },
     related: ['sign-in', 'people-without-account', 'upi-id', 'delete-account'],

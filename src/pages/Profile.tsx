@@ -504,28 +504,43 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
     }
   }
   const actions = 1 + (coarsePointer() ? 1 : 0) + (googlePhotoURL && profile.photoURL !== googlePhotoURL ? 1 : 0) + (profile.photoURL ? 1 : 0)
-  // One row: the photo on the left, its actions as small tiles beside it (icon over a short word).
-  const tile =
-    'flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl bg-slate-100 px-1 py-2 text-xs font-semibold transition active:scale-95 disabled:opacity-50 dark:bg-ink-800'
+  // One row: the photo on the left, its actions as icon tiles beside it (owner, 24 Oct 2026: icons
+  // alone; each keeps its name for screen readers and as a tooltip).
+  const tile = 'flex h-14 min-w-11 flex-1 items-center justify-center rounded-2xl bg-slate-100 transition active:scale-95 disabled:opacity-50 dark:bg-ink-800'
 
   return (
     <Sheet open={open} onClose={onClose} title="Profile photo">
       <input ref={pick} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} data-testid="photo-input" />
       <input ref={camera} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 pt-3">
         {/* four actions on a 320px phone need the photo's room */}
         <Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="accent" size={actions > 3 ? 56 : 72} />
         {/* the photo apart from what you can do with it (owner, 23 Oct 2026) */}
         <span aria-hidden className="h-12 w-px shrink-0 bg-slate-200 dark:bg-ink-700" />
         <div className="flex min-w-0 flex-1 gap-2">
           {coarsePointer() && (
-            <button type="button" className={tile} disabled={busy} onClick={() => camera.current?.click()} data-testid="photo-camera">
-              <CameraIcon size={22} className="text-brand-600 dark:text-brand-300" aria-hidden /> Camera
+            <button
+              type="button"
+              className={tile}
+              disabled={busy}
+              onClick={() => camera.current?.click()}
+              aria-label="Take photo"
+              title="Take photo"
+              data-testid="photo-camera"
+            >
+              <CameraIcon size={24} className="text-brand-600 dark:text-brand-300" aria-hidden />
             </button>
           )}
-          <button type="button" className={tile} disabled={busy} onClick={() => pick.current?.click()} aria-label="Choose photo" data-testid="photo-choose">
-            {busy ? <Spinner className="!h-5 !w-5" label="Uploading" /> : <ImageIcon size={22} className="text-brand-600 dark:text-brand-300" aria-hidden />}
-            {busy ? 'Uploading' : 'Choose'}
+          <button
+            type="button"
+            className={tile}
+            disabled={busy}
+            onClick={() => pick.current?.click()}
+            aria-label="Choose photo"
+            title="Choose photo"
+            data-testid="photo-choose"
+          >
+            {busy ? <Spinner className="!h-5 !w-5" label="Uploading" /> : <ImageIcon size={24} className="text-brand-600 dark:text-brand-300" aria-hidden />}
           </button>
           {googlePhotoURL && profile.photoURL !== googlePhotoURL && (
             <button
@@ -534,9 +549,10 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
               disabled={busy}
               onClick={() => apply({ photoURL: googlePhotoURL, photoSource: 'google' }, 'Using your Google photo')}
               aria-label="Use Google photo"
+              title="Use Google photo"
               data-testid="photo-google"
             >
-              <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="accent" size={22} /> Google
+              <Avatar name={profile.displayName} photoURL={googlePhotoURL} color="accent" size={26} />
             </button>
           )}
           {profile.photoURL && (
@@ -546,14 +562,15 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
               disabled={busy}
               onClick={() => apply({ photoURL: undefined, photoSource: 'none' }, 'Photo removed')}
               aria-label="Remove photo"
+              title="Remove photo"
               data-testid="photo-remove"
             >
-              <TrashIcon size={22} aria-hidden /> Remove
+              <TrashIcon size={24} aria-hidden />
             </button>
           )}
         </div>
       </div>
-      <HintText hint={PHOTO_HINT} className="text-muted mt-4 text-center text-xs" />
+      <HintText hint={PHOTO_HINT} className="text-muted mt-6 text-center text-xs" />
     </Sheet>
   )
 }
