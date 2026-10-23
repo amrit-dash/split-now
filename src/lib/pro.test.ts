@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  nameWithPill,
   EARN_PRO_PATH,
   badgeLabel,
   badgeTapTarget,
@@ -103,5 +104,21 @@ describe('memberBadge / friendBadge', () => {
     expect(friendBadge({ type: 'direct', peer: 'me', members })).toBe('dev')
     expect(friendBadge({ type: 'direct', members })).toBeNull()
     expect(friendBadge({ type: 'trip', peer: 'f', members })).toBeNull()
+  })
+})
+
+describe('nameWithPill', () => {
+  const base = { full: 'Asha Raghunathan', first: 'Asha', fullW: 200, firstW: 60, pillW: 40, gap: 8 }
+  it('the full name and the pill when both fit', () => {
+    expect(nameWithPill({ ...base, room: 260 })).toEqual({ text: 'Asha Raghunathan', pill: true })
+  })
+  it('the first name and the pill when only that fits', () => {
+    expect(nameWithPill({ ...base, room: 150 })).toEqual({ text: 'Asha', pill: true })
+  })
+  it('the full name alone (the ring says it) when not even that fits', () => {
+    expect(nameWithPill({ ...base, room: 100 })).toEqual({ text: 'Asha Raghunathan', pill: false })
+  })
+  it('a one-word name never shortens: pill or not', () => {
+    expect(nameWithPill({ ...base, full: 'Asha', first: 'Asha', fullW: 60, room: 90 })).toEqual({ text: 'Asha', pill: false })
   })
 })
