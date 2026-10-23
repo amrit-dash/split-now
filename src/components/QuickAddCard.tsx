@@ -14,6 +14,7 @@ const QuickAdd = lazy(() => import('./QuickAdd').then((m) => ({ default: m.Quick
 export function QuickAddCard({
   groups,
   defaultGroupId,
+  groupSure,
   onLeave,
   initialText,
   testId,
@@ -21,6 +22,8 @@ export function QuickAddCard({
 }: {
   groups: Group[]
   defaultGroupId?: string
+  /** the person is inside that group (its page) */
+  groupSure?: boolean
   onLeave?: () => void
   /** a line already said (holding + to talk, when it needs a choice made here) */
   initialText?: string
@@ -62,7 +65,15 @@ export function QuickAddCard({
         )}
       </div>
       <Suspense fallback={<div className="h-[6.25rem] rounded-2xl bg-white ring-1 ring-slate-200 dark:bg-ink-900 dark:ring-white/10" />}>
-        <QuickAdd groups={groups} defaultGroupId={defaultGroupId} onLeave={onLeave} initialText={initialText} testId={testId} onStatus={setStatus} />
+        <QuickAdd
+          groups={groups}
+          defaultGroupId={defaultGroupId}
+          groupSure={groupSure}
+          onLeave={onLeave}
+          initialText={initialText}
+          testId={testId}
+          onStatus={setStatus}
+        />
       </Suspense>
     </section>
   )

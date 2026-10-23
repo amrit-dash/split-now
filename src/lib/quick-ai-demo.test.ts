@@ -36,3 +36,38 @@ describe('demoQuickAi: a group with no cost', () => {
     expect(demoQuickAi(req('Create a group for my Bali trip with Rahul, Priya and Subramaniam'))).toEqual({ action: 'unknown' })
   })
 })
+
+describe('demo payments and "they paid"', () => {
+  const req = {
+    text: '',
+    today: '2026-10-23',
+    currency: 'INR',
+    me: 'Asha',
+    groupId: 'g_goa',
+    payments: true,
+    groups: [
+      {
+        id: 'g_goa',
+        name: 'Goa',
+        members: [
+          { id: 'p_rohan', name: 'Rohan' },
+          { id: 'p_priya', name: 'Priya' },
+        ],
+      },
+    ],
+  }
+  it('a payment back, either way', () => {
+    expect(demoQuickAi({ ...req, text: 'paid Rohan 500 back' })).toEqual({
+      action: 'payment',
+      group: { existingId: 'g_goa' },
+      payment: { from: 'me', to: 'p_rohan', amount: 50000, currency: 'INR' },
+    })
+    expect(demoQuickAi({ ...req, text: 'Priya paid me 300 back' })).toMatchObject({ action: 'payment', payment: { from: 'p_priya', to: 'me', amount: 30000 } })
+  })
+  it('the one person named paid when the line says they did', () => {
+    expect(demoQuickAi({ ...req, text: 'lunch with Rohan 1762 they paid' })).toMatchObject({
+      action: 'expense',
+      expense: { amount: 176200, paidBy: 'p_rohan', participants: ['me', 'p_rohan'] },
+    })
+  })
+})

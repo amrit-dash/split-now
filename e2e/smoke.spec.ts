@@ -416,6 +416,27 @@ test('Quick add in the Create sheet: a group named in the line wins, and opens t
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Groceries')
 })
 
+test('Quick add: “paid Rohan 500 back” opens Settle up filled in, and “they paid” makes the person named the payer', async ({ page }) => {
+  await noSpeech(page)
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click({ button: 'right' })
+  let quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('paid Rohan 500 back')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/settle\?from=me&to=p_rohan&amount=50000/)
+
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click({ button: 'right' })
+  quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch with Rohan 1762 they paid')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+  await expect(amountField(page)).toHaveValue(/1,?762/)
+  // Rohan paid, shared by the two of you (not the whole trip)
+  await expect(page.getByText('Rohan paid')).toBeVisible()
+  await expect(page.getByText(/2 of 4/)).toBeVisible()
+})
+
 test('Quick add can start a new group, then lands on the form with the line', async ({ page }) => {
   await page.getByTestId('nav-create').click()
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')

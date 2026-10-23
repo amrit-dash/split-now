@@ -37,6 +37,7 @@ const NEW_GROUP = '__new'
 export function QuickAdd({
   groups,
   defaultGroupId,
+  groupSure,
   onLeave,
   initialText = '',
   testId = 'quick-add',
@@ -48,6 +49,8 @@ export function QuickAdd({
    */
   groups: Group[]
   defaultGroupId?: string
+  /** the person is inside that group (its page): the line goes there unless it names another */
+  groupSure?: boolean
   /** called just before it navigates away (the Create sheet closes) */
   onLeave?: () => void
   /** a line already said (holding + when it needs a choice made here, such as which group) */
@@ -62,6 +65,8 @@ export function QuickAdd({
   const enabled = useFlag('quickAdd')
   const [text, setText] = useState(initialText)
   const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id)
+  // Picked in the chip: as sure as being inside it.
+  const [chose, setChose] = useState(false)
   /** 'ai': Quick add with AI is working the line out; 'read': the gap-filling reader */
   const [busy, setBusy] = useState<'ai' | 'read' | null>(null)
   const [answer, setAnswer] = useState<string | null>(null)
@@ -118,7 +123,7 @@ export function QuickAdd({
   if (!enabled) return null
   const hint = picked ? HINT : HINT_FIRST
 
-  const q = (): QuickLine => ({ text, line, target, picked, fresh, named })
+  const q = (): QuickLine => ({ text, line, target, picked, fresh, named, sure: !!groupSure || chose })
   const done = (o: Awaited<ReturnType<typeof run.send>>) => {
     if (o.kind === 'left') setText('')
     else if (o.kind === 'answer') setAnswer(o.text)
@@ -147,6 +152,7 @@ export function QuickAdd({
       return
     }
     setGroupId(v)
+    setChose(true)
     if (named.kind === 'ambiguous') setAnswered(named.phrase)
   }
 

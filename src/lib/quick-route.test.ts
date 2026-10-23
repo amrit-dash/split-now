@@ -70,3 +70,21 @@ describe('quickRouteNoGroups', () => {
     expect(quickRouteNoGroups('Goa with Rahul and add dinner 2400').route).toBe('ai')
   })
 })
+
+describe('lines that need understanding go to AI', () => {
+  const p = { amount: 176200, unmatched: [] as string[] }
+  it('someone else paying in a pronoun, a payment back, uneven parts', () => {
+    expect(quickRoute('For lunch with Rahul bill was 1762 and they paid', p, none)).toEqual({ route: 'ai', why: 'who_paid' })
+    expect(quickRoute('paid Rahul 500 back', p, none)).toEqual({ route: 'ai', why: 'payment' })
+    expect(quickRoute('Rohan paid me 300', p, none)).toEqual({ route: 'ai', why: 'payment' })
+    expect(quickRoute('cab 600 I paid, Rahul owes 400', p, none)).toEqual({ route: 'ai', why: 'uneven_split' })
+    expect(quickRoute('groceries 1500 split 60/40 with Meera', p, none)).toEqual({ route: 'ai', why: 'uneven_split' })
+    expect(quickRoute('taxi 900 everyone except Rohan', p, none)).toEqual({ route: 'ai', why: 'uneven_split' })
+  })
+  it('outside a group, people named choose the group; inside one, the line stays put', () => {
+    const named = { ...p, participants: ['m_rahul'] }
+    expect(quickRoute('lunch 800 with Rahul', named, none, false)).toEqual({ route: 'ai', why: 'choose_group' })
+    expect(quickRoute('lunch 800 with Rahul', named, none, true)).toEqual({ route: 'local' })
+    expect(quickRoute('Dinner 1200 with Rahul, I paid', named, none)).toEqual({ route: 'local' })
+  })
+})

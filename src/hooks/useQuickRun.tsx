@@ -8,6 +8,7 @@ import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useMerchantMemory } from '@/hooks/useMerchants'
 import { useOnline } from '@/hooks/useOnline'
 import type { Group } from '@/types'
+import type { QuickAiResult } from '../../shared/quick-ai'
 import { aiScanEnabled, aiScanPossible, isQuietReason, unavailableText } from '@/lib/ai'
 import { errText } from '@/lib/errors'
 import { guessGroup } from '@/lib/groupTypes'
@@ -18,10 +19,11 @@ import type { OpenItemInput } from '@/lib/open-items'
 import { pending } from '@/lib/pending'
 import { knownPeople } from '@/lib/people'
 import { quickAnswerFor } from '@/lib/quick-answer'
-import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi } from '@/lib/quick-ai'
+import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi, replanFor, settleUrl } from '@/lib/quick-ai'
 import type { GroupInText } from '@/lib/quick-group'
 import { quickAiAllowed, quickRoute, quickRouteNoGroups } from '@/lib/quick-route'
-import { useConfirm } from '@/components/ConfirmSheet'
+import { useChoose, useConfirm } from '@/components/ConfirmSheet'
+import { GroupIcon } from '@/components/GroupIcon'
 import { useToast } from '@/components/Toast'
 
 // The parser loads on first use, not with the screen (it is only needed once someone types or talks).
@@ -40,6 +42,8 @@ export interface QuickLine {
   /** the line asks for a new group */
   fresh: { name: string; text: string } | null
   named: GroupInText
+  /** The person is in `picked` (its page, or picked it): the line goes there unless it names another. */
+  sure?: boolean
   /** The person stopped it while it worked (double tap on + after talking): nothing opens. */
   stopped?: () => boolean
 }
@@ -61,6 +65,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
   const nav = useNavigate()
   const toast = useToast()
   const confirm = useConfirm()
+  const choose = useChoose()
   const memory = useMerchantMemory()
   const online = useOnline()
   const firebase = repo.mode === 'firebase'
@@ -181,6 +186,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
           currency: profile.currency,
           today,
           openItems: openItemsOn,
+          sure: q.sure ?? true,
         }),
       )
       // Stopped while AI worked: nothing opens and nothing is said.
@@ -194,17 +200,42 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
         return null
       }
       if (r.result.action === 'unknown') return 'unknown'
-      const plan = planQuickAi(r.result, {
-        line: q.text.trim(),
-        groups,
-        uid: user.uid,
-        me: { name: profile.displayName, email: user.email ?? undefined },
-        currency: profile.currency,
-        today,
-        known: knownPeople(groups, user.uid),
-        makeId: () => uid('p_'),
-      })
+      let result: QuickAiResult = r.result
+      const planOf = (res: QuickAiResult) =>
+        planQuickAi(res, {
+          line: q.text.trim(),
+          groups,
+          uid: user.uid,
+          me: { name: profile.displayName, email: user.email ?? undefined },
+          currency: profile.currency,
+          today,
+          known: knownPeople(groups, user.uid),
+          makeId: () => uid('p_'),
+        })
+      let plan = planOf(result)
       if (plan.kind === 'fallback') return null
+      // Not inside a group and the line fits several: the person picks (the best fit first).
+      if ((plan.kind === 'expense' || plan.kind === 'payment' || plan.kind === 'openItem') && plan.alsoFits?.length) {
+        const first = plan.groupId
+        const ids = [first, ...plan.alsoFits]
+        const picked = await choose({
+          title: 'Which group?',
+          message: 'This fits more than one of your groups.',
+          options: ids
+            .map((id) => groups.find((g) => g.id === id))
+            .filter((g): g is Group => !!g)
+            .map((g) => ({ value: g.id, label: g.name, sub: groupPeopleLine(g, user.uid), icon: <GroupIcon emoji={g.emoji} group={g} size={28} /> })),
+        })
+        if (!picked) return { kind: 'stayed' }
+        const from = groups.find((g) => g.id === first)
+        const to = groups.find((g) => g.id === picked)
+        if (to && from && to.id !== from.id) {
+          result = replanFor(result, to, from, user.uid)
+          plan = planOf(result)
+          if (plan.kind === 'fallback') return null
+        }
+      }
+      if (plan.kind === 'payment') return leave(settleUrl(plan.groupId, plan.payment))
       if (plan.kind === 'expense') {
         pending.quick = { groupId: plan.groupId, prefill: plan.prefill }
         return leave(`/add?group=${encodeURIComponent(plan.groupId)}&quick=1`)
@@ -285,7 +316,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
             me: myMemberId(target, user.uid) ?? order[0],
             currency: target.currency,
           })
-      if (quickRoute(q.text, parse, q.named).route === 'ai') {
+      if (quickRoute(q.text, parse, q.named, q.sure ?? true).route === 'ai') {
         const r = await askAi(q)
         if (stop()) return { kind: 'stayed' }
         if (r === 'unknown') aiUnknown = true
@@ -298,4 +329,13 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
   }
 
   return { send, createGroup, aiAllowed }
+}
+
+/** Under a group in "Which group?": who else is in it ("Rahul, Priya and 2 more"), so two alike tell apart. */
+function groupPeopleLine(g: Group, uid: string): string {
+  const names = Object.values(g.members)
+    .filter((m) => m.uid !== uid && typeof m.removedAt !== 'number')
+    .map((m) => m.name.split(' ')[0])
+  if (!names.length) return 'Just you'
+  return names.length <= 3 ? listNames(names) : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
 }

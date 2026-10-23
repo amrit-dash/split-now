@@ -37,7 +37,59 @@ const titled = (name: string) =>
     .slice(0, 60)
     .replace(/(^|\s)\p{Ll}/gu, (c) => c.toUpperCase())
 
+/** "paid Rahul 500 back" (me → Rahul), "Rahul paid me 300 back" (Rahul → me). */
+const PAY_TO = /^\s*(?:i\s+)?(?:paid|sent|gave|returned)\s+(\p{L}+)\s+(?:₹|rs\.?\s*)?(\d[\d,]*)\b/iu
+const PAY_FROM = /^\s*(\p{L}+)\s+(?:paid|sent|gave)\s+me\s+(?:back\s+)?(?:₹|rs\.?\s*)?(\d[\d,]*)\b/iu
+const PRONOUN_PAID = /\b(?:they|he|she)\s+paid\b/i
+
+/** A member of the default group by first or full name: their id. */
+function memberIn(req: QuickAiRequest, name: string): string | undefined {
+  const g = req.groups.find((x) => x.id === req.groupId)
+  const n = name.toLowerCase()
+  return g?.members.find((m) => m.name.toLowerCase() === n || m.name.toLowerCase().split(' ')[0] === n)?.id
+}
+
 export function demoQuickAi(req: QuickAiRequest): QuickAiResult {
+  // Payments back, in the default group.
+  const to = req.payments && req.groupId ? req.text.match(PAY_TO) : null
+  const from = !to && req.payments && req.groupId ? req.text.match(PAY_FROM) : null
+  const pay = to ?? from
+  if (pay && req.groupId) {
+    const who = memberIn(req, pay[1])
+    const amount = Math.round(Number(pay[2].replace(/,/g, '')) * 100)
+    if (who && amount > 0)
+      return {
+        action: 'payment',
+        group: { existingId: req.groupId },
+        payment: { from: to ? 'me' : who, to: to ? who : 'me', amount, currency: req.currency },
+      }
+  }
+  // "lunch with Rahul 1762, they paid": the one person named paid, shared by the two of you.
+  if (PRONOUN_PAID.test(req.text) && req.groupId) {
+    const g = req.groups.find((x) => x.id === req.groupId)
+    const named = g?.members.filter((m) => new RegExp(`\\b${m.name.split(' ')[0]}\\b`, 'i').test(req.text)) ?? []
+    if (g && named.length === 1) {
+      const p = parseNlExpense(req.text.replace(PRONOUN_PAID, ' '), {
+        members: g.members.map((m) => ({ id: m.id, name: m.name })),
+        me: 'me',
+        currency: req.currency,
+        today: req.today,
+      })
+      if (p.amount !== undefined)
+        return {
+          action: 'expense',
+          group: { existingId: g.id },
+          expense: {
+            description: p.description,
+            amount: p.amount,
+            currency: p.currency,
+            paidBy: named[0].id,
+            split: 'equal',
+            participants: ['me', named[0].id],
+          },
+        }
+    }
+  }
   const m = req.text.match(SHAPE)
   if (!m) {
     const g = req.groupOnly ? req.text.match(GROUP_ONLY) : null

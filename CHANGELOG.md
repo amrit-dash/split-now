@@ -8,6 +8,10 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 - New group: the Group and Personal choices at the top have icons in the same style as 1:1 friend's handshake (a team and a wallet), and in Simple mode the two choices share the row equally. Before, Group and Personal were emoji beside the drawn handshake, and in Simple the two tiles took two thirds of the row with an empty gap.
 - Scan: Bill, Statement and Payment now end the same way. Each card says under its buttons who reads the picture (“Read by Google Gemini” or “Read on this phone”), and changes as soon as you switch AI in the corner; each tab ends with what happens next (“Nothing is added until you pick a group”, or for a statement, until you tick payments and tap Add), in Simple too. Before, only Statement said who reads it, only Bill and Payment had the closing line, and a bill could still go to AI after AI was switched off on another device.
+- Quick add with AI understands more: “they paid” or “he got the bill” makes the person named the payer (before, “lunch with Rahul 1762, they paid” became an open item or was paid by you); “with Rahul” splits it between you and Rahul only, not the whole group; “Rahul owes 400”, “Rahul 700, rest me”, “60/40”, percentages and shares come out as exact amounts (before, uneven parts were dropped for an equal split); “everyone except Rohan” leaves Rohan out and keeps you in.
+- Quick add: “paid Rahul 500 back” or “Priya paid me 300” opens Settle up filled in, instead of a new expense.
+- Quick add outside a group (Home, holding + elsewhere): the people you name choose the group, the smallest one that has them all (a 1:1 for one person); when two fit equally it asks “Which group?”; when none has them, it offers a new group, a 1:1 for one person. Inside a group, or after picking one in the chip, the line stays there.
+- Quick add sends a line to AI when it needs understanding (someone else paying, uneven parts, a payment back, people to find a group for), even when it has an amount and known names; before, those were read on the phone and came out wrong.
 
 ## 9.4.0 — October 2026
 

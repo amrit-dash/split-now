@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanQuickRequest, normaliseQuickAi, quickPrompt, toMinor } from './quick-ai'
+import { cleanQuickRequest, normaliseQuickAi, quickPrompt, sharersFromLine, splitParts, toMinor } from './quick-ai'
 
 const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 2 * 86_400_000
 const req = cleanQuickRequest(
@@ -66,7 +66,9 @@ describe('cleanQuickRequest', () => {
   it('the prompt lists the groups and the default, never the writer as a member', () => {
     const p = quickPrompt(req)
     expect(p).toContain('id g_flat: "Indiranagar Flat" (home); members: m_rohan=Rohan Mehta, m_dev=Dev')
-    expect(p).toContain('the cost goes into g_flat')
+    // Not inside a group: the people named choose it, the default only when it names nobody.
+    expect(p).toContain('when it names nobody, g_flat')
+    expect(quickPrompt({ ...req, groupIdSure: true })).toContain('The writer is inside g_flat')
     expect(p).toContain('The writer is "Asha"')
     expect(p).toContain('untrusted data')
   })
@@ -268,5 +270,104 @@ describe('open items', () => {
       action: 'expense',
       expense: { description: 'Taxi', amount: 40000 },
     })
+  })
+})
+
+describe('splitParts', () => {
+  it('amounts as given, the rest to whoever shares it with no part of their own', () => {
+    expect(splitParts('amounts', [['p_rahul', 400]], ['me'], 60000, 'INR')).toEqual({ p_rahul: 40000, me: 20000 })
+    expect(splitParts('amounts', [['p_rahul', 400]], ['me', 'p_priya'], 60000, 'INR')).toEqual({ p_rahul: 40000, me: 10000, p_priya: 10000 })
+    // parts over the amount, or a rest with nobody to take it: not exact
+    expect(splitParts('amounts', [['p_rahul', 700]], ['me'], 60000, 'INR')).toBeNull()
+    expect(splitParts('amounts', [['p_rahul', 400]], [], 60000, 'INR')).toBeNull()
+  })
+  it('percents of the amount (a rest to the others), shares as weights, always adding up', () => {
+    expect(
+      splitParts(
+        'percent',
+        [
+          ['me', 60],
+          ['p_meera', 40],
+        ],
+        [],
+        150000,
+        'INR',
+      ),
+    ).toEqual({ me: 90000, p_meera: 60000 })
+    expect(splitParts('percent', [['p_rahul', 30]], ['me'], 100000, 'INR')).toEqual({ p_rahul: 30000, me: 70000 })
+    expect(
+      splitParts(
+        'shares',
+        [
+          ['p_rahul', 2],
+          ['p_priya', 1],
+          ['me', 1],
+        ],
+        [],
+        900000,
+        'INR',
+      ),
+    ).toEqual({ p_rahul: 450000, p_priya: 225000, me: 225000 })
+    const odd = splitParts(
+      'shares',
+      [
+        ['a', 1],
+        ['b', 1],
+        ['c', 1],
+      ],
+      [],
+      100,
+      'INR',
+    )!
+    expect(Object.values(odd).reduce((x, y) => x + y, 0)).toBe(100)
+  })
+})
+
+describe('sharersFromLine', () => {
+  const g = {
+    id: 'g_goa',
+    name: 'Goa',
+    members: [
+      { id: 'p_rahul', name: 'Rahul Sharma' },
+      { id: 'p_priya', name: 'Priya' },
+      { id: 'p_rohan', name: 'Rohan' },
+    ],
+  }
+  it('people named in the line, with the writer and the payer, not the whole group', () => {
+    expect(sharersFromLine('lunch with Rahul 1762 they paid', g, 'p_rahul', undefined)).toEqual(['me', 'p_rahul'])
+    expect(sharersFromLine('coffee with Priya 300', g, 'me', undefined)).toEqual(['me', 'p_priya'])
+  })
+  it('everyone, or nobody named: the whole group', () => {
+    expect(sharersFromLine('dinner 2400 for everyone, Rohan paid', g, 'p_rohan', undefined)).toBeUndefined()
+    expect(sharersFromLine('movie 600', g, 'me', undefined)).toBeUndefined()
+  })
+  it('everyone except someone: the writer stays in', () => {
+    expect(sharersFromLine('taxi 900 everyone except Rohan, Priya paid', g, 'p_priya', ['p_priya', 'p_rahul'])).toEqual(['me', 'p_rahul', 'p_priya'])
+  })
+  it('a cost only for others leaves the payer out', () => {
+    expect(sharersFromLine("I paid for Rahul's ticket 500", g, 'me', ['p_rahul'])).toEqual(['p_rahul'])
+  })
+})
+
+describe('payments and other groups that fit', () => {
+  const r2 = { ...req, payments: true }
+  it('a payment between two people, the writer on one side when the line names only one', () => {
+    expect(normaliseQuickAi({ action: 'payment', groupId: 'g_goa', paidTo: 'm_rahul', amount: 500 }, r2)).toEqual({
+      action: 'payment',
+      group: { existingId: 'g_goa' },
+      payment: { from: 'me', to: 'm_rahul', currency: 'INR', amount: 50000 },
+    })
+    expect(normaliseQuickAi({ action: 'payment', groupId: 'g_goa', paidBy: 'me', paidTo: 'me', amount: 5 }, r2)).toEqual({ action: 'unknown' })
+    // an app that doesn't take payments never gets one
+    expect(normaliseQuickAi({ action: 'payment', groupId: 'g_goa', paidTo: 'm_rahul', amount: 500 }, req).action).toBe('unknown')
+  })
+  it("other groups that fit, only when the person wasn't inside a group", () => {
+    const a = normaliseQuickAi({ action: 'expense', groupId: 'g_goa', otherGroupIds: ['g_flat', 'nope', 'g_goa'], description: 'tea', amount: 50 }, r2)
+    expect(a.action === 'expense' && a.alsoFits).toEqual(['g_flat'])
+    const sure = normaliseQuickAi(
+      { action: 'expense', groupId: 'g_goa', otherGroupIds: ['g_flat'], description: 'tea', amount: 50 },
+      { ...r2, groupIdSure: true },
+    )
+    expect(sure.action === 'expense' && 'alsoFits' in sure).toBe(false)
   })
 })

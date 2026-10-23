@@ -162,7 +162,9 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       const l = lineFor({ text, named, groups, picked })
       // Two groups fit the words: the person says which, in Quick add, with the line in it.
       if (l.which) return onSheet(text)
-      const o = await run.send({ text, line: l.line, target: l.target, picked, fresh: l.fresh, named, stopped: () => stopped.current })
+      // Held inside a group: the line goes there. Elsewhere the people it names choose the group.
+      const sure = !!groupId && groups.some((g) => g.id === groupId)
+      const o = await run.send({ text, line: l.line, target: l.target, picked, fresh: l.fresh, named, sure, stopped: () => stopped.current })
       if (o.kind === 'answer' && !stopped.current) setAnswer({ kind: 'answer', text: o.text })
     } finally {
       go('idle')

@@ -64,6 +64,8 @@ export function CreateSheet({
             key={initialText ?? ''}
             groups={groups}
             defaultGroupId={defaultGroupId}
+            // On a group's page the line goes there; elsewhere the people it names choose the group.
+            groupSure={!!groupId && groups.some((g) => g.id === groupId)}
             onLeave={onClose}
             initialText={initialText}
             testId="create-quick-add"

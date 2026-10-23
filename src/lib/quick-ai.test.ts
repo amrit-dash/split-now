@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
 import {
+  replanFor,
+  settleUrl,
   buildQuickRequest,
   listNames,
   matchKnown,
@@ -58,13 +60,19 @@ const opts = {
 describe('buildQuickRequest', () => {
   it('puts the picked group first and leaves the caller out of every member list', () => {
     const r = buildQuickRequest({ text: '  dinner 2400  ', groups: [flat, goa], uid: 'u1', me: 'Asha', target: goa, today: '2026-10-09' })
+    // Not inside the group (from Home): only a guess, the people named choose.
+    expect(
+      buildQuickRequest({ text: 'x', groups: [flat, goa], uid: 'u1', me: 'Asha', target: goa, today: '2026-10-09', sure: false }).groupIdSure,
+    ).toBeUndefined()
     expect(r).toEqual({
       text: 'dinner 2400',
       today: '2026-10-09',
       currency: 'INR',
       me: 'Asha',
       groupId: 'g_goa',
+      groupIdSure: true,
       groupOnly: true,
+      payments: true,
       groups: [
         { id: 'g_goa', name: 'Goa Trip', type: 'trip', members: [{ id: 'm_rahul', name: 'Rahul Sharma' }] },
         {
@@ -212,7 +220,7 @@ describe('the New group prefill', () => {
 describe('Quick add with no groups', () => {
   it('a request with no group sends the line’s currency and asks for group-only answers', () => {
     const r = buildQuickRequest({ text: ' Bali trip with Rahul ', groups: [], uid: 'u1', me: 'Asha', currency: 'AUD', today: '2026-10-09' })
-    expect(r).toEqual({ text: 'Bali trip with Rahul', today: '2026-10-09', currency: 'AUD', me: 'Asha', groupOnly: true, groups: [] })
+    expect(r).toEqual({ text: 'Bali trip with Rahul', today: '2026-10-09', currency: 'AUD', me: 'Asha', groupOnly: true, payments: true, groups: [] })
   })
   it('a group-only answer plans a new group with no expense', () => {
     const plan = planQuickAi(
@@ -254,5 +262,61 @@ describe('Quick add with no groups', () => {
     expect(peopleGroupName(['Rahul', 'Priya'])).toBe('Rahul & Priya')
     expect(peopleGroupName(['Rahul', 'Priya', 'Sam'])).toBe('Rahul, Priya & Sam')
     expect(peopleGroupName(['Rahul', 'Priya', 'Sam', 'Dev', 'Kiran'])).toBe('Rahul, Priya & 3 more')
+  })
+})
+
+describe('payments, other groups that fit, and 1:1s', () => {
+  it('a payment opens Settle up filled in, with your member id for me', () => {
+    const plan = planQuickAi(
+      { action: 'payment', group: { existingId: 'g_goa' }, payment: { from: 'me', to: 'm_rahul', amount: 50000, currency: 'INR' } },
+      opts,
+    )
+    expect(plan).toEqual({ kind: 'payment', groupId: 'g_goa', payment: { from: 'me1', to: 'm_rahul', amount: 50000 } })
+    expect(plan.kind === 'payment' && settleUrl(plan.groupId, plan.payment)).toBe('/groups/g_goa/settle?from=me1&to=m_rahul&amount=50000')
+    // another currency: no amount (it would need a rate)
+    const usd = planQuickAi({ action: 'payment', group: { existingId: 'g_goa' }, payment: { from: 'm_rahul', to: 'me', amount: 500, currency: 'USD' } }, opts)
+    expect(usd.kind === 'payment' && usd.payment).toEqual({ from: 'm_rahul', to: 'me1' })
+  })
+  it('other groups that fit come along, only ones the person has', () => {
+    const plan = planQuickAi(
+      {
+        action: 'expense',
+        group: { existingId: 'g_goa' },
+        expense: { description: 'tea', amount: 5000, currency: 'INR', paidBy: 'me', split: 'equal' },
+        alsoFits: ['g_flat', 'g_ghost'],
+      },
+      opts,
+    )
+    expect(plan.kind === 'expense' && plan.alsoFits).toEqual(['g_flat'])
+  })
+  it('moving the answer to the group the person picked maps people by name', () => {
+    const other = group('g_r', 'Rahul', { u1x: { name: 'Asha', uid: 'u1', color: '#000' }, p_r: { name: 'Rahul Sharma', color: '#000' } }, { type: 'direct' })
+    const moved = replanFor(
+      {
+        action: 'expense',
+        group: { existingId: 'g_goa' },
+        expense: { description: 'Lunch', amount: 100, currency: 'INR', paidBy: 'm_rahul', split: 'equal', participants: ['me', 'm_rahul'] },
+      },
+      other,
+      goa,
+      'u1',
+    )
+    expect(moved).toEqual({
+      action: 'expense',
+      group: { existingId: 'g_r' },
+      expense: { description: 'Lunch', amount: 100, currency: 'INR', paidBy: 'p_r', split: 'equal', participants: ['me', 'p_r'] },
+    })
+  })
+  it('a new group for one person with no other name is a 1:1 named after them', () => {
+    const plan = planQuickAi(
+      {
+        action: 'group_and_expense',
+        group: { name: 'Kabir', type: 'other', members: ['Kabir'] },
+        expense: { description: 'drinks', amount: 200000, currency: 'INR', paidBy: 'me', split: 'equal' },
+      },
+      opts,
+    )
+    expect(plan.kind === 'create' && plan.group.type).toBe('direct')
+    expect(plan.kind === 'create' && plan.group.name).toBe('Kabir')
   })
 })
