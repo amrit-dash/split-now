@@ -9,7 +9,7 @@ import { useSimple } from '@/hooks/useMode'
 import { aiAvailability } from '@/lib/ai-copy'
 import { aiScanEnabled, aiScanPossible, setAiScan } from '@/lib/ai'
 import { savePrefs, watchPrefs, type AllPrefs } from '@/lib/push'
-import { type ScanCardKind, scanAiButton, scanAiTitle, scanAiToggledText, scanAiWhyLink, scanAiWhyText } from '@/lib/scan-ai'
+import { type ScanCardKind, scanAiButton, scanAiTitle, scanAiToggledText, scanAiWhyLink, scanAiWhyText, scanReader } from '@/lib/scan-ai'
 import { AiReadIcon } from './icons'
 import { type Hint, HintText, InfoTip } from './Hint'
 import { Switch } from './Switch'
@@ -26,7 +26,8 @@ function useAiScanSetting() {
   const aiImages = useFlag('aiImages')
   const [prefs, setPrefs] = useState<AllPrefs | null>(null)
   const [on, setOn] = useState(aiScanEnabled)
-  const hasKey = !!useAiState(aiScanPossible())?.hint
+  const aiState = useAiState(aiScanPossible())
+  const hasKey = !!aiState?.hint
   // Follow the account's choice as it arrives (the local flag is only a synchronous mirror).
   useEffect(
     () =>
@@ -38,7 +39,8 @@ function useAiScanSetting() {
         : undefined,
     [user.uid],
   )
-  const avail = aiAvailability({ status, hasOwnKey: hasKey, enabled: true, freeOk: prefs?.aiFreeOk })
+  // A broken own key can't read anything: count it out, as Statement always did.
+  const avail = aiAvailability({ status, hasOwnKey: hasKey, ownKeyBroken: !!aiState?.lastError, enabled: true, freeOk: prefs?.aiFreeOk })
   const set = (v: boolean) => {
     setAiScan(v)
     setOn(v)
@@ -48,24 +50,35 @@ function useAiScanSetting() {
 }
 
 /**
- * Read with AI as an icon button in the top-right corner of a Scan card. A real toggle
- * (aria-pressed, a filled brain with "AI on" vs a line one with "AI off"); when AI can't read here
- * it stays, and a tap says why. Hidden on Payment (read on the phone only) and in Simple.
+ * One Scan card's view of Read with AI: the corner button and who reads what is picked. The card,
+ * its corner button and the line under its buttons share this one instance, so switching the
+ * button changes the line at once. A card reads with AI only when the button would be 'on'.
  */
-export function ScanAiCorner({ kind, disabled }: { kind: ScanCardKind; disabled?: boolean }) {
+export function useScanAi(kind: ScanCardKind, deviceFirst = false) {
   const s = useAiScanSetting()
   const simple = useSimple()
-  const toast = useToast()
-  const nav = useNavigate()
-  const b = scanAiButton({
+  const input = {
     kind,
-    simple,
     demo: !aiScanPossible(),
     adminOn: s.aiImages,
     available: s.available,
     masterOn: s.prefs ? s.prefs.aiEnabled : undefined,
     on: s.on,
-  })
+  }
+  return { kind, s, button: scanAiButton({ ...input, simple }), reader: scanReader({ ...input, deviceFirst }) }
+}
+
+export type ScanAi = ReturnType<typeof useScanAi>
+
+/**
+ * Read with AI as an icon button in the top-right corner of a Scan card. A real toggle
+ * (aria-pressed, a filled brain with "AI on" vs a line one with "AI off"); when AI can't read here
+ * it stays, and a tap says why. Hidden on Payment (read on the phone only) and in Simple.
+ */
+export function ScanAiCorner({ ai, disabled }: { ai: ScanAi; disabled?: boolean }) {
+  const { s, kind, button: b } = ai
+  const toast = useToast()
+  const nav = useNavigate()
   if (!b.show) return null
   const on = b.state === 'on'
   const onClick = () => {

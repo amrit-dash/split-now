@@ -2560,11 +2560,18 @@ test.describe('Simple mode', () => {
     const kinds = page.getByTestId('scan-mode')
     await expect(page.getByTestId('scan-camera')).toBeVisible()
     await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    // Who reads it and the closing line stay in Simple, on all three tabs (demo bills are read on the phone).
+    await expect(page.getByTestId('scan-reader')).toHaveAttribute('data-reader', 'phone')
+    await expect(page.getByTestId('scan-foot')).toContainText('Nothing is added until you pick a group')
     await kinds.getByRole('radio', { name: 'Statement' }).click()
     await expect(page.getByTestId('statement-start')).toBeVisible()
     await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await expect(page.getByTestId('statement-reader')).toHaveAttribute('data-reader', 'demo')
+    await expect(page.getByTestId('scan-foot')).toContainText('tick payments')
     await kinds.getByRole('radio', { name: 'Payment' }).click()
     await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await expect(page.getByTestId('scan-reader')).toHaveAttribute('data-reader', 'phone')
+    await expect(page.getByTestId('scan-foot')).toBeVisible()
   })
   test("Profile's mode button switches mode, Undo puts it back, and Settings follows", async ({ page }) => {
     await page.goto('/profile')

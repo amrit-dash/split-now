@@ -7,6 +7,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 ## Unreleased
 
 - New group: the Group and Personal choices at the top have icons in the same style as 1:1 friend's handshake (a team and a wallet), and in Simple mode the two choices share the row equally. Before, Group and Personal were emoji beside the drawn handshake, and in Simple the two tiles took two thirds of the row with an empty gap.
+- Scan: Bill, Statement and Payment now end the same way. Each card says under its buttons who reads the picture (“Read by Google Gemini” or “Read on this phone”), and changes as soon as you switch AI in the corner; each tab ends with what happens next (“Nothing is added until you pick a group”, or for a statement, until you tick payments and tap Add), in Simple too. Before, only Statement said who reads it, only Bill and Payment had the closing line, and a bill could still go to AI after AI was switched off on another device.
 
 ## 9.4.0 — October 2026
 
