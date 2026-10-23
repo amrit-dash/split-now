@@ -599,7 +599,7 @@ test('Voice: a line Quick add can’t act on gets a plain answer, not an empty f
   await page.mouse.down()
   await page.waitForTimeout(800)
   await page.mouse.up()
-  await expect(page.getByTestId('voice-answer')).toContainText('adds expenses, starts groups')
+  await expect(page.getByTestId('voice-answer')).toContainText('Quick add can’t do that')
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await page.getByTestId('voice-bubble-close').click()
   await expect(page.getByTestId('voice-answer')).toHaveCount(0)

@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Quick add: “Working it out…” and “Reading your line…” show in the card's top-right corner with a spinner; an answer sits under the box in a tinted panel with a lightbulb, a problem (microphone, transcription) in a red one with an alert icon, both shorter. Before, they were plain grey text or a toast. The tips and answers rising from + have an icon in front too.
+- Simple mode: the Create sheet keeps a short line under Quick add, Add expense, New group and Scan.
+
 - Help: a tick appears at the top of a section once it counts. A section counts when its steps are played, it is read down to its end, and you've stayed a few seconds; finishing the steps alone is no longer enough. “What to know” has more room before its dots and between the lines.
 - Sheets close in one smooth slide when you tap outside them. Before, the sheet rose again for a moment before it went.
 
