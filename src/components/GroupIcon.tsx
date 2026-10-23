@@ -2,6 +2,7 @@ import { useId } from 'react'
 import type { Group } from '@/types'
 import { Avatar } from './Avatar'
 import { IconFace } from './IconFace'
+import type { AppIcon } from './Icon'
 import { HandshakeIcon } from './icons'
 import { drawsHandshake } from '@/lib/groupTypes'
 
@@ -12,13 +13,22 @@ import { drawsHandshake } from '@/lib/groupTypes'
  * button it takes the button's text colour instead.
  */
 export function HandshakeArt({ size, onAccent = false }: { size: number; onAccent?: boolean }) {
+  return <KindArt icon={HandshakeIcon} size={size} onAccent={onAccent} />
+}
+
+/**
+ * Any kind badge drawn like the handshake (New group's Group and Personal tiles sit beside it, owner
+ * 23 Oct 2026): `icon` is one of the kind drawings in scripts/icon-art.mjs (`kindArt`), whose line
+ * style carries its own fill at .42.
+ */
+export function KindArt({ icon: Icon, size, onAccent = false }: { icon: AppIcon; size: number; onAccent?: boolean }) {
   // One gradient per drawing: ids must be unique on the page, and useId's punctuation isn't valid in url(#…).
   const id = `hs${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   if (onAccent)
     return (
       <span className="inline-flex" aria-hidden>
-        <HandshakeIcon size={size} solid={false} className="dark:hidden" />
-        <HandshakeIcon size={size} solid className="hidden dark:block" />
+        <Icon size={size} solid={false} className="dark:hidden" />
+        <Icon size={size} solid className="hidden dark:block" />
       </span>
     )
   return (
@@ -31,8 +41,8 @@ export function HandshakeArt({ size, onAccent = false }: { size: number; onAccen
           </linearGradient>
         </defs>
       </svg>
-      <HandshakeIcon size={size} solid={false} className="dark:hidden" />
-      <HandshakeIcon size={size} solid className="hidden dark:block" />
+      <Icon size={size} solid={false} className="dark:hidden" />
+      <Icon size={size} solid className="hidden dark:block" />
     </span>
   )
 }

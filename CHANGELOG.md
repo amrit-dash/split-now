@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- New group: the Group and Personal choices at the top have icons in the same style as 1:1 friend's handshake (a team and a wallet), and in Simple mode the two choices share the row equally. Before, Group and Personal were emoji beside the drawn handshake, and in Simple the two tiles took two thirds of the row with an empty gap.
+
 ## 9.4.0 — October 2026
 
 - Profile: in Simple, the New version ready row is its title alone, like the rows around it (it showed a line of subtext).
