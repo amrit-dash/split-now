@@ -512,9 +512,11 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
     <Sheet open={open} onClose={onClose} title="Profile photo">
       <input ref={pick} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} data-testid="photo-input" />
       <input ref={camera} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {/* four actions on a 320px phone need the photo's room */}
         <Avatar name={profile.displayName || '?'} photoURL={profile.photoURL} color="accent" size={actions > 3 ? 56 : 72} />
+        {/* the photo apart from what you can do with it (owner, 23 Oct 2026) */}
+        <span aria-hidden className="h-12 w-px shrink-0 bg-slate-200 dark:bg-ink-700" />
         <div className="flex min-w-0 flex-1 gap-2">
           {coarsePointer() && (
             <button type="button" className={tile} disabled={busy} onClick={() => camera.current?.click()} data-testid="photo-camera">
@@ -551,7 +553,7 @@ function PhotoSheet({ open, onClose, profile, googlePhotoURL }: { open: boolean;
           )}
         </div>
       </div>
-      <HintText hint={PHOTO_HINT} className="text-muted mt-3 text-xs" />
+      <HintText hint={PHOTO_HINT} className="text-muted mt-4 text-center text-xs" />
     </Sheet>
   )
 }
