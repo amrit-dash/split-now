@@ -49,6 +49,7 @@ export const FLAG_NAMES = [
   'joinApproval',
   'aiTranscribe',
   'aiTranscribeShared',
+  'profileSync',
 ] as const
 export type FlagName = (typeof FLAG_NAMES)[number]
 
@@ -126,6 +127,10 @@ export const FLAG_INFO: Record<FlagName, { label: string; hint: string }> = {
   aiTranscribeShared: {
     label: 'Everyone may use Split Now’s transcription key',
     hint: 'With Transcription with AI on, anyone may use the transcription key set in AI (with its daily allowance per person in Limits → Voice). Off: only people with their own Gemini key can choose AI. Server-enforced.',
+  },
+  profileSync: {
+    label: 'Copy profiles into groups on the server',
+    hint: 'A new name, photo, payment details or badge reaches all of someone’s groups straight away, and a new member’s photo shows as soon as they join. Off: each person’s own app still copies them the next time it opens. Server-enforced.',
   },
   aiPayments: {
     label: 'Check payment screenshots with AI',

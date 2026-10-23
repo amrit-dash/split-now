@@ -1754,6 +1754,7 @@ export const SECTIONS: HelpSection[] = [
       'Tap your photo for **Camera**, **Choose**, **Google** or **Remove**.',
       'Signing out clears this device’s offline copy.',
       'People in your groups see your name and photo.',
+      'A new name or photo reaches all your groups straight away.',
     ],
     open: { label: 'Profile', to: '/profile' },
     related: ['sign-in', 'people-without-account', 'upi-id', 'delete-account'],

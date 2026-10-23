@@ -7,7 +7,10 @@
  *    rules accept only from an admin, so it can't be faked; off in Preferences with devHidden.
  *  - PRO DEV: both.
  * Only PRO is tappable (it opens Help on how to earn it); DEV and PRO DEV are just marks.
+ * The server shares the same marks when the profile changes (functions/src/profileSync.ts).
  */
+
+import { type BadgeFields, devShown, hasEarnedPro, proShown } from '../../shared/profile-share'
 
 /** Which word a badge says. */
 export type BadgeWord = 'pro' | 'dev' | 'prodev'
@@ -15,33 +18,14 @@ export type BadgeWord = 'pro' | 'dev' | 'prodev'
 /** Help's section on how Pro is earned; tapping someone else's mark opens it. */
 export const EARN_PRO_PATH = '/help/earn-pro'
 
-export interface ProFields {
-  /** when Help reached 100% (epoch ms); set once, never cleared by the app */
-  proAt?: number
-  /** Preferences → Show my Pro badge, off: no badge anywhere, for anyone; proAt stays */
-  proHidden?: boolean
-  /** Preferences → Show my Dev badge (admins), off */
-  devHidden?: boolean
-}
+// Earned / shown is the same rule on the server, which shares the marks too (shared/profile-share.ts).
+export { devShown, hasEarnedPro, proShown }
 
-/** Whether this person finished Help (whatever they chose to show). */
-export function hasEarnedPro(p: ProFields | null | undefined): boolean {
-  return typeof p?.proAt === 'number' && Number.isFinite(p.proAt) && p.proAt > 0
-}
-
-/** Whether their badge shows: earned, and not turned off. */
-export function proShown(p: ProFields | null | undefined): boolean {
-  return hasEarnedPro(p) && p?.proHidden !== true
-}
+export type ProFields = BadgeFields
 
 /** A co-member's mark, from their member entry (or per-group profile): only `true` counts. */
 export function memberPro(m: { pro?: unknown } | null | undefined): boolean {
   return m?.pro === true
-}
-
-/** Whether their Dev badge shows: an admin who hasn't turned it off. */
-export function devShown(p: ProFields | null | undefined, isAdmin: boolean): boolean {
-  return isAdmin && p?.devHidden !== true
 }
 
 const wordOf = (pro: boolean, dev: boolean): BadgeWord | null => (pro && dev ? 'prodev' : pro ? 'pro' : dev ? 'dev' : null)

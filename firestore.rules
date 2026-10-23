@@ -313,9 +313,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval', 'aiTranscribe', 'aiTranscribeShared'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval', 'aiTranscribe', 'aiTranscribeShared', 'profileSync'])
           && f.get('joinApproval', true) is bool
-          && f.get('aiTranscribe', true) is bool && f.get('aiTranscribeShared', true) is bool
+          && f.get('aiTranscribe', true) is bool && f.get('aiTranscribeShared', true) is bool && f.get('profileSync', true) is bool
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool && f.get('aiIconAuto', true) is bool && f.get('whatsNew', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool

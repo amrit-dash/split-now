@@ -13,6 +13,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Quick add: “paid Rahul 500 back” or “Priya paid me 300” opens Settle up filled in, instead of a new expense.
 - Quick add outside a group (Home, holding + elsewhere): the people you name choose the group, the smallest one that has them all (a 1:1 for one person); when two fit equally it asks “Which group?”; when none has them, it offers a new group, a 1:1 for one person. Inside a group, or after picking one in the chip, the line stays there.
 - Quick add sends a line to AI when it needs understanding (someone else paying, uneven parts, a payment back, people to find a group for), even when it has an amount and known names; before, those were read on the phone and came out wrong.
+- Profile: a new name, photo or badge reaches all your groups straight away, and a new member's photo shows as soon as they join. Before, each group only caught up when that person next opened the app, so friends could see an old name or no photo in a new group.
 
 ## 9.4.0 — October 2026
 

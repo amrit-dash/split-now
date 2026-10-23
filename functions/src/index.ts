@@ -29,6 +29,10 @@
  *  cleanupCaptures     Schedule every day 03:45 Asia/Kolkata → remove captured payments handled longer than config/limits captureKeepDays
  *  linkPreview         HTTPS (Hosting rewrites /join/*, /r/*, /t/*) → the app page with a preview about the link (group invite, Pay me link, live table)
  *  onGroupMembersLink  Firestore groups/{gid} written → a placeholder whose email has a verified account gets it attached (the group shows up for them, push); other emails wait in emailInvites
+ *  onProfileShared     Firestore users/{uid} written and the name, photo, payment details or badges changed → the member entries and
+ *                      profile copies in every live group of theirs (private groups: only the Pro / Dev marks) (profileSync.ts)
+ *  onAdminMarkChanged  Firestore admins/{uid} created or deleted → the Dev mark in every group of theirs
+ *  onGroupJoined       Firestore groups/{gid} gained an account in memberUids (new group, join, link) → that person's entry and profile copy filled in
  *  linkMyInvites       Callable (after sign-in) → attach the groups that added this verified email before the account existed
  *  claimEmail          Callable { token } → another email joins the account, proved by opening Firebase's sign-in link for it (emailIndex)
  *  removeEmail         Callable → take an added email off the account
@@ -62,3 +66,4 @@ export { vault } from './vault'
 export { joinApproval } from './join'
 export { adminLogs } from './logs'
 export { deleteAccount } from './delete-account'
+export { onAdminMarkChanged, onGroupJoined, onProfileShared } from './profileSync'

@@ -1,37 +1,20 @@
 import type { Group, MemberId, UserProfile } from '@/types'
-import { devShown, proShown } from './pro'
+import { memberEntryPatch, type MemberEntryPatch } from '../../shared/profile-share'
 
 /**
  * Member photos are denormalised into each group's `members` map (like names already are), so
  * every screen that has the group doc can show them: no extra reads, and it works offline.
  * Each user's own app copies their profile name + photo into the member entries that carry
- * their uid (rules let a member edit only their own entry's name/photoURL).
+ * their uid (rules let a member edit only their own entry's name/photoURL), and the server copies
+ * the same values when the profile changes or they join (functions/src/profileSync.ts), so
+ * co-members don't wait for them to open the app.
  */
 
-export const MAX_PHOTO_URL = 2048
-
-/**
- * A photo URL that may be shown to co-members: https only (rules check the same), or a data:
- * URL in demo mode (stays on this device). Anything else is dropped.
- */
-export function sharedPhotoURL(url: string | undefined | null, allowData = false): string | undefined {
-  if (!url) return undefined
-  if (/^https:\/\/./.test(url) && url.length <= MAX_PHOTO_URL) return url
-  if (allowData && url.startsWith('data:image/')) return url
-  return undefined
-}
-
-export const MAX_MEMBER_NAME = 100
+// The rule itself is shared with the server, which makes the same copies (shared/profile-share.ts).
+export { MAX_MEMBER_NAME, MAX_PHOTO_URL, sharedPhotoURL } from '../../shared/profile-share'
 
 /** What a linked member's entry should say: their profile name, photo and Pro mark (none = remove it). */
-export interface OwnMemberPatch {
-  name: string
-  photoURL?: string
-  /** true while their Pro badge shows (src/lib/pro.ts); absent = remove it */
-  pro?: boolean
-  /** true while their Dev badge shows (admins only); absent = remove it */
-  dev?: boolean
-}
+export type OwnMemberPatch = MemberEntryPatch
 
 export interface PendingMemberSync {
   group: Group
@@ -50,18 +33,13 @@ export function ownMemberSyncs(
   allowData = false,
   admin = false,
 ): PendingMemberSync[] {
-  const photo = sharedPhotoURL(profile.photoURL, allowData)
-  const pro = proShown(profile)
-  const dev = devShown(profile, admin)
-  const profileName = profile.displayName?.trim().slice(0, MAX_MEMBER_NAME)
   const out: PendingMemberSync[] = []
   for (const group of groups) {
     for (const [memberId, m] of Object.entries(group.members ?? {})) {
       // an entry you left behind isn't yours to edit any more (and the rules refuse it)
       if (!m || m.uid !== uid || typeof m.removedAt === 'number') continue
-      const name = profileName || m.name
-      if (m.name === name && (m.photoURL ?? undefined) === photo && (m.pro === true) === pro && (m.dev === true) === dev) continue
-      out.push({ group, memberId, patch: { name, ...(photo ? { photoURL: photo } : {}), ...(pro ? { pro: true } : {}), ...(dev ? { dev: true } : {}) } })
+      const patch = memberEntryPatch(m, profile, { admin, allowData })
+      if (patch) out.push({ group, memberId, patch })
     }
   }
   return out
