@@ -13,12 +13,17 @@ import { cleanIconImage, ICON_IMAGE_MAX } from '../../shared/icon-ai'
  * fill the icon, the way an emoji fills its tile, instead of sitting small on a white card.
  */
 
-/** Sizes tried, largest first, until the picture fits. Icons are drawn at 40 to 56 px. */
-export const PICTURE_SIZES = [112, 96, 72] as const
+/**
+ * Sizes tried, largest first, until the picture fits. Icons are drawn at 40 to 56 px. Down to 56
+ * before giving up see-through: Safari on iPhone can't write WebP, and a detailed PNG can be over
+ * the cap at 72 px; the last resort (JPEG, which can't be see-through) is what put white squares
+ * behind pictures.
+ */
+export const PICTURE_SIZES = [112, 96, 72, 64, 56] as const
 /** The keying is done on a square this big: plenty for a 112 px icon, quick on any phone. */
 export const WORK_SIZE = 256
 /** Room left around the object, as a share of the icon (an emoji leaves about this much). */
-export const PICTURE_PAD = 0.06
+export const PICTURE_PAD = 0.03
 
 /** The data: URL to keep for this attempt, or null when it's too big or isn't an image the app keeps. */
 export const keepPicture = (dataUrl: string): string | null => (dataUrl.length <= ICON_IMAGE_MAX ? cleanIconImage(dataUrl) : null)
@@ -43,6 +48,16 @@ const CLEAR = 16
 const BORDER_SPREAD = 60
 /** How much of the border must be that one colour (the object may touch an edge here and there). */
 const BORDER_SHARE = 0.6
+/**
+ * The same for a colour a model paints as a backdrop when it ignores the asked-for magenta (white,
+ * off-white, light grey) and for magenta itself: 40% of the edge is enough (owner, 23 Oct 2026: a
+ * picture whose object reaches the edges kept its white square). Other colours keep 60%, so a sky
+ * or a field in the picture isn't taken for a backdrop.
+ */
+const BACKDROP_SHARE = 0.4
+
+/** White, off-white or a light grey: what an image model paints behind an object when it ignores magenta. */
+export const lightNeutral = (c: Rgb): boolean => Math.min(c[0], c[1], c[2]) >= 205 && Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]) <= 28
 /** Distance to the backdrop at or under which a pixel is cleared fully, and over which it is kept (soft in between). */
 export const KEY_NEAR = 60
 export const KEY_FAR = 120
@@ -86,9 +101,16 @@ export function backdropOf(p: Pixels): Rgb | 'clear' | null {
     const v = solid.map((i) => p.data[i + k]).sort((a, b) => a - b)
     return v[v.length >> 1] ?? 0
   }
+  const loose = (n: number) => n >= spots.length * BACKDROP_SHARE
   const magenta = solid.filter((i) => magentaAt(p.data, i))
-  if (share(magenta.length)) {
+  if (loose(magenta.length)) {
     const v = (k: number) => magenta.map((i) => p.data[i + k]).sort((a, b) => a - b)[magenta.length >> 1]
+    return [v(0), v(1), v(2)]
+  }
+  // The edge's light neutral (white / off-white / light grey), when there's enough of it.
+  const light = solid.filter((i) => lightNeutral([p.data[i], p.data[i + 1], p.data[i + 2]]))
+  if (loose(light.length)) {
+    const v = (k: number) => light.map((i) => p.data[i + k]).sort((a, b) => a - b)[light.length >> 1]
     return [v(0), v(1), v(2)]
   }
   const mid: Rgb = [median(0), median(1), median(2)]
@@ -221,16 +243,29 @@ export async function shrinkPicture(base64: string, mimeType: string): Promise<s
     const to = keyed ? fitBox(box, size) : { x: 0, y: 0, w: size, h: size }
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(work, box.x, box.y, box.w, box.h, to.x, to.y, to.w, to.h)
-    // WebP and PNG keep the see-through background; JPEG can't, so it is the last try, on white.
-    for (const type of ['image/webp', 'image/png']) {
-      const kept = keepPicture(canvas.toDataURL(type, 0.85))
+    // WebP and PNG keep the see-through background (WebP at a lower quality too, before a smaller size).
+    for (const [type, q] of [
+      ['image/webp', 0.85],
+      ['image/webp', 0.7],
+      ['image/png', 1],
+    ] as const) {
+      const kept = keepPicture(canvas.toDataURL(type, q))
       if (kept) return kept
     }
-    ctx.globalCompositeOperation = 'destination-over'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, size, size)
-    const kept = keepPicture(canvas.toDataURL('image/jpeg', 0.82))
-    if (kept) return kept
   }
-  return null
+  // Nothing see-through fits: JPEG at the smallest size. A keyed picture can't keep its cut-out
+  // there, so it goes on the tile's dark-neutral instead of a white square.
+  const size = PICTURE_SIZES[PICTURE_SIZES.length - 1]
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  if (keyed) {
+    ctx.fillStyle = '#f1f5f9'
+    ctx.fillRect(0, 0, size, size)
+  }
+  const to = keyed ? fitBox(box, size) : { x: 0, y: 0, w: size, h: size }
+  ctx.drawImage(work, box.x, box.y, box.w, box.h, to.x, to.y, to.w, to.h)
+  return keepPicture(canvas.toDataURL('image/jpeg', 0.82))
 }

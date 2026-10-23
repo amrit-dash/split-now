@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatViewportBox, missingHeight, needsReAdd, opensKeyboard, tallestHeights, tapsToToggle } from './keyboard'
+import { chatViewportBox, missingHeight, needsReAdd, opensKeyboard, sheetArea, tallestHeights, tapsToToggle } from './keyboard'
 
 describe('chatViewportBox', () => {
   it('fills the screen when there is no visual viewport', () => {
@@ -108,5 +108,18 @@ describe('needsReAdd', () => {
     expect(needsReAdd({ ...old, standalone: false })).toBe(false)
     expect(needsReAdd({ ...old, ios: false })).toBe(false)
     expect(needsReAdd({ ...old, portrait: false })).toBe(false)
+  })
+})
+
+describe('sheetArea', () => {
+  it('follows the visible part of the screen while the keyboard is up', () => {
+    expect(sheetArea(844, { height: 500, offsetTop: 0 })).toEqual({ top: 0, height: 500 })
+    // iOS scrolled the page a little to show the field
+    expect(sheetArea(844, { height: 480, offsetTop: 40 })).toEqual({ top: 40, height: 480 })
+  })
+  it('stays put without a keyboard, or for a small toolbar', () => {
+    expect(sheetArea(844, { height: 844, offsetTop: 0 })).toBeNull()
+    expect(sheetArea(844, { height: 790, offsetTop: 0 })).toBeNull()
+    expect(sheetArea(844, null)).toBeNull()
   })
 })

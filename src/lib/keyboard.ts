@@ -104,3 +104,15 @@ export function tapsToToggle(taps: readonly number[], now: number): { taps: numb
 export function needsReAdd(s: { ios: boolean; standalone: boolean; portrait: boolean; safeTop: number }): boolean {
   return s.ios && s.standalone && s.portrait && s.safeTop > 0
 }
+
+/**
+ * Where a bottom sheet should sit while the on-screen keyboard is up: the part of the screen still
+ * visible (the visual viewport), so the sheet rests on top of the keyboard instead of behind it
+ * (owner, 23 Oct 2026: typing in the icon search pushed the AI buttons under the keyboard). null
+ * when the keyboard isn't covering anything worth moving for.
+ */
+export function sheetArea(innerHeight: number, vv: { height: number; offsetTop: number } | null): { top: number; height: number } | null {
+  if (!vv) return null
+  const covered = innerHeight - vv.height - vv.offsetTop
+  return covered > 80 ? { top: Math.max(0, Math.round(vv.offsetTop)), height: Math.round(vv.height) } : null
+}

@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Draw a picture: a picture whose model painted a white or light grey background (instead of the magenta it's asked for) now has it removed when it covers 40% of the edge (any other colour still needs 60%, so a sky or field in the picture stays), and only background joined to the edges goes. On iPhone, pictures stay see-through down to 56 px before falling back, which put white squares behind them. The prompt asks harder for one object, not a scene, on magenta.
+- Pictures and drawn icons fill a group's tile, as a friend's photo fills a 1:1's, and are 1.5× an emoji's size elsewhere (they were half the tile).
+- Group icon: the AI rows share one layout, what it is on the left and a round redo on the right (Suggest again, Draw another), and the drawn picture is bigger.
+- Sheets sit on top of the on-screen keyboard: typing in the icon search no longer pushes the AI buttons under it.
+- The “Use the whole screen” card no longer shows on a launch where iOS reports the screen wrongly for a moment: it needs two readings, and a launch that reads right marks the install fine for good.
+
 ## 9.2.0 — October 2026
 
 - Admin → AI → Transcription key: after **Save & check** the screen shows the saved key with Test, Use another key and Remove straight away. Before, it said “Transcription key saved” but went back to the empty paste box for up to a minute, because the status came from a server copy that hadn't heard of the save yet (the project key had the same lag).
