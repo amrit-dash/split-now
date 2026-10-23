@@ -254,6 +254,7 @@ export const SECTIONS: HelpSection[] = [
       { text: 'Tap **Create group**, then **Invite**.', mark: 'save' },
     ],
     points: [
+      'In Advanced, a third choice at the top is **Personal**, a wallet for just you.',
       'People added by name can be in expenses right away.',
       'They claim their name when they open the invite.',
       'An email that has an account is added straight in.',
@@ -357,7 +358,8 @@ export const SECTIONS: HelpSection[] = [
       'Read on your phone, or by AI first when AI is on: the AI switch in the card’s corner, or Settings → AI features.',
       '**Statement** turns payment-app screenshots into a list to pick from, read on your phone or by AI the same way.',
       'It knows Indian bills: ₹, lakh, CGST and SGST, Grand Total.',
-      'Nothing is added until you pick a group.',
+      'Under the buttons it says who reads it: Google Gemini, or this phone. Payment screenshots are always read on the phone.',
+      'Nothing is added until you pick a group. For a statement, until you tick payments.',
       'AI never reads a private group’s bills.',
     ],
     open: { label: 'Scan', to: '/scan' },
