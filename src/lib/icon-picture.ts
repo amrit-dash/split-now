@@ -44,20 +44,21 @@ export interface Box {
 
 /** Below this alpha a pixel already counts as see-through. */
 const CLEAR = 16
-/** Border samples within this distance of their median colour are one flat backdrop. */
-const BORDER_SPREAD = 60
-/** How much of the border must be that one colour (the object may touch an edge here and there). */
-const BORDER_SHARE = 0.6
 /**
- * The same for a colour a model paints as a backdrop when it ignores the asked-for magenta (white,
- * off-white, light grey) and for magenta itself: 40% of the edge is enough (owner, 23 Oct 2026: a
- * picture whose object reaches the edges kept its white square). Other colours keep 60%, so a sky
- * or a field in the picture isn't taken for a backdrop.
+ * The backdrop is found by what a painted backdrop is, not by fixed shares per colour (owner,
+ * 23 Oct 2026): one colour holding a good part of the edge (BACKDROP_MIN_SHARE), flat there (its
+ * samples all close to their middle, BACKDROP_MAX_SPREAD), and on all four sides, as anything
+ * painted behind a picture is. A model's white, cream or grey backdrop passes; a sky that shades,
+ * grass along the bottom, or one colour of an object running off the edge does not. Magenta,
+ * the colour asked for, counts from a quarter of the edge (MAGENTA_SHARE), matched by hue.
  */
-const BACKDROP_SHARE = 0.4
-
-/** White, off-white or a light grey: what an image model paints behind an object when it ignores magenta. */
-export const lightNeutral = (c: Rgb): boolean => Math.min(c[0], c[1], c[2]) >= 205 && Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]) <= 28
+export const BACKDROP_MIN_SHARE = 0.55
+export const BACKDROP_MAX_SPREAD = 14
+const MAGENTA_SHARE = 0.25
+/** Samples within this distance of the most common colour make up its group on the edge. */
+const CLUSTER_RADIUS = 36
+/** Mostly see-through already: no keying needed. */
+const CLEAR_SHARE = 0.5
 /** Distance to the backdrop at or under which a pixel is cleared fully, and over which it is kept (soft in between). */
 export const KEY_NEAR = 60
 export const KEY_FAR = 120
@@ -94,27 +95,44 @@ function borderSpots(p: Pixels): number[] {
  */
 export function backdropOf(p: Pixels): Rgb | 'clear' | null {
   const spots = borderSpots(p)
-  const share = (n: number) => n >= spots.length * BORDER_SHARE
-  if (share(spots.filter((i) => p.data[i + 3] < CLEAR).length)) return 'clear'
+  const at = (n: number) => n >= spots.length
+  if (at(spots.filter((i) => p.data[i + 3] < CLEAR).length / CLEAR_SHARE)) return 'clear'
   const solid = spots.filter((i) => p.data[i + 3] >= CLEAR)
-  const median = (k: number) => {
-    const v = solid.map((i) => p.data[i + k]).sort((a, b) => a - b)
-    return v[v.length >> 1] ?? 0
+  const medianOf = (list: number[]): Rgb => {
+    const v = (k: number) => list.map((i) => p.data[i + k]).sort((a, b) => a - b)[list.length >> 1] ?? 0
+    return [v(0), v(1), v(2)]
   }
-  const loose = (n: number) => n >= spots.length * BACKDROP_SHARE
   const magenta = solid.filter((i) => magentaAt(p.data, i))
-  if (loose(magenta.length)) {
-    const v = (k: number) => magenta.map((i) => p.data[i + k]).sort((a, b) => a - b)[magenta.length >> 1]
-    return [v(0), v(1), v(2)]
+  if (magenta.length >= spots.length * MAGENTA_SHARE) return medianOf(magenta)
+  if (!solid.length) return null
+  // The most common colour on the edge (in coarse buckets), then every sample near it.
+  const buckets = new Map<number, number[]>()
+  for (const i of solid) {
+    const k = ((p.data[i] >> 4) << 8) | ((p.data[i + 1] >> 4) << 4) | (p.data[i + 2] >> 4)
+    const list = buckets.get(k)
+    if (list) list.push(i)
+    else buckets.set(k, [i])
   }
-  // The edge's light neutral (white / off-white / light grey), when there's enough of it.
-  const light = solid.filter((i) => lightNeutral([p.data[i], p.data[i + 1], p.data[i + 2]]))
-  if (loose(light.length)) {
-    const v = (k: number) => light.map((i) => p.data[i + k]).sort((a, b) => a - b)[light.length >> 1]
-    return [v(0), v(1), v(2)]
+  let top: number[] = []
+  for (const list of buckets.values()) if (list.length > top.length) top = list
+  const centre = medianOf(top)
+  const group = solid.filter((i) => distance(p.data, i, centre) <= CLUSTER_RADIUS)
+  if (group.length < spots.length * BACKDROP_MIN_SHARE) return null
+  // All round: on every side of the square, not only along one or two.
+  const sides = new Set<string>()
+  for (const i of group) {
+    const n = i >> 2
+    const x = n % p.width
+    const y = Math.floor(n / p.width)
+    if (y < p.height * 0.15) sides.add('top')
+    if (y > p.height * 0.85) sides.add('bottom')
+    if (x < p.width * 0.15) sides.add('left')
+    if (x > p.width * 0.85) sides.add('right')
   }
-  const mid: Rgb = [median(0), median(1), median(2)]
-  return share(solid.filter((i) => distance(p.data, i, mid) <= BORDER_SPREAD).length) ? mid : null
+  if (sides.size < 4) return null
+  const mid = medianOf(group)
+  const spread = group.reduce((sum, i) => sum + distance(p.data, i, mid), 0) / group.length
+  return spread <= BACKDROP_MAX_SPREAD ? mid : null
 }
 
 /**

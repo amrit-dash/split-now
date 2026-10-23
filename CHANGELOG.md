@@ -20,8 +20,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Settings → Encrypted groups: help is a round **?** in the corner instead of the lifebuoy.
 - Preferences → Mode: choosing Advanced (or Simple) keeps the switch under your finger; the rows that appear or go above it no longer make the page seem to jump.
 
-- Draw a picture: a picture whose model painted a white or light grey background (instead of the magenta it's asked for) now has it removed when it covers 40% of the edge (any other colour still needs 60%, so a sky or field in the picture stays), and only background joined to the edges goes. On iPhone, pictures stay see-through down to 56 px before falling back, which put white squares behind them. The prompt asks harder for one object, not a scene, on magenta.
-- Pictures and drawn icons fill a group's tile, as a friend's photo fills a 1:1's, and are 1.5× an emoji's size elsewhere (they were half the tile).
+- Draw a picture: the background is found by what a painted backdrop is (one flat colour, all the way round the picture) instead of fixed shares, so a white, cream or grey backdrop the model painted instead of magenta is removed too, while a sky, grass or a colour of the picture running off the edge stays; only background joined to the edges goes. On iPhone, pictures stay see-through down to 56 px before falling back, which put white squares behind them. The prompt asks for a simple vector-style illustration (an object or a small scene) with magenta showing all round it.
+- Pictures and drawn icons are bigger: three quarters of a group's tile (a friend's photo still fills a 1:1's), and 1.5× an emoji's size elsewhere (they were about half the tile).
+- Profile: the badge is the ring round your photo and a small pill opening the line under your name, so a long name keeps its line.
 - Group icon: the AI rows share one layout, what it is on the left and a round redo on the right (Suggest again, Draw another), and the drawn picture is bigger.
 - Sheets sit on top of the on-screen keyboard: typing in the icon search no longer pushes the AI buttons under it.
 - The “Use the whole screen” card no longer shows on a launch where iOS reports the screen wrongly for a moment: it needs two readings, and a launch that reads right marks the install fine for good.

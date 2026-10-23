@@ -42,15 +42,35 @@ describe('backdropOf', () => {
   it('says clear when the corners are already see-through', () => {
     expect(backdropOf(picture(20, null, [200, 30, 30], [6, 6, 13, 13]))).toBe('clear')
   })
-  it('gives up when the object covers most of the edges', () => {
-    // a real (not flat) object over most of the border: stripes of two colours
-    const big = picture(40, MAGENTA, [10, 120, 10], [0, 0, 39, 30])
-    for (let y = 0; y <= 30; y++) for (let x = 0; x < 40; x++) if ((x >> 2) % 2) set(big, x, y, [240, 200, 40])
+  it('gives up when the edges hold no one flat colour', () => {
+    // stripes of two colours all round: a picture to the edges, nothing painted behind it
+    const big = picture(40, MAGENTA, [10, 120, 10], [0, 0, 39, 39])
+    for (let y = 0; y < 40; y++) for (let x = 0; x < 40; x++) if ((x >> 2) % 2) set(big, x, y, [240, 200, 40])
     expect(backdropOf(big)).toBeNull()
+    // magenta still showing under an object that covers most of the edges is the asked-for backdrop
+    const low = picture(40, MAGENTA, [10, 120, 10], [0, 0, 39, 30])
+    expect(backdropOf(low)).toEqual(MAGENTA)
     // one corner taken by the object is fine: most of the border still agrees
     const p = picture(20, MAGENTA, [200, 30, 30], [6, 6, 13, 13])
     set(p, 17, 17, [10, 120, 10])
     expect(backdropOf(p)).toEqual(MAGENTA)
+  })
+})
+
+describe('backdropOf: flat, not fixed shares', () => {
+  it('a flat white all round is the backdrop, JPEG noise and all', () => {
+    // a scene card with a white margin round it, the white a little uneven like a JPEG
+    const p = picture(40, WHITE, [30, 90, 160], [4, 4, 35, 35])
+    for (let y = 0; y < 40; y++)
+      for (let x = 0; x < 40; x++) if (x < 4 || x > 35 || y < 4 || y > 35) set(p, x, y, [250 - ((x * 7 + y) % 9), 251 - ((x + y * 5) % 8), 249 - ((x * 3) % 7)])
+    const bg = backdropOf(p)
+    expect(bg).not.toBeNull()
+    expect(Math.min(...(bg as Rgb))).toBeGreaterThan(238)
+  })
+  it('a sky that shades along the edge, or grass along the bottom, is not taken for a backdrop', () => {
+    const p = picture(40, WHITE, [20, 120, 40], [0, 20, 39, 39])
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 40; x++) set(p, x, y, [80 + x * 4, 150 + y * 2, 230 - x * 2])
+    expect(backdropOf(p)).toBeNull()
   })
 })
 

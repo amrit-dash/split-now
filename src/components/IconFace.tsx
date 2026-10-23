@@ -16,7 +16,7 @@ export function IconFace({
   iconImage?: unknown
   emoji: string
   vault?: boolean
-  /** a picture fills its tile (a group's), as a friend's photo fills a 1:1's */
+  /** a picture drawn big in its tile (a group’s): three quarters of it, with room round it (a 1:1’s photo alone fills its tile) */
   fill?: boolean
 }) {
   const face = iconFace({ iconSvg, iconImage, emoji, vault })
@@ -28,7 +28,7 @@ export function IconFace({
       src={face.src}
       alt=""
       aria-hidden
-      className={`inline-block select-none rounded-[18%] ${fill ? 'h-[88%] w-[88%]' : 'h-[1.5em] w-[1.5em]'}`}
+      className={`inline-block select-none rounded-[18%] ${fill ? 'h-[76%] w-[76%]' : 'h-[1.5em] w-[1.5em]'}`}
       draggable={false}
     />
   )

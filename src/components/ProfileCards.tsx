@@ -10,7 +10,7 @@ import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus 
 import { appLocale } from '@/lib/locale'
 import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
-import { ProRing } from './ProBadge'
+import { ProPill, ProRing } from './ProBadge'
 import { badgeLabel } from '@/lib/pro'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
@@ -91,12 +91,21 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            {/* Your badge is the ring round the photo alone (owner): a pill by the name said it twice and outshouted the name. */}
+            {/* The ring round the photo and a small pill, both (owner, 23 Oct 2026). The pill opens the line
+                under the name, as on Members, so a long name keeps its whole line. */}
             <span className="block truncate text-xl font-bold">
               {name || 'Your name'}
               {pro && <span className="sr-only">, {badgeLabel(pro, false)}</span>}
             </span>
-            <span className="text-muted block truncate text-sm">{sub}</span>
+            <span className="text-muted flex min-w-0 items-center gap-1.5 text-sm">
+              {pro && (
+                <>
+                  <ProPill h={8} word={pro} className="shrink-0" />
+                  <span aria-hidden>·</span>
+                </>
+              )}
+              <span className="truncate">{sub}</span>
+            </span>
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400">
             <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
