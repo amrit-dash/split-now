@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.4.0 — October 2026
+
 - Profile: in Simple, the New version ready row is its title alone, like the rows around it (it showed a line of subtext).
 
 - Voice: works again on phones where the mic had vanished. Before, one “refused” answer from the browser hid the mic and hold-to-talk for good, and on Android that answer also came when the permission prompt took the press, or when the phone's own recogniser (a second app) held the microphone next to an AI recording; holding + then opened the Create sheet. Now the mic always shows where voice can work, and a refusal says how to allow it.
