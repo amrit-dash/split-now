@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.3.0 — October 2026
+
 - Voice with AI shows your words as you talk again: the phone's own recognition runs alongside, only to show them, and AI's text replaces them when you let go (if AI hears nothing or fails, the phone's words are kept). Before, with AI chosen the pill and the Quick add box stayed empty until AI answered. With Phone chosen nothing goes to AI, as before.
 - The first time + works something out after you talk, a tip says you can double tap + to stop it.
 
@@ -22,7 +24,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 - Draw a picture: the background is found by what a painted backdrop is (one flat colour, all the way round the picture) instead of fixed shares, so a white, cream or grey backdrop the model painted instead of magenta is removed too, while a sky, grass or a colour of the picture running off the edge stays; only background joined to the edges goes. On iPhone, pictures stay see-through down to 56 px before falling back, which put white squares behind them. The prompt asks for a simple vector-style illustration (an object or a small scene) with magenta showing all round it.
 - Pictures and drawn icons are bigger: three quarters of a group's tile (a friend's photo still fills a 1:1's), and 1.5× an emoji's size elsewhere (they were about half the tile).
-- Profile: the badge is the ring round your photo and a small pill opening the line under your name, so a long name keeps its line.
+- Profile: the badge is the ring round your photo, and a small pill beside your name when there's room for both; a long name keeps its whole line and the ring alone says it.
 - Group icon: the AI rows share one layout, what it is on the left and a round redo on the right (Suggest again, Draw another), and the drawn picture is bigger.
 - Sheets sit on top of the on-screen keyboard: typing in the icon search no longer pushes the AI buttons under it.
 - The “Use the whole screen” card no longer shows on a launch where iOS reports the screen wrongly for a moment: it needs two readings, and a launch that reads right marks the install fine for good.

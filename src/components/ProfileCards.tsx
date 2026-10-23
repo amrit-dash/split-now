@@ -91,21 +91,15 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            {/* The ring round the photo and a small pill, both (owner, 23 Oct 2026). The pill opens the line
-                under the name, as on Members, so a long name keeps its whole line. */}
-            <span className="block truncate text-xl font-bold">
-              {name || 'Your name'}
+            {/* The ring round the photo, and a small pill beside the name only when both fit (owner,
+                23 Oct 2026): the row is one line tall and wraps, so a pill with no room drops to a
+                hidden second line and the ring alone says it; the name is never cut short for it. */}
+            <span className="flex h-7 min-w-0 flex-wrap items-center gap-x-2 overflow-hidden">
+              <span className="max-w-full truncate text-xl font-bold leading-7">{name || 'Your name'}</span>
+              {pro && <ProPill h={8} word={pro} className="shrink-0" />}
               {pro && <span className="sr-only">, {badgeLabel(pro, false)}</span>}
             </span>
-            <span className="text-muted flex min-w-0 items-center gap-1.5 text-sm">
-              {pro && (
-                <>
-                  <ProPill h={8} word={pro} className="shrink-0" />
-                  <span aria-hidden>·</span>
-                </>
-              )}
-              <span className="truncate">{sub}</span>
-            </span>
+            <span className="text-muted block truncate text-sm">{sub}</span>
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400">
             <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />

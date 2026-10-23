@@ -24,6 +24,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.3.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Your words show as you talk, also with AI', section: 'voice' },
+      { text: 'A tick at the top of each Help section you’ve read', section: 'help-guide' },
+      { text: 'AI pictures without white squares, and bigger', section: 'icons-and-ai' },
+      { text: 'Quick add shows its answers and problems more clearly', section: 'quick-add' },
+      { text: 'Edit group saves a new icon straight away', section: 'create-group' },
+    ],
+  },
+  {
     version: '9.2.0',
     date: 'October 2026',
     items: [
