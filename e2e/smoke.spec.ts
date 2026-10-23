@@ -570,6 +570,66 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
   expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
 })
 
+/**
+ * The browser's microphone permission, faked: the Permissions API answers `state`, and getUserMedia
+ * waits `delay` ms (a prompt being answered) before giving a silent stream, or refuses when blocked.
+ */
+async function fakeMicPermission(page: Page, state: 'prompt' | 'denied', delay = 0) {
+  await page.addInitScript(
+    ([st, ms]) => {
+      const perm = { state: st as string, onchange: null }
+      Object.defineProperty(navigator, 'permissions', { value: { query: () => Promise.resolve(perm) }, configurable: true })
+      if (!navigator.mediaDevices) return
+      navigator.mediaDevices.getUserMedia = () =>
+        st === 'denied'
+          ? Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+          : new Promise((resolve) =>
+              setTimeout(() => {
+                perm.state = 'granted'
+                resolve(new AudioContext().createMediaStreamDestination().stream)
+              }, Number(ms)),
+            )
+    },
+    [state, String(delay)],
+  )
+}
+
+test('Voice: the first hold asks for the microphone; letting go to answer it is not an error, and it says when it’s ready', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'prompt', 1500)
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(plus).toHaveAttribute('data-voice', 'listening')
+  // The finger comes off to answer the prompt.
+  await page.mouse.up()
+  await expect(page.getByTestId('voice-teach')).toContainText('Allow the microphone when asked')
+  await expect(page.getByTestId('toasts')).not.toContainText(/catch that|refused/)
+  await expect(page.getByTestId('voice-teach')).toContainText('Microphone on')
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+  // Allowed now: the next hold listens straight away.
+  await page.mouse.down()
+  await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
+  await page.mouse.up()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+})
+
+test('Voice: a blocked microphone keeps the mic and says where to allow it; an old “refused” mark no longer hides it', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'denied')
+  // Left by an earlier version after a refusal: it used to hide the mic for good.
+  await page.addInitScript(() => localStorage.setItem('splitnow-speech-denied', '1'))
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await expect(plus).toHaveAttribute('aria-label', /press and hold to talk/)
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('toasts')).toContainText(/blocked for this site|microphone is off/)
+  await page.mouse.up()
+  await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
 test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {
   await fakeSpeech(page)
   await page.goto('/groups/g_goa')

@@ -5,21 +5,38 @@ import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useCapturePrefs } from '@/hooks/useCapturePrefs'
 import { useOnline } from '@/hooks/useOnline'
+import { reportAppError, voiceProblem } from '@/lib/app-errors'
 import {
   blobToBase64,
   blip,
   buzz,
   closeMic,
   levelMeter,
+  markMicAllowed,
+  micAllowedBefore,
   micPermission,
+  micPermissionNow,
   openMic,
   record,
   recorderSupported,
   subscribeMicPermission,
   type Recording,
 } from '@/lib/mic'
-import { listen, speechDenied, speechSupported, subscribeSpeechDenied, type SpeechSession } from '@/lib/speech'
-import { finalVoiceText, meterBesideSpeech, transcribeFailText, transcribeOffer, voiceEngine, type TranscribeOffer, type VoiceEngine } from '@/lib/voice'
+import { listen, NO_SERVICE_TEXT, speechSupported, subscribeSpeechSupport, type SpeechSession } from '@/lib/speech'
+import {
+  finalVoiceText,
+  liveWordsBesideRecording,
+  meterBesideSpeech,
+  micFailure,
+  micPreflight,
+  micProblemText,
+  transcribeFailText,
+  transcribeOffer,
+  voiceEngine,
+  type TranscribeOffer,
+  type VoiceEngine,
+} from '@/lib/voice'
+import { isStandalone } from '@/lib/push'
 import { TRANSCRIBE_MAX_SECONDS } from '../../shared/transcribe'
 
 /** The language people speak to Quick add in: English with Indian names and places, by default. */
@@ -39,10 +56,11 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
   const status = useAiStatus()
   const aiState = useAiState(firebase)
   const online = useOnline()
-  const denied = useSyncExternalStore(subscribeSpeechDenied, speechDenied, () => false)
-  const mic = useSyncExternalStore(subscribeMicPermission, micPermission, () => 'unknown' as const)
-  const native = useMemo(() => speechSupported(), [])
+  // Re-read when the browser turns out to have no speech service: voice moves to AI where it can.
+  const native = useSyncExternalStore(subscribeSpeechSupport, speechSupported, () => false)
   const recorder = useMemo(() => recorderSupported(), [])
+  // Watch the permission (a later "granted" is noticed); it no longer hides the mic.
+  useSyncExternalStore(subscribeMicPermission, micPermission, () => 'unknown' as const)
   const offer = transcribeOffer({
     mode: firebase ? 'firebase' : 'demo',
     flag,
@@ -52,11 +70,23 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
     aiEnabled: prefs?.aiEnabled ?? true,
   })
   const aiChosen = !!prefs?.aiTranscribe && flag
-  const engine = quickAdd ? voiceEngine({ native, nativeDenied: denied, micDenied: mic === 'denied', aiChosen, aiReady: offer.ai && online, recorder }) : null
-  return { engine, offer, aiChosen, nativeOk: native && !denied }
+  // AI's answer still loading (transcribeOffer says neither yes nor why not).
+  const aiPending = !offer.ai && offer.why === null && online
+  const engine = quickAdd ? voiceEngine({ native, aiChosen, aiReady: offer.ai && online, aiPending, recorder }) : null
+  return { engine, offer, aiChosen, nativeOk: native }
 }
 
 export type VoiceState = 'idle' | 'listening' | 'transcribing'
+
+/** What letting go returned: the words, a problem to show, or why there are none yet. */
+export interface VoiceResult {
+  text: string
+  error?: string
+  /** the browser's permission prompt took the press: onReady follows once it's answered */
+  asking?: boolean
+  /** nothing heard, and voice has never worked on this device: a how-to, not "didn't catch that" */
+  first?: boolean
+}
 
 interface Live {
   engine: VoiceEngine
@@ -71,13 +101,27 @@ interface Live {
   stopping?: boolean
   ended?: Promise<void>
   autoStop?: () => void
+  /** waiting on the browser's microphone prompt */
+  asking?: boolean
+  /** the finger came off while the prompt was up */
+  released?: boolean
+  /** the browser had the microphone (audio started, or a recording ran) */
+  heardAudio?: boolean
+}
+
+const where = () => {
+  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent
+  return { android: /Android/i.test(ua), ios: /iPhone|iPad|iPod/.test(ua), standalone: isStandalone() }
 }
 
 /**
- * One voice session at a time: start() listens (the phone's recognition, or a recording for AI),
- * stop() ends it and resolves with the words (or an error to show). `onText` gets the running
- * words while the phone listens; `onLevel` the voice level for the bars (0..1, every frame, only
- * when asked for with `meter`). A soft blip and a short buzz mark the start and the stop.
+ * One voice session at a time: start() opens the microphone (asking for it first where the browser
+ * hasn't been allowed yet) and listens (the phone's recognition, or a recording for AI); stop() ends
+ * it and resolves with the words, a problem, or that the prompt took the press. `onText` gets the
+ * running words while the phone listens; `onLevel` the voice level for the bars (0..1, every frame,
+ * only when asked for with `meter`); `onReady` that the microphone was just allowed after the finger
+ * came off. A soft blip and a short buzz mark the start and the stop. Every problem goes to the
+ * admin's Logs (kind 'voice') with the browser's own code, so a phone's failure can be read.
  */
 export function useVoice(opts: {
   engine: VoiceEngine | null
@@ -85,6 +129,10 @@ export function useVoice(opts: {
   onLevel?: (l: number) => void
   /** the session ended by itself with a problem (refused, no microphone) */
   onError?: (message: string) => void
+  /** the microphone was allowed after the press ended: say it's ready */
+  onReady?: () => void
+  /** AI transcription can serve this person (useVoiceSetup offer.ai): where the browser has no speech service, the next press uses it */
+  aiFallback?: boolean
   meter?: boolean
   sound?: boolean
 }) {
@@ -92,6 +140,20 @@ export function useVoice(opts: {
   const o = useRef(opts)
   o.current = opts
   const live = useRef<Live | null>(null)
+
+  const log = (stage: Parameters<typeof voiceProblem>[0]['stage'], code: string | undefined) =>
+    reportAppError(
+      voiceProblem({
+        stage,
+        code,
+        engine: o.current.engine,
+        perm: micPermission(),
+        native: speechSupported(),
+        recorder: recorderSupported(),
+        okBefore: micAllowedBefore(),
+      }),
+      'voice',
+    )
 
   const cleanup = useCallback(() => {
     const l = live.current
@@ -139,7 +201,53 @@ export function useVoice(opts: {
     }
   }
 
-  /** Starts listening; false (with the problem already passed to onError) when it couldn't. */
+  /** The session can't go on: tidy up and say why (once). */
+  const fail = (l: Live, message: string) => {
+    if (live.current !== l) return
+    stopPulse()
+    cleanup()
+    setState('idle')
+    if (message) o.current.onError?.(message)
+  }
+
+  /** The phone's own recognition for this session. */
+  const listenNative = (l: Live): boolean => {
+    let done: () => void = () => {}
+    l.ended = new Promise<void>((r) => {
+      done = r
+    })
+    l.speech = listen({
+      lang: LANG,
+      onText: (t) => {
+        l.text = t
+        if (pulse.current) pulse.current.level = 0.85
+        o.current.onText?.(t)
+      },
+      onEnd: (err, code) => {
+        if (code) log('speech', code)
+        // No speech service in this browser: the next press goes to AI when AI can serve them.
+        l.error = err === NO_SERVICE_TEXT && o.current.aiFallback ? 'This browser can’t turn speech into text itself. Try again: AI will write it down.' : err
+        done()
+        // Ended by itself (a refusal, no microphone): the session is over.
+        if (live.current === l && l.error && !l.stopping) fail(l, l.error)
+      },
+      // The browser has the microphone now; the bars' meter opens its own where that's safe (Chrome
+      // shares it). On Apple's WebKit a second stream can starve recognition: the words drive the bars.
+      onAudio: () => {
+        l.heardAudio = true
+        markMicAllowed()
+        void (meterBesideSpeech(navigator.userAgent) ? openMeter(l) : startPulse())
+      },
+    })
+    if (!l.speech) {
+      log('start', 'no-recognition')
+      fail(l, 'Couldn’t start listening. Type it instead.')
+      return false
+    }
+    return true
+  }
+
+  /** Starts listening; false (with the problem already passed to onError, or the prompt still up) when it isn't. */
   const start = async (): Promise<boolean> => {
     const engine = o.current.engine
     if (!engine || live.current) return false
@@ -148,73 +256,88 @@ export function useVoice(opts: {
     setState('listening')
     if (o.current.sound !== false) blip('start')
     buzz(12)
-    if (engine === 'native') {
-      let done: () => void = () => {}
-      l.ended = new Promise<void>((r) => {
-        done = r
-      })
-      l.speech = listen({
-        lang: LANG,
-        onText: (t) => {
-          l.text = t
-          if (pulse.current) pulse.current.level = 0.85
-          o.current.onText?.(t)
-        },
-        onEnd: (err) => {
-          l.error = err
-          done()
-          // Ended by itself (a refusal, no microphone): the session is over.
-          if (live.current === l && err && !l.stopping) {
-            stopPulse()
-            cleanup()
-            setState('idle')
-            o.current.onError?.(err)
-          }
-        },
-        // The browser has the microphone now; the bars' meter opens its own where that's safe (Chrome
-        // shares it). On Apple's WebKit a second stream can starve recognition: the words drive the bars.
-        onAudio: () => void (meterBesideSpeech(navigator.userAgent) ? openMeter(l) : startPulse()),
-      })
-      if (!l.speech) {
-        cleanup()
-        setState('idle')
-        o.current.onError?.('Couldn’t start listening. Type it instead.')
+
+    // The microphone first, where the browser hasn't been allowed yet (its prompt shows now), and
+    // always for AI (the recording needs the stream). A blocked one says where to allow it.
+    const pre = micPreflight({ perm: micPermission(), okBefore: micAllowedBefore() })
+    if (pre === 'blocked') {
+      log('mic', 'blocked')
+      fail(l, micProblemText('refused', 'denied', where()))
+      return false
+    }
+    if (pre === 'ask' || engine === 'ai') {
+      l.asking = pre === 'ask'
+      let stream: MediaStream
+      try {
+        stream = await openMic()
+      } catch (e) {
+        const name = (e as { name?: string })?.name
+        log('mic', name)
+        const f = micFailure(name)
+        // The phone's recognition opens the microphone its own way: anything short of a refusal, let it try.
+        if (engine === 'native' && f !== 'refused' && live.current === l && !l.released) {
+          l.asking = false
+          return listenNative(l)
+        }
+        // A refusal asks again only while the browser will; else where the switch is.
+        const perm = await micPermissionNow()
+        fail(l, micProblemText(f, perm, where()))
         return false
       }
-      return true
+      l.asking = false
+      if (live.current !== l) {
+        closeMic(stream)
+        return false
+      }
+      // The finger came off to answer the prompt: nothing was said. Say it's ready instead.
+      if (l.released) {
+        closeMic(stream)
+        cleanup()
+        setState('idle')
+        o.current.onReady?.()
+        return false
+      }
+      // The phone's recognition opens its own; a stream held here could starve it (Apple, Android).
+      if (engine === 'native') closeMic(stream)
+      else l.stream = stream
     }
-    try {
-      l.stream = await openMic()
-    } catch {
-      cleanup()
-      setState('idle')
-      o.current.onError?.('Microphone access was refused. Allow it in the browser to speak an expense.')
+
+    if (engine === 'native') return listenNative(l)
+
+    if (!l.stream) {
+      fail(l, 'Couldn’t open the microphone. Try again, or type it.')
       return false
     }
-    if (live.current !== l) {
-      closeMic(l.stream)
-      return false
-    }
+    l.heardAudio = true
     void openMeter(l)
     l.rec = record(l.stream, TRANSCRIBE_MAX_SECONDS * 1000, () => l.autoStop?.())
-    // The words live while AI records (owner, 23 Oct 2026): the phone's own recognition, when it has
-    // one, only shows them; AI's text replaces them on letting go (finalVoiceText). Where the browser
-    // can't share the microphone (some iPhones) it just shows nothing, and AI still gets the recording.
-    if (speechSupported() && !speechDenied())
+    // The words live while AI records (owner, 23 Oct 2026): the phone's own recognition, where it can
+    // share the microphone, only shows them; AI's text replaces them on letting go (finalVoiceText).
+    // Not on Android, where it is a second app on the microphone (liveWordsBesideRecording).
+    if (speechSupported() && liveWordsBesideRecording(navigator.userAgent))
       l.live = listen({
         lang: LANG,
+        side: true,
         onText: (t) => {
           l.text = t
           o.current.onText?.(t)
         },
-        onEnd: () => {},
+        onEnd: (_err, code) => {
+          if (code) log('side', code)
+        },
       })
     return true
   }
 
-  const stop = async (): Promise<{ text: string; error?: string }> => {
+  const stop = async (): Promise<VoiceResult> => {
     const l = live.current
     if (!l) return { text: '' }
+    // Let go while the browser's prompt was up: it carries on; onReady says when it's allowed.
+    if (l.asking) {
+      l.released = true
+      setState('idle')
+      return { text: '', asking: true }
+    }
     l.stopping = true
     if (o.current.sound !== false) blip('stop')
     stopPulse()
@@ -224,7 +347,12 @@ export function useVoice(opts: {
       await Promise.race([l.ended, new Promise((r) => setTimeout(r, 1500))])
       cleanup()
       setState('idle')
-      return { text: l.text.trim(), ...(l.error ? { error: l.error } : {}) }
+      const text = l.text.trim()
+      if (l.error) return { text, error: l.error }
+      // Nothing heard and the browser never had the microphone, on a device where voice hasn't worked
+      // yet: the press went to a prompt (iPhone asks for speech recognition separately).
+      if (!text && !l.heardAudio && !micAllowedBefore()) return { text: '', first: true }
+      return { text }
     }
     // Let go before the microphone even opened: nothing was said.
     if (!l.rec) {
@@ -242,10 +370,17 @@ export function useVoice(opts: {
     try {
       if (blob.size < 800) return finalVoiceText({ text: '' }, heard)
       const r = await repo.transcribeAi({ audio: await blobToBase64(blob), mimeType: blob.type || 'audio/webm', lang: LANG })
-      if (!r) return finalVoiceText({ text: '', error: transcribeFailText({ demo: repo.mode !== 'firebase' }) }, heard)
-      if (r.unavailable) return finalVoiceText({ text: '', error: transcribeFailText({ demo: false, reason: r.reason }) }, heard)
+      if (!r) {
+        log('transcribe', 'no-answer')
+        return finalVoiceText({ text: '', error: transcribeFailText({ demo: repo.mode !== 'firebase' }) }, heard)
+      }
+      if (r.unavailable) {
+        log('transcribe', r.reason)
+        return finalVoiceText({ text: '', error: transcribeFailText({ demo: false, reason: r.reason }) }, heard)
+      }
       return finalVoiceText({ text: r.text }, heard)
-    } catch {
+    } catch (e) {
+      log('transcribe', (e as { code?: string; name?: string })?.code ?? (e as { name?: string })?.name)
       return finalVoiceText({ text: '', error: transcribeFailText({ demo: false }) }, heard)
     } finally {
       cleanup()
@@ -259,9 +394,16 @@ export function useVoice(opts: {
   }
 
   const cancel = () => {
-    live.current?.speech?.abort()
-    live.current?.live?.abort()
-    live.current?.rec?.cancel()
+    const l = live.current
+    // The prompt is still up: let it finish quietly (its stream is closed when it's answered).
+    if (l?.asking) {
+      l.released = true
+      setState('idle')
+      return
+    }
+    l?.speech?.abort()
+    l?.live?.abort()
+    l?.rec?.cancel()
     stopPulse()
     cleanup()
     setState('idle')

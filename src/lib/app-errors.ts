@@ -7,7 +7,7 @@
  * Pure apart from the session counter; the repo writes it (Repo.reportError).
  */
 
-export type AppErrorKind = 'crash' | 'unhandled' | 'save'
+export type AppErrorKind = 'crash' | 'unhandled' | 'save' | 'voice'
 
 export interface AppErrorReport {
   uid: string
@@ -70,4 +70,33 @@ export function reportGate(max = 5) {
     seen.add(key)
     return true
   }
+}
+
+/**
+ * Where reports go: App sets it once signed in (repo.reportError behind its own gate). Code outside
+ * React (voice, src/hooks/useVoice.ts) files through it; nothing happens before it's set.
+ */
+let sink: ((e: unknown, kind: AppErrorKind) => void) | null = null
+export function setAppErrorSink(f: ((e: unknown, kind: AppErrorKind) => void) | null): void {
+  sink = f
+}
+export function reportAppError(e: unknown, kind: AppErrorKind): void {
+  sink?.(e, kind)
+}
+
+/**
+ * A voice problem as one line for Logs: what failed, the browser's own code or error name, and what
+ * the app knew then (engine, permission, whether the browser has recognition and recording,
+ * installed or not). No words heard and no audio.
+ */
+export function voiceProblem(o: {
+  stage: 'mic' | 'speech' | 'side' | 'transcribe' | 'start'
+  code?: string
+  engine: string | null
+  perm: string
+  native: boolean
+  recorder: boolean
+  okBefore: boolean
+}): string {
+  return `voice ${o.stage}: ${o.code || 'unknown'} | engine=${o.engine ?? 'none'} perm=${o.perm} native=${o.native ? 1 : 0} rec=${o.recorder ? 1 : 0} ok=${o.okBefore ? 1 : 0}`
 }

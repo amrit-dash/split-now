@@ -107,12 +107,3 @@ export const SIMPLE_HIDES = [
 export type SimpleHide = (typeof SIMPLE_HIDES)[number]
 
 export const showsFeature = (mode: Mode, f: SimpleHide): boolean => mode === 'advanced' || !(SIMPLE_HIDES as readonly string[]).includes(f)
-
-/**
- * Whether a new entry offers the Expense / Money received switch. Advanced: while the feature
- * shows. Simple hides it, except in a private group (owner, Oct 2026): there the switch is the way
- * in, so Simple keeps it while the group menu's Money received stays hidden.
- */
-export function offersReceivedSwitch(o: { featureShown: boolean; simple: boolean; vault: boolean }): boolean {
-  return o.featureShown || (o.simple && o.vault)
-}

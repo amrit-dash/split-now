@@ -6,7 +6,6 @@ import {
   groupUsesApprovals,
   hintLookForMode,
   lookForMode,
-  offersReceivedSwitch,
   resolveModeChoice,
   settleAuto,
   showsFeature,
@@ -82,14 +81,5 @@ describe('showsFeature', () => {
   })
   it('the list has no repeats', () => {
     expect(new Set(SIMPLE_HIDES).size).toBe(SIMPLE_HIDES.length)
-  })
-})
-
-describe('offersReceivedSwitch', () => {
-  it('Advanced follows the feature; Simple offers it only in a private group', () => {
-    expect(offersReceivedSwitch({ featureShown: true, simple: false, vault: false })).toBe(true)
-    expect(offersReceivedSwitch({ featureShown: false, simple: true, vault: false })).toBe(false)
-    expect(offersReceivedSwitch({ featureShown: false, simple: true, vault: true })).toBe(true)
-    expect(offersReceivedSwitch({ featureShown: false, simple: false, vault: true })).toBe(false)
   })
 })

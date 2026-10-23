@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appErrorReport, reportGate } from './app-errors'
+import { appErrorReport, reportGate, voiceProblem } from './app-errors'
 
 const ctx = { uid: 'u1', kind: 'crash' as const, path: '/groups/g1?tab=balances#x', version: '7.2.0', ua: 'UA', standalone: true, now: 5 }
 
@@ -23,5 +23,16 @@ describe('app error reports', () => {
     expect(ok({ kind: 'crash', message: 'a' })).toBe(false)
     expect(ok({ kind: 'save', message: 'a' })).toBe(true)
     expect(ok({ kind: 'crash', message: 'b' })).toBe(false)
+  })
+})
+
+describe('voiceProblem', () => {
+  it('one line with the stage, the browser’s code and what the app knew', () => {
+    expect(voiceProblem({ stage: 'mic', code: 'NotReadableError', engine: 'ai', perm: 'granted', native: true, recorder: true, okBefore: false })).toBe(
+      'voice mic: NotReadableError | engine=ai perm=granted native=1 rec=1 ok=0',
+    )
+    expect(voiceProblem({ stage: 'speech', engine: null, perm: 'unknown', native: false, recorder: false, okBefore: true })).toMatch(
+      /^voice speech: unknown \| engine=none/,
+    )
   })
 })

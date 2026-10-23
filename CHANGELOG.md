@@ -6,10 +6,19 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Profile: in Simple, the New version ready row is its title alone, like the rows around it (it showed a line of subtext).
+
+- Voice: works again on phones where the mic had vanished. Before, one “refused” answer from the browser hid the mic and hold-to-talk for good, and on Android that answer also came when the permission prompt took the press, or when the phone's own recogniser (a second app) held the microphone next to an AI recording; holding + then opened the Create sheet. Now the mic always shows where voice can work, and a refusal says how to allow it.
+- Voice: the first hold asks for the microphone first. Letting go to answer the prompt shows “Allow the microphone when asked. Then hold + and speak.”, then “Microphone on” once allowed, instead of “Didn’t catch that”. A blocked microphone says where to allow it (the site's settings, or the app's permissions on Android).
+- Voice with AI on Android: the recording has the microphone to itself (the live words beside it were Google's app on the same microphone, which could leave the recording silent and the next press refused).
+- Voice in browsers without a speech service (Opera, Opera GX, Brave): when their on-device recogniser isn't there, voice moves to AI transcription for anyone who can use it, chosen or not. Before, the mic just disappeared there.
+- Voice: the microphone is opened again after a moment when another app had it, and with plain settings when the phone rejects the speech ones.
+- Admin → Logs has a Voice kind: each voice failure with the browser's own code, the engine, the microphone permission and what the browser supports, so a phone's problem can be read instead of guessed.
+
 - Create: Quick add is always at the top of the sheet. Before, the Minimal look (Settings → Preferences) hid it behind a small “Quick add” link under the tiles, which looked like something to turn on first.
 - Quick add: a little more room between the group's picture and “Into” in the group chip.
 - Profile photo: one compact row, your photo on the left and Camera (on a phone), Choose, Google and Remove beside it. Before, it was a tall sheet with the actions listed under a big photo.
-- Simple: the Expense / Money received switch shows when adding to a private group (Simple hides it elsewhere, and the group menu's Money received stays hidden).
+- Simple: Add expense has the Expense / Money received switch at the top in every group, as in Advanced. Before, Simple hid it. The group menu's Money received stays an Advanced item.
 - Home: the whole settle up circle on the balance card takes a tap. Before, its lower half sat under the amount line, so a tap on the bottom of the cheque often did nothing.
 
 ## 9.3.1 — October 2026

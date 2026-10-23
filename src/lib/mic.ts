@@ -4,15 +4,14 @@
  * mic stream), recording a short clip for AI transcription (MediaRecorder), and the soft blip
  * when listening starts and stops (a tiny WebAudio tone, no sound file).
  */
-import { pickRecorderMime, rmsToLevel, smoothLevel } from './voice'
-import { setSpeechDenied } from './speech'
+import { type MicPermission, pickRecorderMime, rmsToLevel, smoothLevel } from './voice'
 
-type Perm = 'granted' | 'denied' | 'prompt' | 'unknown'
+type Perm = MicPermission
 let perm: Perm = 'unknown'
 const permSubs = new Set<() => void>()
 let watching = false
 
-/** The site's microphone permission, watched once: a later "granted" brings a hidden mic back. */
+/** The site's microphone permission, watched once (some browsers can't say: 'unknown'). */
 export function micPermission(): Perm {
   if (!watching && typeof navigator !== 'undefined' && navigator.permissions?.query) {
     watching = true
@@ -21,7 +20,7 @@ export function micPermission(): Perm {
       .then((s) => {
         const set = () => {
           perm = s.state as Perm
-          if (perm === 'granted') setSpeechDenied(false)
+          if (perm === 'granted') markMicAllowed()
           for (const f of permSubs) f()
         }
         set()
@@ -41,8 +40,55 @@ export function subscribeMicPermission(f: () => void): () => void {
 export const recorderSupported = (): boolean =>
   typeof window !== 'undefined' && typeof window.MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
+// Voice has opened the microphone on this device before: where the browser can't report the
+// permission, a press then listens straight away instead of asking first (src/lib/voice.ts micPreflight).
+const MIC_OK_KEY = 'splitnow-mic-ok'
+export function micAllowedBefore(): boolean {
+  try {
+    return localStorage.getItem(MIC_OK_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+export function markMicAllowed(): void {
+  try {
+    localStorage.setItem(MIC_OK_KEY, '1')
+  } catch {
+    /* private mode */
+  }
+}
+
+const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+
+/**
+ * The microphone, tried the ways phones accept: with speech processing, else plain audio (a device
+ * that rejects the constraints), and once more after a moment when it's busy (Android lets go of it
+ * a little after another recogniser stops). Throws the browser's own error, named, when it can't.
+ */
 export async function openMic(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+  const get = (audio: MediaTrackConstraints | true) => navigator.mediaDevices.getUserMedia({ audio })
+  try {
+    const s = await get(AUDIO)
+    markMicAllowed()
+    return s
+  } catch (e) {
+    const name = (e as { name?: string })?.name
+    if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') throw e
+    if (name === 'NotReadableError' || name === 'AbortError' || name === 'TrackStartError') await new Promise((r) => setTimeout(r, 450))
+    const s = await get(true)
+    markMicAllowed()
+    return s
+  }
+}
+
+/** The permission right now, asked fresh (after a failure the watched value may be stale). */
+export async function micPermissionNow(): Promise<Perm> {
+  try {
+    const s = await navigator.permissions?.query({ name: 'microphone' as PermissionName })
+    return (s?.state as Perm) ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
 }
 
 export const closeMic = (s: MediaStream | null | undefined) => {

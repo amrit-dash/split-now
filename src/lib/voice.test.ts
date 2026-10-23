@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  liveWordsBesideRecording,
+  micFailure,
+  micPreflight,
+  micProblemText,
   barHeights,
   finalVoiceText,
   holdDrag,
@@ -56,23 +60,60 @@ describe('transcribeOffer', () => {
 })
 
 describe('voiceEngine', () => {
-  const base = { native: true, nativeDenied: false, micDenied: false, aiChosen: false, aiReady: false, recorder: true }
+  const base = { native: true, aiChosen: false, aiReady: false, recorder: true }
   it('the phone’s own recognition first, free', () => {
     expect(voiceEngine(base)).toBe('native')
     expect(voiceEngine({ ...base, aiReady: true })).toBe('native')
   })
-  it('AI only when chosen and able to serve now', () => {
+  it('AI when chosen and able to serve now', () => {
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: true })).toBe('ai')
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: false })).toBe('native')
     expect(voiceEngine({ ...base, aiChosen: true, aiReady: true, recorder: false })).toBe('native')
   })
-  it('no recognition, or refused: no voice, unless AI is on for the person', () => {
+  it('a browser without a speech service is heard through AI when AI can serve the person, chosen or not', () => {
     expect(voiceEngine({ ...base, native: false })).toBeNull()
-    expect(voiceEngine({ ...base, nativeDenied: true })).toBeNull()
-    expect(voiceEngine({ ...base, native: false, aiChosen: true, aiReady: true })).toBe('ai')
+    expect(voiceEngine({ ...base, native: false, aiReady: true })).toBe('ai')
+    expect(voiceEngine({ ...base, native: false, aiReady: true, recorder: false })).toBeNull()
   })
-  it('a blocked microphone stops both', () => {
-    expect(voiceEngine({ ...base, micDenied: true, aiChosen: true, aiReady: true })).toBeNull()
+  it('while AI’s answer loads, someone who chose it keeps a mic: the phone’s, or AI where the phone has none', () => {
+    expect(voiceEngine({ ...base, aiChosen: true, aiPending: true })).toBe('native')
+    expect(voiceEngine({ ...base, native: false, aiChosen: true, aiPending: true })).toBe('ai')
+  })
+})
+
+describe('micPreflight', () => {
+  it('granted listens; blocked explains; a prompt (or a browser that can’t say, first time) asks first', () => {
+    expect(micPreflight({ perm: 'granted', okBefore: false })).toBe('go')
+    expect(micPreflight({ perm: 'denied', okBefore: true })).toBe('blocked')
+    expect(micPreflight({ perm: 'prompt', okBefore: true })).toBe('ask')
+    expect(micPreflight({ perm: 'unknown', okBefore: false })).toBe('ask')
+    expect(micPreflight({ perm: 'unknown', okBefore: true })).toBe('go')
+  })
+})
+
+describe('micFailure and micProblemText', () => {
+  const phone = { android: true, ios: false, standalone: true }
+  it('names the problem from the browser’s error name', () => {
+    expect(micFailure('NotAllowedError')).toBe('refused')
+    expect(micFailure('NotReadableError')).toBe('busy')
+    expect(micFailure('AbortError')).toBe('busy')
+    expect(micFailure('NotFoundError')).toBe('missing')
+    expect(micFailure('SecurityError')).toBe('insecure')
+    expect(micFailure(undefined)).toBe('other')
+  })
+  it('a refusal the browser will ask about again asks; a remembered block says where the switch is', () => {
+    expect(micProblemText('refused', 'prompt', phone)).toMatch(/when your phone asks/)
+    expect(micProblemText('refused', 'denied', phone)).toMatch(/App info → Permissions → Microphone/)
+    expect(micProblemText('refused', 'denied', { ...phone, standalone: false })).toMatch(/Site settings/)
+    expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: false })).toMatch(/Safari/)
+    expect(micProblemText('busy', 'granted', phone)).toMatch(/Another app/)
+  })
+})
+
+describe('liveWordsBesideRecording', () => {
+  it('not on Android, where the recogniser is a second app on the microphone', () => {
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Linux; Android 15; Pixel 8) Chrome/141.0 Mobile')).toBe(false)
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/141.0')).toBe(true)
   })
 })
 

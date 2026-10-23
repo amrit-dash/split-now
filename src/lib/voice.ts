@@ -45,29 +45,107 @@ export function transcribeOffer(o: {
 }
 
 /**
- * Who hears the person. AI only when they chose it and it can serve them now (online, a key);
- * else the phone's own recognition when the phone has it and it wasn't refused. null: no voice at
- * all, so no mic in Quick add and no hold-for-voice on + (the hold does what it did before).
+ * Who hears the person. AI when they chose it and it can serve them now (online, a key); else the
+ * phone's own recognition when the browser has a working one; else AI anyway when it can serve
+ * them (a browser with no speech service behind it, like Opera or Brave: the recording is the only
+ * way to be heard there). null only when neither can: no mic in Quick add, and a hold on + opens
+ * the Create sheet as before.
+ *
+ * A refused microphone no longer hides the mic (it used to, remembered on the device, and a
+ * permission granted later, or a refusal that was really the prompt being dismissed by letting go,
+ * left voice gone for good): the press explains how to allow it instead (micPreflight).
  */
 export function voiceEngine(o: {
-  /** the browser has speech recognition */
+  /** the browser has speech recognition with a service behind it (not found missing lately) */
   native: boolean
-  /** speech recognition was refused here (remembered after a not-allowed error) */
-  nativeDenied: boolean
-  /** the microphone itself is blocked for this site (Permissions API) */
-  micDenied: boolean
   /** the person picked AI (AI features → Voice → Transcribe with AI) */
   aiChosen: boolean
   /** transcribeOffer(...).ai, and online */
   aiReady: boolean
+  /** AI's answer is still loading (aiStatus) while they chose it */
+  aiPending?: boolean
   /** the browser can record audio (MediaRecorder) */
   recorder: boolean
 }): VoiceEngine | null {
-  if (o.micDenied) return null
-  if (o.aiChosen && o.aiReady && o.recorder) return 'ai'
-  if (o.native && !o.nativeDenied) return 'native'
+  if (o.aiChosen && o.recorder && (o.aiReady || (o.aiPending && !o.native))) return 'ai'
+  if (o.native) return 'native'
+  if (o.aiReady && o.recorder) return 'ai'
   return null
 }
+
+/** The site's microphone permission as the browser reports it ('unknown' where it can't say). */
+export type MicPermission = 'granted' | 'denied' | 'prompt' | 'unknown'
+
+/**
+ * What a press for voice does before listening. 'go': listen now. 'ask': open the microphone first,
+ * which shows the browser's permission prompt; once allowed, listening carries on if the finger is
+ * still down, else the person is told it's ready (never "didn't catch that" for a prompt they had to
+ * let go to answer). 'blocked': the site's microphone is blocked, so say how to allow it. `okBefore`:
+ * voice has worked on this device before (browsers that can't report the permission).
+ */
+export function micPreflight(o: { perm: MicPermission; okBefore: boolean }): 'go' | 'ask' | 'blocked' {
+  if (o.perm === 'granted') return 'go'
+  if (o.perm === 'denied') return 'blocked'
+  if (o.perm === 'prompt') return 'ask'
+  return o.okBefore ? 'go' : 'ask'
+}
+
+/** What went wrong opening the microphone, from the DOMException's name (getUserMedia). */
+export type MicFailure = 'refused' | 'busy' | 'missing' | 'insecure' | 'other'
+export function micFailure(name: string | undefined): MicFailure {
+  switch (name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'refused'
+    case 'NotReadableError':
+    case 'TrackStartError':
+    case 'AbortError':
+      return 'busy'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+    case 'OverconstrainedError':
+      return 'missing'
+    case 'SecurityError':
+    case 'TypeError':
+      return 'insecure'
+    default:
+      return 'other'
+  }
+}
+
+/**
+ * Plain words for a microphone that couldn't be used. `perm` tells a refusal the browser now
+ * remembers ('denied': only the site settings can undo it) from one it will ask about again.
+ * `android` / `ios` name where the switch is.
+ */
+export function micProblemText(f: MicFailure, perm: MicPermission, where: { android: boolean; ios: boolean; standalone: boolean }): string {
+  if (f === 'refused' || perm === 'denied') {
+    if (perm !== 'denied') return 'Allow the microphone when your phone asks, then try again.'
+    if (where.ios) return 'The microphone is off for Split Now. Turn it on in Settings → Apps → Safari → Microphone (or the site’s aA menu), then try again.'
+    if (where.android && where.standalone)
+      return 'The microphone is off for Split Now. Press and hold the app’s icon → App info → Permissions → Microphone → Allow, then try again.'
+    return 'The microphone is blocked for this site. Tap the icon left of the address (or ⋮ → Site settings) → Microphone → Allow, then try again.'
+  }
+  if (f === 'busy') return 'Another app is using the microphone. Close it (a call, a recorder, an assistant) and try again.'
+  if (f === 'missing') return 'No microphone was found.'
+  if (f === 'insecure') return 'The microphone only works on the secure (https) app.'
+  return 'Couldn’t open the microphone. Try again, or type it.'
+}
+
+/**
+ * Whether the phone's own recognition may run next to an AI recording, only to show the words live
+ * (owner, 23 Oct 2026). Not on Android: Chrome there hands recognition to Google's app, a second
+ * app on the microphone, and Android gives the microphone to one of them, so the recording (or the
+ * recognition) heard nothing and the next press found the microphone "refused".
+ */
+export const liveWordsBesideRecording = (ua: string): boolean => !/Android/i.test(ua)
+
+/**
+ * A press that heard nothing, before voice has ever worked on this device: the permission prompt
+ * took the press (the finger had to come off to answer it), so it gets a how-to, not an error.
+ */
+export const VOICE_FIRST_TEXT = 'Ready. Hold + and speak, then let go.'
+export const VOICE_ALLOW_TEXT = 'Allow the microphone when asked. Then hold + and speak.'
 
 /** A press on the mic shorter than this is a tap (it keeps listening until the next tap); longer is hold-to-talk. */
 export const HOLD_TO_TALK_MS = 350

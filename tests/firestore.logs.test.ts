@@ -46,6 +46,10 @@ describe('app error reports', () => {
   it('only short fields, a known kind, stamped about now', async () => {
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b1'), report('alice', { message: 'x'.repeat(501) })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b2'), report('alice', { kind: 'other' })))
+    // a voice problem (src/hooks/useVoice.ts): its own kind
+    await assertSucceeds(
+      setDoc(doc(as('alice'), 'appErrors/b6'), report('alice', { kind: 'voice', message: 'voice mic: NotReadableError | engine=ai perm=granted' })),
+    )
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b3'), report('alice', { at: 5 })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b4'), report('alice', { extra: 1 })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b5'), report('alice', { stack: 'x'.repeat(3001) })))
