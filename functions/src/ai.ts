@@ -174,8 +174,9 @@ async function loadCtx(uid: string, email: string | undefined): Promise<Ctx> {
 /** A project key an admin set in the app (private/geminiAppKey, no client access); wins over the secret. */
 const appKeyRef = () => db().collection('private').doc('geminiAppKey')
 let override: { at: number; key?: string; hint?: string } | null = null
-async function adminKey(): Promise<{ key?: string; hint?: string }> {
-  if (override && Date.now() - override.at < 60_000) return override
+/** `fresh`: skip the minute's cache (aiStatus for an admin: the key may have just been saved by another function's instance). */
+async function adminKey(fresh = false): Promise<{ key?: string; hint?: string }> {
+  if (!fresh && override && Date.now() - override.at < 60_000) return override
   const d = (await appKeyRef().get()).data()
   const { key, reseal } = readStoredKey(d, keks())
   if (key && reseal) {
@@ -194,8 +195,8 @@ const secretKey = (): string | undefined => {
   }
 }
 /** The project key in use: the admin's in-app key if set, else Secret Manager's GEMINI_API_KEY. */
-async function appKey(): Promise<{ key?: string; source?: 'admin' | 'secret'; hint?: string }> {
-  const a = await adminKey().catch(() => ({}) as { key?: string; hint?: string })
+async function appKey(fresh = false): Promise<{ key?: string; source?: 'admin' | 'secret'; hint?: string }> {
+  const a = await adminKey(fresh).catch(() => ({}) as { key?: string; hint?: string })
   if (a.key) return { key: a.key, source: 'admin', hint: a.hint }
   const s = secretKey()
   return s ? { key: s, source: 'secret', hint: keyHint(s) } : {}
@@ -382,8 +383,9 @@ const isAdmin = async (uid: string) => (await db().collection('admins').doc(uid)
  */
 const transcribeKeyRef = () => db().collection('private').doc('geminiTranscribeKey')
 let transcribeCache: { at: number; key?: string; hint?: string; billing?: string } | null = null
-async function transcribeKey(): Promise<{ key?: string; hint?: string; billing?: string }> {
-  if (transcribeCache && Date.now() - transcribeCache.at < 60_000 && process.env.FUNCTIONS_EMULATOR !== 'true') return transcribeCache
+/** `fresh`: as adminKey. Each function runs on its own servers, so a save in aiKey clears only aiKey's cache. */
+async function transcribeKey(fresh = false): Promise<{ key?: string; hint?: string; billing?: string }> {
+  if (!fresh && transcribeCache && Date.now() - transcribeCache.at < 60_000 && process.env.FUNCTIONS_EMULATOR !== 'true') return transcribeCache
   const d = (await transcribeKeyRef().get()).data()
   const { key, reseal } = readStoredKey(d, keks())
   if (key && reseal) {
@@ -1040,7 +1042,9 @@ export const aiStatus = onCall({ ...base, timeoutSeconds: 15, maxInstances: 5 },
   const me = signedIn(req)
   const [cfg, admin] = await Promise.all([db().collection('config').doc('ai').get(), isAdmin(me.uid)])
   const app = resolveAppAi(cfg.data())
-  const [k, t] = await Promise.all([appKey(), transcribeKey().catch(() => ({}) as { key?: string; hint?: string; billing?: string })])
+  // An admin's screen reads the keys fresh: after Save & check it must show the key just saved,
+  // not this instance's cached "none" (each function has its own cache).
+  const [k, t] = await Promise.all([appKey(admin), transcribeKey(admin).catch(() => ({}) as { key?: string; hint?: string; billing?: string })])
   const configured = !!k.key
   return {
     admin,
