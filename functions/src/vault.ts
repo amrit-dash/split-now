@@ -459,6 +459,8 @@ const COLLECTIONS: [string, ConvertKind][] = [
   ['chat', 'chat'],
   ['openItems', 'openItem'],
   ['activity', 'activity'],
+  // who someone is and how to pay them (docs/VAULT.md): sealed like their name in the group
+  ['profiles', 'profile'],
 ]
 
 /**
@@ -480,14 +482,14 @@ async function convertPass(gid: string, k: VaultKey, seal: boolean, opts: { grou
   const groupRef = db().doc(`groups/${gid}`)
   const g = await groupRef.get()
   if (g.exists) await one(groupRef, 'group', g.data() as FirebaseFirestore.DocumentData)
-  if (!opts.groupOnly)
-    for (const [col, kind] of COLLECTIONS) {
-      const snap = await groupRef.collection(col).get()
-      for (const d of snap.docs) {
-        await one(d.ref, kind, d.data())
-        if (col === 'expenses') for (const c of (await d.ref.collection('comments').get()).docs) await one(c.ref, 'comment', c.data())
-      }
+  // A new group has only its own document and its maker's profile copy (an older app may have written it in the clear).
+  for (const [col, kind] of opts.groupOnly ? COLLECTIONS.filter(([c]) => c === 'profiles') : COLLECTIONS) {
+    const snap = await groupRef.collection(col).get()
+    for (const d of snap.docs) {
+      await one(d.ref, kind, d.data())
+      if (col === 'expenses') for (const c of (await d.ref.collection('comments').get()).docs) await one(c.ref, 'comment', c.data())
     }
+  }
   await writer.close()
   return changed
 }

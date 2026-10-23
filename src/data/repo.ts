@@ -285,9 +285,16 @@ export interface Repo {
   watchProfile(uid: string, cb: Watch<UserProfile | null>): Unsub
   /**
    * Saves the private profile and copies name + payment handles + photo into every group the
-   * user is in. A missing photoURL removes the stored photo.
+   * user is in. A missing photoURL removes the stored photo. A private group gets its copy only
+   * through `sealCopy` (src/data/vault-repo.ts, with the group's key on this phone): without it,
+   * or while that group is locked, it gets none, never one in the clear (docs/VAULT.md).
    */
-  saveProfile(p: UserProfile): Promise<void>
+  saveProfile(p: UserProfile, opts?: { sealCopy?: (groupId: string, copy: MemberProfile) => Promise<MemberProfile | null> }): Promise<void>
+  /**
+   * Writes this person's copy into one group (groups/{gid}/profiles/{uid}) as given. vault-repo
+   * seals it for a private group and refuses while that group is locked. Fire-and-forget.
+   */
+  shareProfile(groupId: string, copy: MemberProfile): Promise<void>
   /**
    * The first time this account held + to talk (users/{uid}.voiceTried = now, merged; nothing is
    * copied into groups): the app stops teaching it on every device. Fire-and-forget.

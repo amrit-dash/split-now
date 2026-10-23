@@ -3,7 +3,7 @@ import type { Repo } from './repo'
 import { getVaultKey, onVaultChange } from '@/lib/vault-keys'
 import { openBytes, sealBytes, type VaultKey } from '@/lib/vault-crypto'
 import { CAPS, sealChat, sealComment, sealExpense, sealOpenItem, sealReason, sealSettlement } from '@/lib/vault-fields'
-import { sealField } from '../../shared/vault-convert'
+import { openProfileCopy, sealField, sealProfileCopy } from '../../shared/vault-convert'
 
 /*
  * Private groups on the way in (docs/VAULT.md): every write that carries a private group's words
@@ -123,6 +123,25 @@ export function withVault(inner: Repo): Repo {
       // a person's photo link names who they are, so it is sealed too
       if (patch.photoURL) sealed.photoURL = await sealName(k, patch.photoURL, CAPS.memberPhoto)
       return inner.updateOwnMember(raw(group), memberId, sealed)
+    },
+    // Who someone is and how to pay them: a private group's copy is sealed here, or not written
+    // (locked on this phone: it is shared once the group is opened, src/hooks/auth.tsx).
+    saveProfile: (p: Parameters<Repo['saveProfile']>[0], opts?: Parameters<Repo['saveProfile']>[1]) =>
+      inner.saveProfile(p, {
+        ...opts,
+        sealCopy: async (groupId, copy) => {
+          const k = getVaultKey(groupId)
+          return k ? sealProfileCopy(k, copy) : null
+        },
+      }),
+    shareProfile: async (groupId: string, copy: Parameters<Repo['shareProfile']>[1]) => {
+      const k = keyFor(groupId)
+      return inner.shareProfile(groupId, k ? await sealProfileCopy(k, copy) : copy)
+    },
+    async getMemberProfile(groupId: string, uid: string) {
+      const p = await inner.getMemberProfile(groupId, uid)
+      // Opened with the key; locked, a token never shows as a name or a UPI ID (Settle up then asks for one).
+      return p && vaults.has(groupId) ? openProfileCopy(getVaultKey(groupId), p) : p
     },
     refreshInviteName: (group: Group) => inner.refreshInviteName(raw(group)),
     setArchived: (group: Group, on: boolean) => inner.setArchived(raw(group), on),

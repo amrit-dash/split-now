@@ -375,6 +375,9 @@ groups/{groupId}                              ← readable/writable by members (
 
 groups/{groupId}/profiles/{uid}               ← what a member shares with ONE group; written only by the owner (and by the server's onProfileShared /
                                                 onGroupJoined, the same copy, shared/profile-share.ts sharedProfileCopy; never in a private group)
+  In a private group: written only by the owner's phone, sealed with the group's key (shared/vault-convert.ts sealProfileCopy:
+  displayName, photoURL and payment, the last as one JSON text, become `v1:` tokens), once the group is opened there; the rules
+  (sealedProfileCopy) refuse anything in the clear; vault op `create` / `convert` seal an existing one, turning private off opens it.
   displayName, payment, photoURL? (https), currency? (3 letters, their home currency), collect? (bool, Collect in my currency),
   pro? (bool: their Pro badge shows; absent when not earned or turned off; rules check the type only),
   dev? (bool: their Dev badge shows; true only from an admin, rules isAdmin())

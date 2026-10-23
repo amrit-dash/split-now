@@ -48,8 +48,20 @@ export function ownMemberSyncs(
 /**
  * The groups a profile save copies the shared part into (groups/{id}/profiles/{uid}): the ones
  * still in use. A group in Recently deleted refuses the write (the rules' groupLive), and in one
- * batch with the profile that refusal used to undo the whole save, photo and all.
+ * batch with the profile that refusal used to undo the whole save, photo and all. A private group
+ * is marked: its copy is sealed with its key on this phone, or not written at all (docs/VAULT.md).
  */
-export function profileCopyTargets(groups: ReadonlyArray<{ id: string; data: { deletedAt?: unknown } }>): string[] {
-  return groups.filter((g) => typeof g.data.deletedAt !== 'number').map((g) => g.id)
+export function profileCopyTargets(
+  groups: ReadonlyArray<{ id: string; data: { deletedAt?: unknown; vault?: unknown } }>,
+): Array<{ id: string; vault: boolean }> {
+  return groups.filter((g) => typeof g.data.deletedAt !== 'number').map((g) => ({ id: g.id, vault: g.data.vault === true }))
+}
+
+/**
+ * The private groups whose profile copy this phone can write now: live, and opened here (their
+ * key is on this phone, so the copy goes in sealed). A locked one waits until it is opened, so a
+ * new member's name and payment details reach a private group when they first open it there.
+ */
+export function sealedCopyTargets(groups: ReadonlyArray<{ id: string; vault?: unknown; deletedAt?: unknown }>, isUnlocked: (id: string) => boolean): string[] {
+  return groups.filter((g) => g.vault === true && typeof g.deletedAt !== 'number' && isUnlocked(g.id)).map((g) => g.id)
 }

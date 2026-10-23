@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Group } from '@/types'
-import { ownMemberSyncs, profileCopyTargets, sharedPhotoURL } from './memberSync'
+import { ownMemberSyncs, profileCopyTargets, sealedCopyTargets, sharedPhotoURL } from './memberSync'
 
 const g = (id: string, members: Group['members']): Group => ({
   id,
@@ -79,6 +79,19 @@ describe('profileCopyTargets', () => {
         { id: 'b', data: { deletedAt: 5 } },
         { id: 'c', data: { deletedAt: undefined } },
       ]),
-    ).toEqual(['a', 'c'])
+    ).toEqual([
+      { id: 'a', vault: false },
+      { id: 'c', vault: false },
+    ])
+  })
+  it('marks private groups, whose copy is sealed or not written', () => {
+    expect(profileCopyTargets([{ id: 'v', data: { vault: true } }])).toEqual([{ id: 'v', vault: true }])
+  })
+})
+
+describe('sealedCopyTargets', () => {
+  it('private groups opened on this phone, still in use', () => {
+    const groups = [{ id: 'plain' }, { id: 'open', vault: true }, { id: 'locked', vault: true }, { id: 'gone', vault: true, deletedAt: 3 }]
+    expect(sealedCopyTargets(groups, (id) => id !== 'locked')).toEqual(['open'])
   })
 })

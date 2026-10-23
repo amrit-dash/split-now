@@ -30,9 +30,11 @@ export const CAPS = {
   actorName: 200,
   summary: 1000,
   replyText: 160,
+  /** a profile copy's payment details, sealed as one JSON text (profileCopy kind) */
+  payment: 1000,
 } as const
 
-export type ConvertKind = 'group' | 'expense' | 'settlement' | 'comment' | 'chat' | 'openItem' | 'activity'
+export type ConvertKind = 'group' | 'expense' | 'settlement' | 'comment' | 'chat' | 'openItem' | 'activity' | 'profile'
 
 type Doc = Record<string, unknown>
 type Patch = Record<string, unknown> | null
@@ -133,6 +135,13 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
       await f('icon', CAPS.emoji)
       await f('notes', CAPS.itemNotes)
       break
+    case 'profile':
+      // groups/{gid}/profiles/{uid}: who someone is and how to pay them. Badges, currency and
+      // collect stay readable (the server copies badges; currency says nothing about who they are).
+      await f('displayName', CAPS.memberName)
+      await f('photoURL', CAPS.memberPhoto)
+      if (isObj(d.payment)) d.payment = await sealField(k, JSON.stringify(d.payment), CAPS.payment)
+      break
     case 'activity':
       await f('summary', CAPS.summary)
       await f('actorName', CAPS.actorName)
@@ -149,7 +158,39 @@ export async function sealDoc(k: VaultKey, kind: ConvertKind, doc: Doc): Promise
 export async function openDoc(k: VaultKey, doc: Doc): Promise<Patch> {
   // A token that doesn't open with this group's key (damaged, or copied from another group) is left as it is.
   const opened = (await openDeep(doc, k, (t) => t)) as Doc
+  // A profile copy's payment details were sealed as one JSON text: back to the map they were.
+  if (isToken(doc.payment) && typeof opened.payment === 'string' && !isToken(opened.payment)) opened.payment = parsePayment(opened.payment)
   return diff(doc, opened)
+}
+
+const parsePayment = (s: string): unknown => {
+  try {
+    const v = JSON.parse(s)
+    return isObj(v) ? v : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * A person's profile copy for a private group (groups/{gid}/profiles/{uid}), sealed on their own
+ * phone with the group's key: their name, photo link and payment details become tokens, so the
+ * server and anyone without the key read nothing (docs/VAULT.md). The rules refuse anything else there.
+ */
+export async function sealProfileCopy<T extends object>(k: VaultKey, copy: T): Promise<T> {
+  const patch = await sealDoc(k, 'profile', copy as Doc)
+  return { ...copy, ...(patch ?? {}) }
+}
+
+/**
+ * A private group's profile copy as members read it: opened with the key, or, without it (locked),
+ * only the parts that were never sealed. A token never reaches a screen as a name or a UPI ID.
+ */
+export async function openProfileCopy<T extends object>(k: VaultKey | null, doc: T): Promise<T> {
+  const out: Doc = { ...doc, ...((k && (await openDoc(k, doc as Doc))) ?? {}) }
+  for (const key of ['displayName', 'photoURL', 'payment']) if (isToken(out[key])) delete out[key]
+  if (!('displayName' in out)) out.displayName = ''
+  return out as T
 }
 
 /**

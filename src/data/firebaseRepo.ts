@@ -779,7 +779,7 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Only the one field, merged: saveProfile would copy the profile into every group for nothing.
       await updateDoc(doc(db, 'users', uid), { voiceTried: Date.now() }).catch((e) => console.warn('voiceTried not saved', e))
     },
-    async saveProfile(p) {
+    async saveProfile(p, opts) {
       const shared = memberProfileOf(p, await amAdmin(p.uid))
       // An uploaded photo that is being replaced or removed is deleted from Storage.
       let oldUpload: string | undefined
@@ -800,16 +800,19 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // The server's list when it answers (the cache resolves empty, not failing, for a query
       // this device has never run, e.g. Profile opened before Groups on a fresh install).
       const q = query(collection(db, 'groups'), where('memberUids', 'array-contains', p.uid))
-      const live = (s: { docs: Array<{ id: string; data: () => { deletedAt?: unknown } }> }) =>
+      const live = (s: { docs: Array<{ id: string; data: () => { deletedAt?: unknown; vault?: unknown } }> }) =>
         profileCopyTargets(s.docs.map((d) => ({ id: d.id, data: d.data() })))
       const fromCache = () =>
         getDocsFromCache(q)
           .then(live)
-          .catch(() => [] as string[])
-      const groupIds = online() ? ((await within(getDocs(q).then(live).catch(fromCache), 3000, null)) ?? (await fromCache())) : await fromCache()
-      for (const g of groupIds) {
+          .catch(() => [] as ReturnType<typeof profileCopyTargets>)
+      const targets = online() ? ((await within(getDocs(q).then(live).catch(fromCache), 3000, null)) ?? (await fromCache())) : await fromCache()
+      for (const g of targets) {
+        // A private group: sealed on this phone with its key, else nothing (it catches up once opened).
+        const copy = g.vault ? await (opts?.sealCopy?.(g.id, shared) ?? null) : shared
+        if (!copy) continue
         // Background: one group refusing is that group's business, not a failed save.
-        track(setDoc(memberProfileRef(g, p.uid), shared)).catch((e) => console.warn('Could not share your profile with', g, e))
+        track(setDoc(memberProfileRef(g.id, p.uid), copy)).catch((e) => console.warn('Could not share your profile with', g.id, e))
       }
       if (oldUpload?.startsWith(`avatars/${p.uid}/`)) deleteFileLater(oldUpload)
     },
@@ -823,6 +826,11 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
     async getProfile(id) {
       const s = await getDoc(doc(db, 'users', id))
       return s.exists() ? (s.data() as UserProfile) : null
+    },
+    async shareProfile(groupId, copy) {
+      const u = auth.currentUser?.uid
+      if (!u) return
+      track(setDoc(memberProfileRef(groupId, u), copy)).catch((e) => console.warn('Could not share your profile with', groupId, e))
     },
     async getMemberProfile(groupId, userId) {
       const s = await getDoc(memberProfileRef(groupId, userId))
@@ -901,7 +909,9 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // rules refuse one (an invite can't move to another group), and the check cost up to 1.5 s
       // on every New group before anything happened.
       const code = inviteCode()
-      const me = await myMemberProfile()
+      // A private group starts with no photo link and no profile copy in the clear: its key comes
+      // after this write, and the phone shares both sealed once it has it (docs/VAULT.md).
+      const me = g.vault ? null : await myMemberProfile()
       const full: Group = { ...g, members: withOwnPhoto(g.members, me), id, inviteCode: code, createdAt: now, updatedAt: now }
       const batch = writeBatch(db)
       batch.set(groupRef(id), full)
@@ -1139,7 +1149,8 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       // Tapping an invite link twice: the rules refuse a second join, so don't try one.
       const known = await cachedGroup(invite.groupId)
       if (member.uid && known?.memberUids.includes(member.uid)) return invite.groupId
-      const me = await myMemberProfile()
+      // Nobody joins a private group from its invite (the rules refuse it); never send a copy in the clear there anyway.
+      const me = invite.vault ? null : await myMemberProfile()
       const batch = writeBatch(db)
       // Non-members cannot read the group, so this is a blind update validated by security rules.
       batch.update(groupRef(invite.groupId), {

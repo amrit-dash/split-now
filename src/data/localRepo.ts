@@ -595,6 +595,8 @@ export function createLocalRepo(): Repo {
     async getProfile(id) {
       return state.profiles[id] ?? null
     },
+    // The demo builds each group's copy from the profile when asked (getMemberProfile): nothing to store.
+    async shareProfile() {},
     async getMemberProfile(groupId, id) {
       const p = state.groups[groupId]?.memberUids.includes(id) ? state.profiles[id] : undefined
       // The same shape the firebase repo shares (photo, currency and Collect in my currency included).

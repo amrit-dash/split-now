@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isToken, openText, vaultKey } from './vault-crypto'
-import { blocksStopping, openDoc, privateGroupsOn, sealDoc, withoutUniversal } from './vault-convert'
+import { blocksStopping, openDoc, openProfileCopy, privateGroupsOn, sealDoc, sealProfileCopy, withoutUniversal } from './vault-convert'
 
 const dek = btoa(String.fromCharCode(...new Array(32).fill(7)))
 
@@ -126,5 +126,44 @@ describe('who has no universal pattern in a private group', () => {
     expect(withoutUniversal(members, new Set(['me', 'dev']), 'me')).toEqual(['mira', 'ana'])
     expect(withoutUniversal(members, new Set(['mira', 'dev', 'ana']), 'me')).toEqual([])
     expect(withoutUniversal(['me'], new Set(), 'me')).toEqual([])
+  })
+})
+
+describe('profile copies in a private group', () => {
+  const copy = {
+    displayName: 'Rahul Sharma',
+    photoURL: 'https://x.test/p.jpg',
+    payment: { upi: 'rahul@okaxis', phone: '9876543210' },
+    currency: 'INR',
+    pro: true,
+  }
+  it('name, photo link and payment details are sealed; badges and currency stay readable', async () => {
+    const k = await vaultKey('g', btoa(String.fromCharCode(...new Uint8Array(32).fill(7))))
+    const sealed = await sealProfileCopy(k, copy)
+    expect(isToken(sealed.displayName)).toBe(true)
+    expect(isToken(sealed.photoURL)).toBe(true)
+    expect(isToken(sealed.payment)).toBe(true)
+    expect(JSON.stringify(sealed)).not.toMatch(/Rahul|okaxis|9876543210|x\.test/)
+    expect(sealed).toMatchObject({ currency: 'INR', pro: true })
+    // deterministic: sealing again writes nothing new
+    expect(await sealProfileCopy(k, sealed)).toEqual(sealed)
+  })
+  it('members with the key read it back whole; turning private off opens it the same way', async () => {
+    const k = await vaultKey('g', btoa(String.fromCharCode(...new Uint8Array(32).fill(7))))
+    const sealed = await sealProfileCopy(k, copy)
+    expect(await openProfileCopy(k, sealed)).toEqual(copy)
+    expect({ ...sealed, ...(await openDoc(k, sealed)) }).toEqual(copy)
+  })
+  it("without the key (locked, or another group's): no token reaches a screen", async () => {
+    const k = await vaultKey('g', btoa(String.fromCharCode(...new Uint8Array(32).fill(7))))
+    const other = await vaultKey('h', btoa(String.fromCharCode(...new Uint8Array(32).fill(7))))
+    const sealed = await sealProfileCopy(k, copy)
+    for (const key of [null, other]) {
+      const shown = await openProfileCopy(key, sealed)
+      expect(shown).toEqual({ displayName: '', currency: 'INR', pro: true })
+    }
+  })
+  it('an old plain copy reads as it is', async () => {
+    expect(await openProfileCopy(null, copy)).toEqual(copy)
   })
 })

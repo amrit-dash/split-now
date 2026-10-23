@@ -4,10 +4,10 @@ import { withoutLocked } from '@/lib/vault-api'
 import { isUnlocked } from '@/lib/vault-keys'
 import { repo } from '@/data'
 import { clearSharedStore, groupsKey, subscribeShared } from '@/data/store'
-import type { AuthUser, SnapMeta } from '@/data/repo'
+import { type AuthUser, memberProfileOf, type SnapMeta } from '@/data/repo'
 import type { Group, UserProfile } from '@/types'
 import { defaultCurrency } from '@/lib/locale'
-import { ownMemberSyncs } from '@/lib/memberSync'
+import { ownMemberSyncs, sealedCopyTargets } from '@/lib/memberSync'
 import { proShown } from '@/lib/pro'
 import { useAiStatus } from '@/hooks/useAiStatus'
 
@@ -30,6 +30,8 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
   const admin = !!useAiStatus()?.admin
   const devHidden = profile?.devHidden === true
   const ready = !!profile && profile.uid === uid
+  // What a group sees of this person (name, photo, payment details, badges), as text, so a change re-runs the sync below.
+  const copyJson = ready && profile ? JSON.stringify(memberProfileOf(profile, admin)) : ''
   useEffect(() => {
     if (!uid || !ready) return
     // The same shared group-list listener the screens read (src/data/store.ts), not a second one,
@@ -54,9 +56,18 @@ function useOwnMemberSync(user: AuthUser | null, profile: UserProfile | null) {
           synced.set(key, value)
           repo.updateOwnMember(s.group, s.memberId, s.patch).catch((e) => console.warn('Member sync failed', e))
         }
+        // A private group never gets a copy in the clear (src/data/vault-repo.ts): it gets it sealed
+        // once it's opened on this phone, which is when a new member's details first reach it.
+        if (!copyJson) return
+        for (const gid of sealedCopyTargets(groups, isUnlocked)) {
+          const key = `${gid}/profile`
+          if (synced.get(key) === copyJson) continue
+          synced.set(key, copyJson)
+          repo.shareProfile(gid, JSON.parse(copyJson)).catch((e) => console.warn('Profile share failed', e))
+        }
       },
     )
-  }, [uid, ready, name, photo, pro, admin, devHidden])
+  }, [uid, ready, name, photo, pro, admin, devHidden, copyJson])
 }
 
 interface AuthState {
