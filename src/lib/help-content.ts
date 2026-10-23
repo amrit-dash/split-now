@@ -1812,7 +1812,7 @@ export const SECTIONS: HelpSection[] = [
       ],
     },
     points: [
-      'A section counts when you’ve played its steps to the end, or read to its end, and stayed on it a few seconds.',
+      'A section counts when you’ve played its steps, read down to its end and stayed on it a few seconds. A tick appears at its top.',
       'Scroll past or skip ahead quickly and it isn’t ticked. Come back and read it.',
       'Others see it on Members and in 1:1s.',
       'It’s yours to keep.',

@@ -65,5 +65,5 @@ export const DWELL_MAX_MS = 7500
 /** This visit's time to stay, from a random number in [0, 1). */
 export const dwellFor = (rand: () => number): number => DWELL_MIN_MS + Math.floor(Math.min(0.999999, Math.max(0, rand())) * (DWELL_MAX_MS - DWELL_MIN_MS))
 
-/** The section counts once it was finished and the person stayed long enough on it. */
+/** The section counts once it was finished (its steps played and its end seen, src/pages/Help.tsx) and the person stayed long enough on it. */
 export const countsAsRead = (finished: boolean, stayedMs: number, needMs: number): boolean => finished && stayedMs >= needMs

@@ -122,7 +122,10 @@ export function Sheet({
 
   // Before the early return below: hooks run the same way every time.
   const area = useSheetArea(open)
-  if (!open && !leaving) return null
+  // wasOpen too: the render just after `open` turns false comes before the effect that sets leaving.
+  // Unmounting there and mounting again replayed the slide-up, so a tap outside showed the sheet rise
+  // again for a moment before it went (owner, 23 Oct 2026).
+  if (!open && !leaving && !wasOpen.current) return null
 
   const onStart = (e: TouchEvent) => {
     const el = e.target as HTMLElement
@@ -160,11 +163,12 @@ export function Sheet({
   }
   const dragging = !!drag.current?.active
   // Leaving: slide out from wherever it is (the drag position included), or fade with reduced motion.
-  const panelStyle = leaving
-    ? reduce
-      ? { transform: `translateY(${dy}px)`, ...exit.panel }
-      : exit.panel
-    : { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)' }
+  const panelStyle =
+    leaving || (!open && wasOpen.current)
+      ? reduce
+        ? { transform: `translateY(${dy}px)`, ...exit.panel }
+        : exit.panel
+      : { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)' }
 
   return createPortal(
     // While it slides out it takes no taps and is out of the accessibility tree: the screen behind is live again.

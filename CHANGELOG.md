@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Help: a tick appears at the top of a section once it counts. A section counts when its steps are played, it is read down to its end, and you've stayed a few seconds; finishing the steps alone is no longer enough. “What to know” has more room before its dots and between the lines.
+- Sheets close in one smooth slide when you tap outside them. Before, the sheet rose again for a moment before it went.
+
 - Edit group: a picked icon (emoji, drawn icon or picture) is saved at once, with “Icon saved”. Before, leaving without Save lost it; the rest of the form still waits for Save.
 
 - Settings → Encrypted groups: help is a round **?** in the corner instead of the lifebuoy.

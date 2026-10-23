@@ -357,12 +357,16 @@ function SectionPage({ id }: { id: string }) {
   const { user } = useMe()
   const shown = sectionsFor(useMode(), SECTIONS)
   const progress = useHelpProgressLoaded()
-  const [finished, setFinished] = useState(false)
+  // Read means all three (owner, 23 Oct 2026): the steps or story played to the end, the page
+  // scrolled to its end, and the random 5–7.5 s on it (useStayed). The header's tick follows.
+  const [played, setPlayed] = useState(false)
+  const [endSeen, setEndSeen] = useState(false)
   const stayed = useStayed()
   const s = SECTIONS.find((x) => x.id === id)
   useEffect(() => {
+    const finished = endSeen && (played || !(s?.story || s?.steps?.length))
     if (countsAsRead(finished, stayed.ms, stayed.need) && progress && !progress.done.includes(id)) void repo.saveHelpProgress(user.uid, withDone(progress, id))
-  }, [finished, stayed, progress, id, user.uid])
+  }, [played, endSeen, stayed, progress, id, user.uid, s])
   usePageTitle(s ? s.title : 'Help')
   if (!s)
     return (
@@ -378,10 +382,28 @@ function SectionPage({ id }: { id: string }) {
   const related = relatedOf(s, shown)
   const next = nextInGuide(s.id, guideOrder(CHAPTERS, shown))
   // Finished: saved once the account's progress has loaded (never over a list not seen yet).
-  const finish = () => setFinished(true)
+  const finish = () => setPlayed(true)
+  const read = !!progress?.done.includes(s.id)
   return (
     <div className="space-y-4" data-testid="help-section">
-      <PageHeader title={s.title} back="/help" subtitle={s.summary} />
+      <PageHeader
+        title={s.title}
+        back="/help"
+        subtitle={s.summary}
+        right={
+          read ? (
+            // The section counts towards Help (and Pro): played, read to the end and stayed on.
+            <span
+              className="animate-pop flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+              role="img"
+              aria-label="Read"
+              data-testid="help-read-tick"
+            >
+              <Check size={20} strokeWidth={3} aria-hidden />
+            </span>
+          ) : undefined
+        }
+      />
       <ProCelebration pct={helpProgress(progress ?? EMPTY_HELP_PROGRESS, countedSections(shown)).pct} />
       {s.story ? <SectionStory key={s.id} story={s.story} onLast={finish} /> : null}
       {s.steps?.length ? <StepPlayer key={s.id} sectionId={s.id} steps={s.steps} onLast={finish} /> : null}
@@ -395,9 +417,9 @@ function SectionPage({ id }: { id: string }) {
           <h2 id="help-know" className="mb-2 text-sm font-bold">
             What to know
           </h2>
-          <ul className="space-y-2">
+          <ul className="space-y-2.5 pl-1">
             {s.points.map((p) => (
-              <li key={p} className="flex gap-2 text-sm leading-5">
+              <li key={p} className="flex gap-3 text-sm leading-5">
                 {/* The dot in a box one line tall: level with the first line's middle, at any number of lines. */}
                 <span className="flex h-5 shrink-0 items-center" aria-hidden>
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
@@ -408,8 +430,8 @@ function SectionPage({ id }: { id: string }) {
           </ul>
         </section>
       )}
-      {/* A section with nothing to play is done once its end has been on screen. */}
-      {!s.story && !s.steps?.length && <EndSeen onSeen={finish} />}
+      {/* Its end on screen: every section must be read down to here. */}
+      <EndSeen onSeen={() => setEndSeen(true)} />
       {related.length > 0 && (
         <section aria-labelledby="help-related">
           <h2 id="help-related" className="label mb-2">

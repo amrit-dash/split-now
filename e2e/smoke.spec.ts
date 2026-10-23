@@ -2520,10 +2520,12 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await page.goto('/help?q=pocket%20knife')
   const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
   await expect(row).not.toHaveAttribute('data-done', 'true')
-  // Read: its last part shown and the page kept open for longer than 7.5 s. Now it counts.
+  // Read: its last part shown, the page read to its end and kept open for longer than 7.5 s. Now it
+  // counts, and the header's tick shows it.
   await page.goto('/help/modes-explained')
   await page.getByTestId('help-beat').last().click()
-  await page.waitForTimeout(7800)
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect(page.getByTestId('help-read-tick')).toBeVisible({ timeout: 10_000 })
   await page.goto('/help?q=pocket%20knife')
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
@@ -2538,8 +2540,10 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   const steps = await page.getByTestId('help-step').count()
   for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
   await expect(page.getByTestId('help-next')).toHaveAttribute('aria-label', 'Back to the first step')
-  // A section counts after up to 7.5 s on it (src/lib/help-progress.ts): stay past that.
-  await page.waitForTimeout(1800)
+  // A section counts once it is also read to its end, after up to 7.5 s on it (src/lib/help-progress.ts).
+  await expect(page.getByTestId('help-read-tick')).toHaveCount(0)
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect(page.getByTestId('help-read-tick')).toBeVisible({ timeout: 10_000 })
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
 })
