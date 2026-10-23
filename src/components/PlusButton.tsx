@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, Plus, X } from 'lucide-react'
+import { Lightbulb, Loader2, Plus, X } from 'lucide-react'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -27,6 +27,17 @@ type Phase = 'idle' | 'listening' | 'working'
 type Bubble = { title?: string; text: string; kind: 'teach' | 'answer' }
 
 const NOT_HEARD = 'Didn’t catch that. Hold + again and talk, a little closer to the phone.'
+/** Remembered once the "double tap to stop" tip has shown on this device. */
+const STOP_TIP_KEY = 'splitnow-voice-stop-tip'
+function stopTipDue(): boolean {
+  try {
+    if (localStorage.getItem(STOP_TIP_KEY)) return false
+    localStorage.setItem(STOP_TIP_KEY, '1')
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * The tab bar's + (src/lib/plus-target.ts): a tap does what it always did (Add expense inside a
@@ -124,6 +135,8 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       return toast('Cancelled')
     }
     go('working')
+    // The first time it works something out: say how to stop it (owner, 23 Oct 2026).
+    if (stopTipDue()) setAnswer({ kind: 'teach', title: 'Tip', text: 'Double tap + to stop it while it works.' })
     try {
       const r = await voice.stop()
       if (stopped.current) return
@@ -300,7 +313,11 @@ function PlusBubble({ bubble, onClose }: { bubble: Bubble; onClose: () => void }
       role="status"
       data-testid={bubble.kind === 'teach' ? 'voice-teach' : 'voice-answer'}
     >
-      <div {...swipe.bind} className="voice-surface relative flex items-center gap-2 rounded-2xl py-2 pl-4 pr-1.5 text-sm">
+      <div {...swipe.bind} className="voice-surface relative flex items-center gap-2.5 rounded-2xl py-2 pl-3.5 pr-1.5 text-sm">
+        {/* A prefix icon says what kind of bubble it is: a tip about holding +, or Quick add's answer. */}
+        <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-700 dark:text-brand-200">
+          {bubble.kind === 'teach' ? <MicIcon size={17} /> : <Lightbulb size={16} />}
+        </span>
         <span className="min-w-0 flex-1 py-1">
           {bubble.title && <span className="block text-xs font-bold text-brand-700 dark:text-brand-300">{bubble.title}</span>}
           <span className="block font-semibold leading-snug text-slate-800 dark:text-slate-100">{bubble.text}</span>

@@ -599,7 +599,7 @@ test('Voice: a line Quick add can’t act on gets a plain answer, not an empty f
   await page.mouse.down()
   await page.waitForTimeout(800)
   await page.mouse.up()
-  await expect(page.getByTestId('voice-answer')).toContainText('adds expenses, starts groups')
+  await expect(page.getByTestId('voice-answer')).toContainText('Quick add can’t do that')
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
   await page.getByTestId('voice-bubble-close').click()
   await expect(page.getByTestId('voice-answer')).toHaveCount(0)
@@ -1896,6 +1896,19 @@ test('icons: an expense picks its own from what it is for, and press and hold op
   await expect(page.getByTestId('expense-detail-icon')).toContainText('⛴️')
 })
 
+test('Edit group: a picked icon is saved at once, without Save', async ({ page }) => {
+  await page.goto('/groups/g_goa/edit')
+  await page.getByTestId('group-icon').click()
+  const sheet = page.getByTestId('group-icon-sheet')
+  await sheet.getByTestId('icon-search').fill('camp')
+  await sheet.getByRole('radio', { name: 'Icon 🏕️' }).click()
+  await expect(page.getByTestId('toasts')).toContainText('Icon saved')
+  // Leave without Save, come back: the group kept the new icon.
+  await page.goto('/groups')
+  await page.goto('/groups/g_goa/edit')
+  await expect(page.getByTestId('group-icon')).toContainText('🏕️')
+})
+
 test('icons: a group name suggests a telling icon, and every icon is a search away', async ({ page }) => {
   await page.goto('/groups/new')
   await page
@@ -2021,6 +2034,13 @@ test.describe('Draw a picture prices', () => {
     await expect(sheet.getByTestId('icon-picture-by')).toContainText('Nano Banana 2 Lite')
     // the price in the person's money first (rupees in the demo), Google's dollars after
     await expect(sheet.getByTestId('icon-picture-by')).toContainText(/₹[\d.]+ \(US\$0\.03\)/)
+    // Draw another keeps the first one to go back to: each picture was paid for.
+    const first = await sheet.getByTestId('icon-picture-use').locator('img').getAttribute('src')
+    await sheet.getByTestId('icon-picture-again').click()
+    const earlier = sheet.getByTestId('icon-picture-earlier').getByRole('button')
+    await expect(earlier).toHaveCount(2)
+    await earlier.nth(1).click()
+    await expect(sheet.getByTestId('icon-picture-use').locator('img')).toHaveAttribute('src', first ?? '')
     await sheet.getByTestId('icon-picture-use').click()
     await expect(page.getByTestId('expense-icon').locator('img')).toHaveAttribute('src', /^data:image\/(webp|png);base64,/)
     // the magenta backdrop is keyed out and the object cropped to fill the icon
@@ -2507,10 +2527,12 @@ test('Help: a section read to its end is ticked, and the ring moves off 0%', asy
   await page.goto('/help?q=pocket%20knife')
   const row = page.getByTestId('help-row').filter({ hasText: 'Simple and Advanced, the same app' })
   await expect(row).not.toHaveAttribute('data-done', 'true')
-  // Read: its last part shown and the page kept open for longer than 7.5 s. Now it counts.
+  // Read: its last part shown, the page read to its end and kept open for longer than 7.5 s. Now it
+  // counts, and the header's tick shows it.
   await page.goto('/help/modes-explained')
   await page.getByTestId('help-beat').last().click()
-  await page.waitForTimeout(7800)
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect(page.getByTestId('help-read-tick')).toBeVisible({ timeout: 10_000 })
   await page.goto('/help?q=pocket%20knife')
   await expect(row).toHaveAttribute('data-done', 'true')
   await expect(page.getByTestId('help-ring')).not.toHaveAttribute('aria-label', /Help 0% done/)
@@ -2525,8 +2547,10 @@ test('Help: steps wait on each one; Next moves on and the last one ticks the sec
   const steps = await page.getByTestId('help-step').count()
   for (let i = 1; i < steps; i++) await page.getByTestId('help-next').click()
   await expect(page.getByTestId('help-next')).toHaveAttribute('aria-label', 'Back to the first step')
-  // A section counts after up to 7.5 s on it (src/lib/help-progress.ts): stay past that.
-  await page.waitForTimeout(1800)
+  // A section counts once it is also read to its end, after up to 7.5 s on it (src/lib/help-progress.ts).
+  await expect(page.getByTestId('help-read-tick')).toHaveCount(0)
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect(page.getByTestId('help-read-tick')).toBeVisible({ timeout: 10_000 })
   await page.goto('/help?q=add%20an%20expense')
   await expect(page.getByTestId('help-row').filter({ hasText: 'Add an expense' }).first()).toHaveAttribute('data-done', 'true')
 })

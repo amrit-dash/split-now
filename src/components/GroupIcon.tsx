@@ -81,7 +81,7 @@ export function GroupIcon({
         // a 1:1 whose friend isn't known here: the handshake on its own
         <HandshakeArt size={Math.round(size * 0.55)} />
       ) : (
-        <IconFace iconSvg={group?.iconSvg} iconImage={group?.iconImage} emoji={emoji} vault={!!group?.vault} />
+        <IconFace iconSvg={group?.iconSvg} iconImage={group?.iconImage} emoji={emoji} vault={!!group?.vault} fill />
       )}
     </div>
   )

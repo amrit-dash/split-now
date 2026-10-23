@@ -183,3 +183,14 @@ export const speechServiceMissing = (code: string | undefined, online: boolean):
 export const SPEECH_NONE_TTL_MS = 7 * 24 * 3600 * 1000
 
 export const speechNoneStill = (since: number | null, now: number): boolean => since !== null && now - since >= 0 && now - since < SPEECH_NONE_TTL_MS
+
+/**
+ * With AI transcription the phone's own recognition runs alongside, only to show the words live
+ * (owner, 23 Oct 2026). On letting go AI's text wins; when AI heard nothing or failed, the words
+ * the phone heard are kept instead of an error.
+ */
+export function finalVoiceText(ai: { text: string; error?: string }, live: string): { text: string; error?: string } {
+  if (ai.text.trim()) return { text: ai.text.trim() }
+  if (live.trim()) return { text: live.trim() }
+  return ai.error ? { text: '', error: ai.error } : { text: '' }
+}

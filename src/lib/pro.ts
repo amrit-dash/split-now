@@ -96,3 +96,17 @@ export function friendBadge(g: {
 }): BadgeWord | null {
   return g.type === 'direct' && g.peer ? memberBadge(g.members?.[g.peer]) : null
 }
+
+/**
+ * Profile's name line with the badge pill beside it (owner, 23 Oct 2026), from measured widths:
+ * the full name and the pill when both fit; else the first name and the pill; else the full name
+ * alone (cut short if it must), and the ring round the photo says the badge.
+ */
+export function nameWithPill(o: { full: string; first: string; fullW: number; firstW: number; pillW: number; gap: number; room: number }): {
+  text: string
+  pill: boolean
+} {
+  if (o.fullW + o.gap + o.pillW <= o.room) return { text: o.full, pill: true }
+  if (o.first && o.first !== o.full && o.firstW + o.gap + o.pillW <= o.room) return { text: o.first, pill: true }
+  return { text: o.full, pill: false }
+}

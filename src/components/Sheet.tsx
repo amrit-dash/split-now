@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { type DragSample, pushSample, releaseVelocity, sheetExit, shouldCloseSheet } from '@/lib/sheet-drag'
 import { haptic } from '@/lib/haptics'
+import { sheetArea } from '@/lib/keyboard'
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -119,7 +120,12 @@ export function Sheet({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open, onClose])
 
-  if (!open && !leaving) return null
+  // Before the early return below: hooks run the same way every time.
+  const area = useSheetArea(open)
+  // wasOpen too: the render just after `open` turns false comes before the effect that sets leaving.
+  // Unmounting there and mounting again replayed the slide-up, so a tap outside showed the sheet rise
+  // again for a moment before it went (owner, 23 Oct 2026).
+  if (!open && !leaving && !wasOpen.current) return null
 
   const onStart = (e: TouchEvent) => {
     const el = e.target as HTMLElement
@@ -157,16 +163,19 @@ export function Sheet({
   }
   const dragging = !!drag.current?.active
   // Leaving: slide out from wherever it is (the drag position included), or fade with reduced motion.
-  const panelStyle = leaving
-    ? reduce
-      ? { transform: `translateY(${dy}px)`, ...exit.panel }
-      : exit.panel
-    : { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)' }
+  const panelStyle =
+    leaving || (!open && wasOpen.current)
+      ? reduce
+        ? { transform: `translateY(${dy}px)`, ...exit.panel }
+        : exit.panel
+      : { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)' }
 
   return createPortal(
     // While it slides out it takes no taps and is out of the accessibility tree: the screen behind is live again.
+    // With the keyboard up it fills only the visible part (sheetArea), so the sheet rests on the keyboard.
     <div
       className={`fixed inset-0 z-50 flex items-end justify-center sm:items-center ${leaving ? 'pointer-events-none' : ''}`}
+      style={area ? { top: area.top, height: area.height, bottom: 'auto' } : undefined}
       data-testid={testId}
       data-leaving={leaving || undefined}
       aria-hidden={leaving || undefined}
@@ -191,7 +200,7 @@ export function Sheet({
         onTouchMove={onMove}
         onTouchEnd={onEnd}
         onTouchCancel={onEnd}
-        style={panelStyle}
+        style={area ? { ...panelStyle, maxHeight: Math.round(area.height * 0.94) } : panelStyle}
         className="animate-sheet relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[2rem] bg-white p-5 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] shadow-2xl outline-none sm:mx-4 sm:pb-6 sm:max-h-[85dvh] sm:animate-pop sm:rounded-[1.75rem] sm:p-6 sm:ring-1 sm:ring-slate-900/5 dark:bg-ink-900 sm:dark:ring-white/10"
       >
         <div data-sheet-grip className="-mx-5 -mt-5 mb-1 flex justify-center pb-2 pt-3 sm:hidden" aria-hidden>
@@ -221,4 +230,27 @@ export function Sheet({
     </div>,
     document.body,
   )
+}
+
+/** The visible area while the keyboard is up (src/lib/keyboard.ts sheetArea), followed as it opens and closes. */
+function useSheetArea(open: boolean): { top: number; height: number } | null {
+  const [area, setArea] = useState<{ top: number; height: number } | null>(null)
+  useEffect(() => {
+    const vv = typeof window === 'undefined' ? undefined : window.visualViewport
+    if (!open || !vv) return
+    const read = () =>
+      setArea((prev) => {
+        const next = sheetArea(window.innerHeight, vv)
+        return prev && next && prev.top === next.top && prev.height === next.height ? prev : next
+      })
+    read()
+    vv.addEventListener('resize', read)
+    vv.addEventListener('scroll', read)
+    return () => {
+      vv.removeEventListener('resize', read)
+      vv.removeEventListener('scroll', read)
+      setArea(null)
+    }
+  }, [open])
+  return area
 }

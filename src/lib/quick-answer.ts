@@ -5,7 +5,7 @@
  */
 
 /** What Quick add says to a line it can't act on. */
-export const QUICK_ANSWER = 'Quick add can’t do that. It adds expenses, starts groups and notes who might have paid. Try “Dinner 1200 with Rahul, I paid”.'
+export const QUICK_ANSWER = 'Quick add can’t do that. Try “Dinner 1200 with Rahul, I paid”.'
 
 /** Words that make a line about money or a group, even without an amount. */
 const MONEY =

@@ -5,8 +5,31 @@ import { iconFace } from '@/lib/icon-ai'
  * icon as an image (cleaned again on this phone, src/lib/icon-ai.ts iconFace), else the emoji as text.
  * Sized by the surrounding font size (1.15em), so it drops into the same tiles as an emoji.
  */
-export function IconFace({ iconSvg, iconImage, emoji, vault }: { iconSvg?: unknown; iconImage?: unknown; emoji: string; vault?: boolean }) {
+export function IconFace({
+  iconSvg,
+  iconImage,
+  emoji,
+  vault,
+  fill,
+}: {
+  iconSvg?: unknown
+  iconImage?: unknown
+  emoji: string
+  vault?: boolean
+  /** a picture drawn big in its tile (a group’s): three quarters of it, with room round it (a 1:1’s photo alone fills its tile) */
+  fill?: boolean
+}) {
   const face = iconFace({ iconSvg, iconImage, emoji, vault })
   if ('emoji' in face) return <>{face.emoji}</>
-  return <img src={face.src} alt="" aria-hidden className="inline-block h-[1.15em] w-[1.15em] select-none rounded-[22%]" draggable={false} />
+  // Pictures and drawn icons are cropped tight, with none of an emoji's built-in margin: drawn at
+  // 1.5× the emoji's size they fill the tile as much as an emoji looks to (owner, 23 Oct 2026: too small).
+  return (
+    <img
+      src={face.src}
+      alt=""
+      aria-hidden
+      className={`inline-block select-none rounded-[18%] ${fill ? 'h-[76%] w-[76%]' : 'h-[1.5em] w-[1.5em]'}`}
+      draggable={false}
+    />
+  )
 }

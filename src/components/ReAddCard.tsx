@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Maximize2, PlusSquare, Share, X } from 'lucide-react'
 import { TrashIcon } from '@/components/icons'
 import { needsReAdd } from '@/lib/keyboard'
@@ -7,12 +7,29 @@ import { repo } from '@/data'
 import { Sheet } from './Sheet'
 
 const KEY = 'sn-readd-dismissed'
+/** Set the first time a launch reads the screen right: an install can't go back to the old status bar, so it never asks again. */
+const OK_KEY = 'sn-readd-ok'
 
 function dismissed(): boolean {
   try {
     return localStorage.getItem(KEY) === '1'
   } catch {
     return false
+  }
+}
+
+function readFlag(k: string): boolean {
+  try {
+    return localStorage.getItem(k) === '1'
+  } catch {
+    return false
+  }
+}
+function writeFlag(k: string) {
+  try {
+    localStorage.setItem(k, '1')
+  } catch {
+    /* private mode */
   }
 }
 
@@ -34,9 +51,23 @@ const STEP = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg
  * is added to the Home Screen. Once, on Home, this says so and shows how to add it again.
  */
 export function ReAddCard() {
-  const [show, setShow] = useState(
-    () => !dismissed() && needsReAdd({ ios: isIOS(), standalone: isStandalone(), portrait: window.innerHeight > window.innerWidth, safeTop: safeTop() }),
-  )
+  const [show, setShow] = useState(false)
+  // Read twice, a second apart, and only shown when both say so (owner, 23 Oct 2026: it came up once
+  // on an app reopened mid-update, when iOS reported the screen wrongly for a moment, and was gone on
+  // the next launch). A launch that reads the screen right marks this install fine for good.
+  useEffect(() => {
+    if (dismissed() || readFlag(OK_KEY)) return
+    const check = () => needsReAdd({ ios: isIOS(), standalone: isStandalone(), portrait: window.innerHeight > window.innerWidth, safeTop: safeTop() })
+    if (!check()) {
+      if (isIOS() && isStandalone() && window.innerHeight > window.innerWidth) writeFlag(OK_KEY)
+      return
+    }
+    const t = setTimeout(() => {
+      if (check()) setShow(true)
+      else writeFlag(OK_KEY)
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [])
   const [open, setOpen] = useState(false)
   if (!show) return null
   const close = () => {

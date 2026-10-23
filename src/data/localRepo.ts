@@ -118,6 +118,9 @@ type StoredComment = ExpenseComment & { groupId: string; expenseId: string }
 
 const KEY = 'splitit-demo-v1'
 
+/** How many stand-in pictures the demo has drawn, so Draw another draws something else. */
+let demoDraws = 0
+
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY)
@@ -1496,7 +1499,9 @@ export function createLocalRepo(): Repo {
     async iconPictureAi(req) {
       // No image model here: the stand-in drawing comes back as the "picture" (the app turns it into a small image).
       const { demoIcons } = await import('@/lib/icon-ai-demo')
-      const svg = demoIcons(req).svgs[1] ?? demoIcons(req).svgs[0]
+      // A different stand-in each time, like a model drawing again.
+      const { svgs } = demoIcons(req)
+      const svg = svgs[(1 + demoDraws++) % svgs.length] ?? svgs[0]
       // Like a real model's answer: the object small in the middle of a magenta square, shaded the way
       // models paint it (not one exact colour), which the phone keys out and crops.
       const inner = svg.replace('<svg ', '<svg x="300" y="300" width="424" height="424" ')

@@ -21,7 +21,7 @@ describe('offTopicLine', () => {
 describe('quickAnswerFor', () => {
   it('a plain answer for what it can’t act on, saying what it can do', () => {
     expect(quickAnswerFor({ text: 'Make me a sandwich', amount: undefined })).toBe(QUICK_ANSWER)
-    expect(QUICK_ANSWER).toMatch(/adds expenses, starts groups/)
+    expect(QUICK_ANSWER).toMatch(/Try “Dinner 1200/)
     expect(QUICK_ANSWER).not.toMatch(/!/)
   })
   it('AI that found nothing to do is believed when there is no amount', () => {

@@ -3,7 +3,10 @@
 What the owner asked for that isn't shipped yet, newest first. Read this at the start of a session;
 remove an item when its release merges, and add anything left half-done.
 
-## Left from 9.2.0 (check by hand)
+## Left from 9.2.0 / 9.3.0 (check by hand)
+
+- [ ] Voice with AI on a real iPhone: do the live words show while AI records (the phone's recognition and the recording share the microphone)?
+- [ ] Draw a picture with the new prompt and backdrop rule: a few real pictures (scenes too) come out see-through.
 
 - [ ] Opera GX / Brave: hold + and check the on-device recogniser installs and the words show (only tested with a fake browser).
 - [ ] Scan → Statement with AI off: try real GPay / PhonePe / bank screenshots (the parser is tested on typed text only).

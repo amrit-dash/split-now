@@ -4,7 +4,7 @@ import { ImageIcon, MagicIcon, SparkleIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { firstEmoji } from '@/lib/emoji'
 import { Link } from 'react-router-dom'
-import { AI_IDLE_MS, aiRowShown, drawnByLine, iconAiProblem, pictureNote, pictureProblem } from '@/lib/icon-ai'
+import { AI_IDLE_MS, aiRowShown, type Drawn, drawnByLine, drawnKey, iconAiProblem, keepDrawn, pictureNote, pictureProblem } from '@/lib/icon-ai'
 import { shrinkPicture } from '@/lib/icon-picture'
 import { searchIcons } from '@/lib/icons'
 import { type IconRequest, type IconSuggestions, pictureCost as costOf } from '../../shared/icon-ai'
@@ -24,6 +24,9 @@ import { Sheet } from './Sheet'
  * "Draw a picture" when a key that can pay for it is in use (`picture`). AI is asked about the
  * search words only; the title has its own automatic pick (src/hooks/useAutoIconPick.ts).
  */
+/** Pictures drawn this session, by the words they were drawn for (drawnKey): each one was paid for. */
+const DRAWN = new Map<string, Drawn[]>()
+
 export function IconSheet({
   open,
   onClose,
@@ -75,9 +78,9 @@ export function IconSheet({
   const [found, setFound] = useState<IconSuggestions | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [drawing, setDrawing] = useState(false)
-  const [drawn, setDrawn] = useState<string | null>(null)
-  // Which model drew it, and what that cost: said under the picture.
-  const [drawnBy, setDrawnBy] = useState<string | null>(null)
+  // Pictures drawn for these words (kept for the session in DRAWN, so none is lost), and the one shown.
+  const [, setDrawnAt] = useState(0)
+  const [shownAt, setShownAt] = useState(0)
   const [pictureWhy, setPictureWhy] = useState<string | null>(null)
   const words = q.replace(/\s+/g, ' ').trim().slice(0, 80)
   // Each opening starts with an empty search.
@@ -89,7 +92,7 @@ export function IconSheet({
   useEffect(() => {
     setFound(null)
     setProblem(null)
-    setDrawn(null)
+    setShownAt(0)
     setPictureWhy(null)
     setIdle(false)
     if (!words) return
@@ -97,6 +100,9 @@ export function IconSheet({
     return () => clearTimeout(t)
   }, [words])
   const asked: IconRequest | undefined = ai && words ? { ...ai, title: words } : undefined
+  const drawnList = words ? (DRAWN.get(drawnKey(words)) ?? []) : []
+  const shown = drawnList[Math.min(shownAt, drawnList.length - 1)]
+  const drawn = shown?.src ?? null
   const pick = (icon: string | undefined) => {
     onPick(icon)
     onClose()
@@ -120,6 +126,7 @@ export function IconSheet({
   }
   const draw = async () => {
     if (!asked || drawing) return
+    const key = drawnKey(asked.title)
     setDrawing(true)
     setPictureWhy(null)
     try {
@@ -128,8 +135,10 @@ export function IconSheet({
       const why = pictureProblem(r, !!small, picture ?? 'own')
       if (why || !small) setPictureWhy(why)
       else {
-        setDrawn(small)
-        setDrawnBy(r && 'image' in r ? drawnByLine(r.model) : null)
+        // Kept under the words it was drawn for, even if they've changed or the sheet closed since.
+        DRAWN.set(key, keepDrawn(DRAWN.get(key) ?? [], { src: small, by: r && 'image' in r ? drawnByLine(r.model) : null }))
+        setShownAt(0)
+        setDrawnAt(Date.now())
       }
     } finally {
       setDrawing(false)
@@ -204,7 +213,15 @@ export function IconSheet({
             data-testid="icon-ai"
           >
             {found ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
+                {/* One pattern for both AI rows (owner, 23 Oct 2026): what it is on the left, a round redo on the right. */}
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 text-sm">
+                    <div className="truncate font-semibold">Suggested for “{words}”</div>
+                    <div className="text-muted text-xs">Tap one to use it</div>
+                  </div>
+                  <RoundRedo busy={asking} onClick={suggest} label="Suggest again" busyLabel="Asking AI" testId="icon-ai-again" />
+                </div>
                 <div role="radiogroup" aria-label="Suggested icons" className="grid grid-cols-6 gap-1.5">
                   {found.emoji.map((e) => (
                     <button
@@ -235,9 +252,6 @@ export function IconSheet({
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={suggest} disabled={asking} className="chip min-h-11" data-testid="icon-ai-again">
-                  {asking ? <Spinner className="!h-4 !w-4" label="Asking AI" /> : <RefreshCw size={14} aria-hidden />} Try again
-                </button>
               </div>
             ) : (
               <button
@@ -285,24 +299,40 @@ export function IconSheet({
                       }}
                       aria-label="Use this picture"
                       aria-pressed={imageValue === drawn}
-                      className={`animate-pop h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
+                      className={`animate-pop h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-ink-800 ${imageValue === drawn ? 'ring-2 ring-brand-500' : ''}`}
                       data-testid="icon-picture-use"
                     >
-                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-contain p-1.5" draggable={false} />
+                      <img src={drawn} alt="" aria-hidden className="h-full w-full object-contain p-0.5" draggable={false} />
                     </button>
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-semibold">Tap it to use it</div>
-                      {drawnBy && (
+                      {shown?.by && (
                         <div className="text-muted text-xs" data-testid="icon-picture-by">
-                          {drawnBy}
+                          {shown.by}
                         </div>
                       )}
-                      <button type="button" onClick={draw} disabled={drawing} className="chip mt-1 min-h-11" data-testid="icon-picture-again">
-                        {drawing ? <Spinner className="!h-4 !w-4" label="Drawing" /> : <RefreshCw size={14} aria-hidden />} Draw another
-                      </button>
                     </div>
+                    <RoundRedo busy={drawing} onClick={draw} label="Draw another" busyLabel="Drawing" testId="icon-picture-again" />
                   </div>
-                ) : (
+                ) : null}
+                {drawnList.length > 1 && (
+                  // Drawing another never throws the last one away: each paid picture stays to go back to.
+                  <div className="mt-2 flex items-center gap-1.5" role="group" aria-label="Pictures drawn for these words" data-testid="icon-picture-earlier">
+                    {drawnList.map((d, i) => (
+                      <button
+                        key={d.src.slice(-24)}
+                        type="button"
+                        onClick={() => setShownAt(i)}
+                        aria-pressed={d === shown}
+                        aria-label={`Picture ${drawnList.length - i} of ${drawnList.length}`}
+                        className={`h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-ink-800 ${d === shown ? 'ring-2 ring-brand-500' : 'opacity-70'}`}
+                      >
+                        <img src={d.src} alt="" aria-hidden className="h-full w-full object-contain p-0.5" draggable={false} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {drawn ? null : (
                   <button
                     type="button"
                     onClick={draw}
@@ -355,5 +385,22 @@ export function IconSheet({
         )}
       </div>
     </Sheet>
+  )
+}
+
+/** The round redo button at the end of an AI row: Suggest again, Draw another. */
+function RoundRedo({ busy, onClick, label, busyLabel, testId }: { busy: boolean; onClick: () => void; label: string; busyLabel: string; testId: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      aria-label={label}
+      title={label}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm ring-1 ring-brand-100 transition active:scale-95 disabled:opacity-60 dark:bg-ink-800 dark:text-brand-200 dark:ring-white/10"
+      data-testid={testId}
+    >
+      {busy ? <Spinner className="!h-4 !w-4" label={busyLabel} /> : <RefreshCw size={18} aria-hidden />}
+    </button>
   )
 }

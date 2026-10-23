@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { RefreshIcon, CameraIcon } from '@/components/icons'
 import { repo } from '@/data'
@@ -10,8 +10,8 @@ import { isSynced, loadSharedRates, ratesStatus, refreshRates, type RatesStatus 
 import { appLocale } from '@/lib/locale'
 import { usePro } from '@/hooks/usePro'
 import { Avatar } from './Avatar'
-import { ProRing } from './ProBadge'
-import { badgeLabel } from '@/lib/pro'
+import { ProPill, ProRing } from './ProBadge'
+import { badgeLabel, type BadgeWord, nameWithPill } from '@/lib/pro'
 import { HintText, InfoTip, type Hint } from './Hint'
 import { useToast } from './Toast'
 
@@ -91,11 +91,7 @@ export function AccountCard({
           data-testid="account-toggle"
         >
           <span className="min-w-0 flex-1">
-            {/* Your badge is the ring round the photo alone (owner): a pill by the name said it twice and outshouted the name. */}
-            <span className="block truncate text-xl font-bold">
-              {name || 'Your name'}
-              {pro && <span className="sr-only">, {badgeLabel(pro, false)}</span>}
-            </span>
+            <NameLine name={name || 'Your name'} pro={pro} />
             <span className="text-muted block truncate text-sm">{sub}</span>
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400">
@@ -287,4 +283,61 @@ function ratesDetails(s: RatesStatus): string {
   const time = at.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
   const sameDay = at.toDateString() === new Date().toDateString()
   return `ECB ${ecb}, fetched ${sameDay ? time : `${at.toLocaleDateString(loc, { day: 'numeric', month: 'short' })}, ${time}`}`
+}
+
+/**
+ * Your name with the badge pill beside it (owner, 23 Oct 2026), whatever fits the width: the full
+ * name and the pill, else the first name and the pill, else the full name alone and the ring round
+ * the photo says it (src/lib/pro.ts nameWithPill). Measured, and again when the width changes.
+ */
+function NameLine({ name, pro }: { name: string; pro: BadgeWord | null }) {
+  const row = useRef<HTMLSpanElement>(null)
+  const text = useRef<HTMLSpanElement>(null)
+  const pill = useRef<HTMLSpanElement>(null)
+  const first = name.trim().split(/\s+/)[0] ?? name
+  const [fit, setFit] = useState({ text: name, pill: true })
+  useLayoutEffect(() => {
+    const r = row.current
+    const t = text.current
+    const p = pill.current
+    if (!pro || !r || !t || !p) return
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (!ctx) return
+    const measure = () => {
+      // The `font` shorthand reads as '' when a longhand (font-feature-settings, variants) can't be folded into it, so build it.
+      const cs = getComputedStyle(t)
+      ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+      setFit(
+        nameWithPill({
+          full: name,
+          first,
+          fullW: ctx.measureText(name).width,
+          firstW: ctx.measureText(first).width,
+          pillW: p.offsetWidth,
+          gap: 8,
+          room: r.clientWidth,
+        }),
+      )
+    }
+    measure()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    ro?.observe(r)
+    return () => ro?.disconnect()
+  }, [name, first, pro])
+  const shown = pro ? fit.text : name
+  return (
+    <span ref={row} className="relative flex min-w-0 items-center gap-2" data-testid="profile-name">
+      <span ref={text} className="truncate text-xl font-bold" aria-hidden={shown !== name || undefined}>
+        {shown}
+      </span>
+      {shown !== name && <span className="sr-only">{name}</span>}
+      {pro && (
+        // Kept in the page when it doesn't fit (hidden, out of the flow) so its width can be measured.
+        <span ref={pill} className={fit.pill ? 'shrink-0' : 'pointer-events-none invisible absolute right-0'} aria-hidden data-testid="profile-pill">
+          <ProPill h={8} word={pro} />
+        </span>
+      )}
+      {pro && <span className="sr-only">, {badgeLabel(pro, false)}</span>}
+    </span>
+  )
 }

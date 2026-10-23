@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent } from 'react'
-import { ArrowRight, ChevronDown, Loader2, Mic, Plus, Square, X } from 'lucide-react'
+import { AlertCircle, ArrowRight, ChevronDown, Lightbulb, Loader2, Mic, Plus, Square, X } from 'lucide-react'
 import { useFlag } from '@/hooks/useAppConfig'
 import { loadParser, useQuickRun, type QuickLine } from '@/hooks/useQuickRun'
 import { useVoice, useVoiceSetup } from '@/hooks/useVoice'
@@ -11,7 +11,6 @@ import { groupInText, lineFor } from '@/lib/quick-group'
 import { micRelease } from '@/lib/voice'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Select } from '@/components/Select'
-import { useToast } from '@/components/Toast'
 import { activeMembers } from '@/lib/members'
 
 const HINT = 'Dinner 1200 with Rahul, I paid'
@@ -41,6 +40,7 @@ export function QuickAdd({
   onLeave,
   initialText = '',
   testId = 'quick-add',
+  onStatus,
 }: {
   /**
    * the groups the line can go into (shared ones; the personal wallet has nobody to split with).
@@ -53,14 +53,20 @@ export function QuickAdd({
   /** a line already said (holding + when it needs a choice made here, such as which group) */
   initialText?: string
   testId?: string
+  /**
+   * What it is doing right now ("Working it out…"), for the card to show in its top-right corner
+   * (owner, 23 Oct 2026). Without it the line shows under the box.
+   */
+  onStatus?: (status: string | null) => void
 }) {
   const enabled = useFlag('quickAdd')
-  const toast = useToast()
   const [text, setText] = useState(initialText)
   const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id)
   /** 'ai': Quick add with AI is working the line out; 'read': the gap-filling reader */
   const [busy, setBusy] = useState<'ai' | 'read' | null>(null)
   const [answer, setAnswer] = useState<string | null>(null)
+  /** something went wrong (the microphone, transcription): under the box, in red, with an icon */
+  const [problem, setProblem] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
   /** the group words the user tapped away ("→ Goa trip" undone): the line goes to the picked group as typed */
   const [undone, setUndone] = useState<string | null>(null)
@@ -78,11 +84,14 @@ export function QuickAdd({
       voiced.current = true
       setText(t)
     },
-    onError: (m) => toast(errText(m), 'err'),
+    onError: (m) => setProblem(errText(m)),
   })
   const listening = voice.state === 'listening'
   const transcribing = voice.state === 'transcribing'
   const run = useQuickRun({ groups, onLeave, onBusy: setBusy })
+  const status = busy === 'ai' ? 'Working it out…' : busy === 'read' ? 'Reading your line…' : transcribing ? 'Writing it down…' : null
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the status changes
+  useEffect(() => onStatus?.(status), [status])
 
   const picked: Group | undefined = groups.find((g) => g.id === groupId) ?? groups[0]
   const people = useMemo(() => (picked ? Object.values(activeMembers(picked.members)).map((m) => m.name) : []), [picked])
@@ -123,6 +132,7 @@ export function QuickAdd({
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (busy || transcribing || !text.trim()) return
+    setProblem(null)
     if (listening) void stopMic()
     if (which) askWhich()
     else void run.send(q()).then(done)
@@ -139,12 +149,13 @@ export function QuickAdd({
 
   const startMic = async () => {
     setAnswer(null)
+    setProblem(null)
     voiced.current = true
     await voice.start()
   }
   const stopMic = async () => {
     const r = await voice.stop()
-    if (r.error) toast(errText(r.error), 'err')
+    if (r.error) setProblem(errText(r.error))
     else if (r.text) {
       voiced.current = true
       setText(r.text)
@@ -323,21 +334,29 @@ export function QuickAdd({
           </button>
         </div>
       </div>
-      <p role="status" aria-live="polite" className="text-muted min-h-0 px-1 text-xs empty:hidden" data-testid={`${testId}-status`}>
-        {busy === 'ai' ? (
-          <span className="mt-2 flex items-center gap-1.5">
-            <Loader2 size={14} className="animate-spin" aria-hidden /> Working it out…
+      <div role="status" aria-live="polite" className="empty:hidden" data-testid={`${testId}-status`}>
+        {status && !onStatus ? (
+          <span className="text-muted mt-2 flex items-center gap-1.5 px-1 text-xs">
+            <Loader2 size={14} className="animate-spin" aria-hidden /> {status}
           </span>
-        ) : busy === 'read' ? (
-          <span className="mt-2 flex items-center gap-1.5">
-            <Loader2 size={14} className="animate-spin" aria-hidden /> Reading your line…
+        ) : problem ? (
+          <span
+            className="mt-2 flex items-center gap-2.5 rounded-2xl bg-rose-50 px-3 py-2 text-xs leading-snug text-rose-800 dark:bg-rose-500/10 dark:text-rose-200"
+            data-testid={`${testId}-problem`}
+          >
+            <AlertCircle size={16} className="shrink-0" aria-hidden />
+            {problem}
           </span>
         ) : answer ? (
-          <span className="mt-2 block text-sm text-slate-700 dark:text-slate-200" data-testid={`${testId}-answer`}>
+          <span
+            className="mt-2 flex items-center gap-2.5 rounded-2xl bg-brand-50 px-3 py-2 text-xs leading-snug text-brand-900 dark:bg-brand-500/10 dark:text-brand-100"
+            data-testid={`${testId}-answer`}
+          >
+            <Lightbulb size={16} className="shrink-0 text-brand-600 dark:text-brand-300" aria-hidden />
             {answer}
           </span>
         ) : null}
-      </p>
+      </div>
     </form>
   )
 }

@@ -13,12 +13,17 @@ import { cleanIconImage, ICON_IMAGE_MAX } from '../../shared/icon-ai'
  * fill the icon, the way an emoji fills its tile, instead of sitting small on a white card.
  */
 
-/** Sizes tried, largest first, until the picture fits. Icons are drawn at 40 to 56 px. */
-export const PICTURE_SIZES = [112, 96, 72] as const
+/**
+ * Sizes tried, largest first, until the picture fits. Icons are drawn at 40 to 56 px. Down to 56
+ * before giving up see-through: Safari on iPhone can't write WebP, and a detailed PNG can be over
+ * the cap at 72 px; the last resort (JPEG, which can't be see-through) is what put white squares
+ * behind pictures.
+ */
+export const PICTURE_SIZES = [112, 96, 72, 64, 56] as const
 /** The keying is done on a square this big: plenty for a 112 px icon, quick on any phone. */
 export const WORK_SIZE = 256
 /** Room left around the object, as a share of the icon (an emoji leaves about this much). */
-export const PICTURE_PAD = 0.06
+export const PICTURE_PAD = 0.03
 
 /** The data: URL to keep for this attempt, or null when it's too big or isn't an image the app keeps. */
 export const keepPicture = (dataUrl: string): string | null => (dataUrl.length <= ICON_IMAGE_MAX ? cleanIconImage(dataUrl) : null)
@@ -39,10 +44,21 @@ export interface Box {
 
 /** Below this alpha a pixel already counts as see-through. */
 const CLEAR = 16
-/** Border samples within this distance of their median colour are one flat backdrop. */
-const BORDER_SPREAD = 60
-/** How much of the border must be that one colour (the object may touch an edge here and there). */
-const BORDER_SHARE = 0.6
+/**
+ * The backdrop is found by what a painted backdrop is, not by fixed shares per colour (owner,
+ * 23 Oct 2026): one colour holding a good part of the edge (BACKDROP_MIN_SHARE), flat there (its
+ * samples all close to their middle, BACKDROP_MAX_SPREAD), and on all four sides, as anything
+ * painted behind a picture is. A model's white, cream or grey backdrop passes; a sky that shades,
+ * grass along the bottom, or one colour of an object running off the edge does not. Magenta,
+ * the colour asked for, counts from a quarter of the edge (MAGENTA_SHARE), matched by hue.
+ */
+export const BACKDROP_MIN_SHARE = 0.55
+export const BACKDROP_MAX_SPREAD = 14
+const MAGENTA_SHARE = 0.25
+/** Samples within this distance of the most common colour make up its group on the edge. */
+const CLUSTER_RADIUS = 36
+/** Mostly see-through already: no keying needed. */
+const CLEAR_SHARE = 0.5
 /** Distance to the backdrop at or under which a pixel is cleared fully, and over which it is kept (soft in between). */
 export const KEY_NEAR = 60
 export const KEY_FAR = 120
@@ -79,20 +95,44 @@ function borderSpots(p: Pixels): number[] {
  */
 export function backdropOf(p: Pixels): Rgb | 'clear' | null {
   const spots = borderSpots(p)
-  const share = (n: number) => n >= spots.length * BORDER_SHARE
-  if (share(spots.filter((i) => p.data[i + 3] < CLEAR).length)) return 'clear'
+  const at = (n: number) => n >= spots.length
+  if (at(spots.filter((i) => p.data[i + 3] < CLEAR).length / CLEAR_SHARE)) return 'clear'
   const solid = spots.filter((i) => p.data[i + 3] >= CLEAR)
-  const median = (k: number) => {
-    const v = solid.map((i) => p.data[i + k]).sort((a, b) => a - b)
-    return v[v.length >> 1] ?? 0
-  }
-  const magenta = solid.filter((i) => magentaAt(p.data, i))
-  if (share(magenta.length)) {
-    const v = (k: number) => magenta.map((i) => p.data[i + k]).sort((a, b) => a - b)[magenta.length >> 1]
+  const medianOf = (list: number[]): Rgb => {
+    const v = (k: number) => list.map((i) => p.data[i + k]).sort((a, b) => a - b)[list.length >> 1] ?? 0
     return [v(0), v(1), v(2)]
   }
-  const mid: Rgb = [median(0), median(1), median(2)]
-  return share(solid.filter((i) => distance(p.data, i, mid) <= BORDER_SPREAD).length) ? mid : null
+  const magenta = solid.filter((i) => magentaAt(p.data, i))
+  if (magenta.length >= spots.length * MAGENTA_SHARE) return medianOf(magenta)
+  if (!solid.length) return null
+  // The most common colour on the edge (in coarse buckets), then every sample near it.
+  const buckets = new Map<number, number[]>()
+  for (const i of solid) {
+    const k = ((p.data[i] >> 4) << 8) | ((p.data[i + 1] >> 4) << 4) | (p.data[i + 2] >> 4)
+    const list = buckets.get(k)
+    if (list) list.push(i)
+    else buckets.set(k, [i])
+  }
+  let top: number[] = []
+  for (const list of buckets.values()) if (list.length > top.length) top = list
+  const centre = medianOf(top)
+  const group = solid.filter((i) => distance(p.data, i, centre) <= CLUSTER_RADIUS)
+  if (group.length < spots.length * BACKDROP_MIN_SHARE) return null
+  // All round: on every side of the square, not only along one or two.
+  const sides = new Set<string>()
+  for (const i of group) {
+    const n = i >> 2
+    const x = n % p.width
+    const y = Math.floor(n / p.width)
+    if (y < p.height * 0.15) sides.add('top')
+    if (y > p.height * 0.85) sides.add('bottom')
+    if (x < p.width * 0.15) sides.add('left')
+    if (x > p.width * 0.85) sides.add('right')
+  }
+  if (sides.size < 4) return null
+  const mid = medianOf(group)
+  const spread = group.reduce((sum, i) => sum + distance(p.data, i, mid), 0) / group.length
+  return spread <= BACKDROP_MAX_SPREAD ? mid : null
 }
 
 /**
@@ -221,16 +261,29 @@ export async function shrinkPicture(base64: string, mimeType: string): Promise<s
     const to = keyed ? fitBox(box, size) : { x: 0, y: 0, w: size, h: size }
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(work, box.x, box.y, box.w, box.h, to.x, to.y, to.w, to.h)
-    // WebP and PNG keep the see-through background; JPEG can't, so it is the last try, on white.
-    for (const type of ['image/webp', 'image/png']) {
-      const kept = keepPicture(canvas.toDataURL(type, 0.85))
+    // WebP and PNG keep the see-through background (WebP at a lower quality too, before a smaller size).
+    for (const [type, q] of [
+      ['image/webp', 0.85],
+      ['image/webp', 0.7],
+      ['image/png', 1],
+    ] as const) {
+      const kept = keepPicture(canvas.toDataURL(type, q))
       if (kept) return kept
     }
-    ctx.globalCompositeOperation = 'destination-over'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, size, size)
-    const kept = keepPicture(canvas.toDataURL('image/jpeg', 0.82))
-    if (kept) return kept
   }
-  return null
+  // Nothing see-through fits: JPEG at the smallest size. A keyed picture can't keep its cut-out
+  // there, so it goes on the tile's dark-neutral instead of a white square.
+  const size = PICTURE_SIZES[PICTURE_SIZES.length - 1]
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  if (keyed) {
+    ctx.fillStyle = '#f1f5f9'
+    ctx.fillRect(0, 0, size, size)
+  }
+  const to = keyed ? fitBox(box, size) : { x: 0, y: 0, w: size, h: size }
+  ctx.drawImage(work, box.x, box.y, box.w, box.h, to.x, to.y, to.w, to.h)
+  return keepPicture(canvas.toDataURL('image/jpeg', 0.82))
 }

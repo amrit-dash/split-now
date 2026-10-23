@@ -14,9 +14,10 @@ import { Sheet } from './Sheet'
 
 // Tile subtitles: nice to read the first time, gone in the Minimal look (the titles say it).
 // All 'help': the tiles show a line under every one or under none.
-const ADD_HINT: Hint = { full: 'What you paid, and how to split it', tier: 'help' }
-const SCAN_HINT: Hint = { full: 'A bill or payment screenshot', tier: 'help' }
-const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', tier: 'help' }
+// Kept in Simple too, short (owner, 23 Oct 2026: the tiles read bare without a line under them).
+const ADD_HINT: Hint = { full: 'What you paid, and how to split it', short: 'What you paid, split your way', tier: 'key' }
+const SCAN_HINT: Hint = { full: 'A bill or payment screenshot', short: 'A bill or payment', tier: 'key' }
+const GROUP_HINT: Hint = { full: 'Trip, flat, dinner, anything', short: 'Trip, flat, dinner', tier: 'key' }
 
 /**
  * What the + button in the tab bar opens with a tap (inside a group a tap adds an expense straight
