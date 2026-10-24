@@ -1,5 +1,11 @@
-import { Link } from 'react-router-dom'
-import { ChevronRight, LockOpen } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronRight, LockOpen, RotateCcw } from 'lucide-react'
+import { ArchiveIcon } from './icons'
+import { ChequeIcon } from './ChequeIcon'
+import { SwipeRow } from './SwipeRow'
+import { useGroupArchive } from '@/hooks/useGroupArchive'
+import { groupRowActions } from '@/lib/group-row-actions'
 import { lockVault } from '@/lib/vault-keys'
 import type { GroupData } from '@/hooks/data'
 import { formatMoney } from '@/lib/money'
@@ -8,7 +14,7 @@ import { AvatarStack } from './Avatar'
 import { LiveBadge } from './Misc'
 import { isLiveTrip } from '@/lib/capture'
 import { todayISO } from '@/lib/id'
-import { activeMembers } from '@/lib/members'
+import { activeMembers, membersIn } from '@/lib/members'
 import { spending } from '../../shared/received'
 import { currencySymbol, lockedText, scrambledAmount } from '@/lib/vault-scramble'
 import { AnimalStack, LockedTile } from '@/features/vault/Scrambled'
@@ -18,7 +24,69 @@ import { badgeLabel, badgeTapTarget, friendBadge } from '@/lib/pro'
 import { ProPill, ProTap } from './ProBadge'
 
 /** One group in a list: icon, name, members (spend for a personal wallet, "Friend" for a 1:1) and your balance in words and numbers. */
-export function GroupRow({ d }: { d: GroupData }) {
+/**
+ * `swipe` (the Groups screen only, never Home): Settle up and Archive / Unarchive behind the row
+ * (src/lib/group-row-actions.ts; only what can be done now is shown).
+ */
+export function GroupRow({ d, swipe = false }: { d: GroupData; swipe?: boolean }) {
+  const row = <GroupRowBody d={d} />
+  return swipe ? <SwipeGroupRow d={d}>{row}</SwipeGroupRow> : row
+}
+
+function SwipeGroupRow({ d, children }: { d: GroupData; children: ReactNode }) {
+  const nav = useNavigate()
+  const archive = useGroupArchive()
+  const me = d.me
+  const actions = groupRowActions({
+    personal: d.group.type === 'personal',
+    archived: !!d.group.archived,
+    myBalance: me ? (d.net[me] ?? 0) : 0,
+    waitingOnYou: me ? d.pending.filter((e) => membersIn([e]).has(me)).length + d.waiting.filter((s) => s.from === me || s.to === me).length : 0,
+    locked: !!d.locked,
+  })
+  if (!actions.length) return <>{children}</>
+  const name = d.group.name
+  return (
+    <SwipeRow
+      as="div"
+      contentClassName="flex [&>*]:min-w-0 [&>*]:flex-1"
+      testId="group-swipe-row"
+      menuTitle={name}
+      actions={actions.map((a) =>
+        a.kind === 'settle'
+          ? {
+              label: 'Settle up',
+              ariaLabel: `Settle up in ${name}`,
+              icon: <ChequeIcon size={20} />,
+              tone: 'accent' as const,
+              onClick: () => nav(`/groups/${d.group.id}/settle`),
+              testId: 'group-swipe-settle',
+            }
+          : a.kind === 'archive'
+            ? {
+                label: 'Archive',
+                ariaLabel: `Archive ${name} for you`,
+                icon: <ArchiveIcon size={20} />,
+                tone: 'neutral' as const,
+                onClick: () => void archive(d.group, true),
+                testId: 'group-swipe-archive',
+              }
+            : {
+                label: 'Unarchive',
+                ariaLabel: `Unarchive ${name}`,
+                icon: <RotateCcw size={20} />,
+                tone: 'neutral' as const,
+                onClick: () => void archive(d.group, false),
+                testId: 'group-swipe-unarchive',
+              },
+      )}
+    >
+      {children}
+    </SwipeRow>
+  )
+}
+
+function GroupRowBody({ d }: { d: GroupData }) {
   const { earned } = usePro()
   const bal = d.me ? (d.net[d.me] ?? 0) : 0
   const members = Object.values(activeMembers(d.group.members))

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aiVoiceStep,
   browserName,
   speechRefusedText,
   liveWordsBesideRecording,
@@ -337,5 +338,13 @@ describe('finalVoiceText', () => {
   it('says why when neither heard anything', () => {
     expect(finalVoiceText({ text: '', error: 'Couldn’t transcribe' }, '  ')).toEqual({ text: '', error: 'Couldn’t transcribe' })
     expect(finalVoiceText({ text: '' }, '')).toEqual({ text: '' })
+  })
+})
+
+describe('aiVoiceStep: the button on “This browser can’t turn speech into text”', () => {
+  it('turns AI transcription on when a key can serve them, else opens AI features; nothing when switched off', () => {
+    expect(aiVoiceStep({ flag: true, offerAi: true })).toBe('turn-on')
+    expect(aiVoiceStep({ flag: true, offerAi: false })).toBe('settings')
+    expect(aiVoiceStep({ flag: false, offerAi: true })).toBeNull()
   })
 })

@@ -207,7 +207,7 @@ type Limited = { allowed: true } | { allowed: false; why: 'user' | 'global' }
 /**
  * Per user and key kind, in rateLimits/ai_{kind}_{uid} (server-only). The shared key also has a
  * project-wide daily budget (config/ai.globalPerDay, counted in stats/ai_{day}.app). Denials
- * cost no write unless the window rolled over.
+ * cost no write unless the window rolled over. Admins (admins/{uid}) are never limited here.
  */
 async function allow(
   uid: string,
@@ -216,6 +216,9 @@ async function allow(
   now: number,
   global?: { max: number },
 ): Promise<Limited> {
+  // App admins aren't held to the app's own limits (owner, 24 Oct 2026): they test and run the
+  // features. Google's limits on the key itself still apply, and their calls still count in the stats.
+  if (await isAdmin(uid)) return { allowed: true }
   const ref = db().collection('rateLimits').doc(`ai_${kind}_${uid}`)
   return db().runTransaction(async (tx) => {
     const prev = (await tx.get(ref)).data() as Partial<RateState> | undefined

@@ -389,3 +389,13 @@ export function finalVoiceText(ai: { text: string; error?: string }, live: strin
   if (live.trim()) return { text: live.trim() }
   return ai.error ? { text: '', error: ai.error } : { text: '' }
 }
+
+/**
+ * The way out of "This browser can't turn speech into text" (Opera, Brave, Vivaldi): one tap turns
+ * on Transcribe with AI when a key can serve them ('turn-on'), else AI features opens to add one
+ * ('settings'); nothing when the admin has AI transcription switched off.
+ */
+export function aiVoiceStep(o: { flag: boolean; offerAi: boolean }): 'turn-on' | 'settings' | null {
+  if (!o.flag) return null
+  return o.offerAi ? 'turn-on' : 'settings'
+}

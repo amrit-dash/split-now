@@ -69,6 +69,6 @@ Voice in Quick add (its mic, and holding **+** anywhere with the tab bar) is fre
 
 ## Limits and privacy
 
-- Calls are rate-limited per person and key (`rateLimits/ai_*`), and daily usage is counted in `stats/ai_{day}` for admins.
+- Calls are rate-limited per person and key (`rateLimits/ai_*`), and daily usage is counted in `stats/ai_{day}` for admins. App admins (`admins/{uid}`) aren't held to the app's own limits or the daily budget (`allow()` in `functions/src/ai.ts`, owner, 24 Oct 2026); Google's limits on the key itself still apply, and their calls still count.
 - Requests use structured JSON output only (no temperature or thinking settings), so they stay compatible as models change.
 - Images and SMS text are sent to Google's Gemini API only when AI is on for that person and feature. Nothing is stored by Split Now beyond the parsed result the person saves.

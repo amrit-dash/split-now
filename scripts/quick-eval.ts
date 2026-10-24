@@ -7,6 +7,7 @@
  *
  *   GEMINI_API_KEY=… JITI_ALIAS='{"@/":"./src/"}' npx jiti scripts/quick-eval.ts
  *   … -- --model gemini-3.5-flash-lite --only "they paid"               (one model, lines containing the words)
+ *   … -- --delay 4000                                                  (space the calls: a free-tier key's per-minute limit)
  *
  * The key comes from the environment and is never printed. Lines the phone asks the person about
  * (Which Rahul?, someone the group doesn't have) pass when the AI's guess is one of the answers.
@@ -22,6 +23,8 @@ const arg = (name: string) => {
 }
 const model = arg('model') ?? 'gemini-3.5-flash-lite'
 const only = arg('only')
+/** ms between calls: free-tier keys allow a few a minute (`-- --delay 4000`) */
+const delay = Number(arg('delay') ?? 0)
 const key = process.env.GEMINI_API_KEY?.trim()
 if (!key) {
   console.error('Set GEMINI_API_KEY (it is never printed).')
@@ -105,6 +108,7 @@ for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
     fail++
     continue
   }
+  if (delay) await new Promise((r) => setTimeout(r, delay))
   const t0 = Date.now()
   try {
     const g = await generateJson(key, [{ text: `<line>${req.text}</line>` }], QUICK_SCHEMA, {

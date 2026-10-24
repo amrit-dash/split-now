@@ -13,7 +13,6 @@ import { lockedText } from '@/lib/vault-scramble'
 import { GroupRow } from '@/components/GroupRow'
 import { SwipeRow } from '@/components/SwipeRow'
 import { useGroupTrash } from '@/components/DeleteGroup'
-import { useToast } from '@/components/Toast'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
 import { ListSkeleton } from '@/components/Skeleton'
@@ -128,7 +127,7 @@ export default function Groups() {
   const list = (rows: typeof data) => (
     <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-white/5">
       {rows.map((d) => (
-        <GroupRow key={d.group.id} d={d} />
+        <GroupRow key={d.group.id} d={d} swipe />
       ))}
     </div>
   )
@@ -180,7 +179,7 @@ export default function Groups() {
         >
           <div className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-white/5">
             {archived.map((d) => (
-              <GroupRow key={d.group.id} d={d} />
+              <GroupRow key={d.group.id} d={d} swipe />
             ))}
           </div>
         </Collapsible>
@@ -224,7 +223,6 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
  */
 function DeletedGroupRow({ g, hidden, now }: { g: Group; hidden: boolean; now: number }) {
   const { user } = useMe()
-  const toast = useToast()
   const { restore, purge, purgeState } = useGroupTrash(g)
   const by = g.deletedBy === user.uid ? 'you' : (labelForUid(g.members, g.deletedBy, memberIdOfUid(g.members, user.uid)) ?? 'someone')
   const left = daysLeft(g.deletedAt ?? now, now)
@@ -243,27 +241,18 @@ function DeletedGroupRow({ g, hidden, now }: { g: Group; hidden: boolean; now: n
           onClick: () => void restore(),
           testId: 'deleted-group-restore',
         },
-        // Its creator (or an admin) only; a member sees Restore alone (owner, 24 Oct 2026).
-        ...(purgeState === null
-          ? []
-          : [
-              purgeState
-                ? {
-                    label: 'Delete forever',
-                    ariaLabel: `Why “${name}” can’t be deleted forever yet`,
-                    icon: <TrashIcon size={20} />,
-                    tone: 'muted' as const,
-                    onClick: () => toast(purgeState, 'err'),
-                    testId: 'deleted-group-purge',
-                  }
-                : {
-                    label: 'Delete forever',
-                    ariaLabel: `Delete “${name}” forever`,
-                    icon: <TrashIcon size={20} />,
-                    onClick: () => void purge(),
-                    testId: 'deleted-group-purge',
-                  },
-            ]),
+        // Its creator once allowed (or an admin) only; nothing that can't be done now is shown (owner, 24 Oct 2026).
+        ...(purgeState === ''
+          ? [
+              {
+                label: 'Delete forever',
+                ariaLabel: `Delete “${name}” forever`,
+                icon: <TrashIcon size={20} />,
+                onClick: () => void purge(),
+                testId: 'deleted-group-purge',
+              },
+            ]
+          : []),
       ]}
     >
       <Link to={`/groups/${g.id}`} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-3" data-testid="deleted-group-open">

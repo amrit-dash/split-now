@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Groups: swipe a group (or press and hold it) for Settle up when you owe or are owed, Archive once you’re square, and Unarchive in Archived. Only what you can do now shows; there’s no Delete in the swipe (it’s in the group’s menu), and Home has no swipe.
+- Recently deleted shows Delete forever only when it can be done now; before, its creator saw a greyed-out one during the first week.
+- Opera, Brave and Vivaldi: “This browser can’t turn speech into text” now has a **Use AI for voice** button that switches voice to AI in one tap (or opens AI features to add a key when no key can serve you).
+- App admins aren’t held to the app’s own AI limits (per person, per hour and the daily budget); Google’s limits on the key still apply.
+
 ## 9.7.0 — October 2026
 
 - Quick add reads a spoken story on your phone, without AI: someone left out in plain words (“Aradhana was not a part of that lunch”, “I wasn’t there”, “Rohan didn’t come”), “only Rohan and Priya ate”, “me and Rohan only”, names without commas (“between me Rahul and Priya”), “Neha and I had pizza”, “500 each”, “the share was 2x3” (and who had more), “Rahul had 3 and I had 1”, and amounts in words (“twelve hundred”). Before, these were split equally among everyone, or the cost came out wrong.
