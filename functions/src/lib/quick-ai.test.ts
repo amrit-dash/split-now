@@ -345,6 +345,8 @@ describe('sharersFromLine: names', () => {
     // the model said everyone: the words still leave Neha out
     expect(sharersFromLine(line, g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
     expect(sharersFromLine('dinner 1200, Rohan didn’t come', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'n'])
+    // the model kept only the payer: "I wasn't there" is still everyone but the writer (Gemma eval, 24 Oct 2026)
+    expect(sharersFromLine('Neha paid 1500 for the cab, I wasn’t there', g, 'n', ['n'])).toEqual(['rs', 'rv', 'n', 'ro'])
   })
   it('“everyone but Neha” and “only Rohan and Neha ate” (eval misses, 24 Oct 2026)', () => {
     expect(sharersFromLine('beer 900 everyone but Neha', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])

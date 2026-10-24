@@ -513,7 +513,10 @@ export function sharersFromLine(text: string, g: QuickAiGroupIn, paidBy: string,
   // (shared/quick-exclude.ts). Before, naming them pulled them back in and the model's list was lost.
   const left = excludedPeople(text, g.members, 'me')
   if (left.length) {
-    const base = said?.length ? all.filter((p) => said.includes(p) || p === 'me' || p === paidBy) : all
+    // "X wasn't there" is everyone but X; only a line that lists who was there ("with", "between",
+    // "only") starts from the model's list instead.
+    const listed = /\b(?:with|between|among|amongst|only|just)\b/.test(t)
+    const base = listed && said?.length ? all.filter((p) => said.includes(p) || p === 'me' || p === paidBy) : all
     const out = base.filter((p) => !left.includes(p))
     return out.length === all.length ? undefined : out
   }

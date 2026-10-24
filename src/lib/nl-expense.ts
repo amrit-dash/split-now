@@ -883,7 +883,8 @@ export function mergeAiParse(local: NlParse, ai: AiTextExpense | null | undefine
  * Quick add with AI, after the phone read the same line in the same group: what the phone was sure
  * of wins over the AI's answer, and fills what the AI left out (owner, 24 Oct 2026: the free Gemma
  * dropped amounts and uneven parts the phone had read). Sure means: the amount it found, parts that
- * add up (`exact`), a payer the line names, the date, and who shares it when the line says.
+ * add up (`exact`), a payer the line names, the date, and who shares it when the line says (the
+ * phone's list comes from the words themselves: "with", "only", "X wasn't there").
  */
 export function firmUpPrefill(ai: QuickPrefill, local: NlParse): QuickPrefill {
   const out: QuickPrefill = { ...ai }
@@ -891,7 +892,7 @@ export function firmUpPrefill(ai: QuickPrefill, local: NlParse): QuickPrefill {
   if (local.exact && local.amount !== undefined && out.amount === local.amount) {
     out.exact = { ...local.exact }
     out.participants = Object.keys(local.exact)
-  } else if (local.participants?.length && !ai.participants?.length && !ai.exact) out.participants = [...local.participants]
+  } else if (local.participants?.length && !ai.exact) out.participants = [...local.participants]
   if (local.payerExplicit && !local.payerChoices?.length && !local.payerUnclear) out.payer = local.payer
   if (local.date && !ai.date) out.date = local.date
   if (!out.description && local.description) out.description = local.description
