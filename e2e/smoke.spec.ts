@@ -1638,6 +1638,25 @@ test('Quick add from Home: a group’s own word anywhere in the line picks it (�
   await expect(amountField(page)).toHaveValue(/900/)
 })
 
+test('Quick add: “remind Ananya …” opens Balances with just her, ready to Remind, and says who it left out', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  // Ananya owes you in the demo; you owe Meera; nobody is called Kabir.
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('remind Ananya, Meera and Kabir to pay')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/settle\?remind=/)
+  const shown = page.getByTestId('person-remind').getByTestId('person-card')
+  await expect(shown).toHaveCount(1)
+  await expect(shown).toContainText('Ananya')
+  await expect(shown.getByTestId('remind').first()).toBeVisible()
+  await expect(page.getByTestId('remind-note')).toContainText('Meera doesn’t owe you anything right now.')
+  await expect(page.getByTestId('remind-note')).toContainText('No one called Kabir is in your groups.')
+  await page.getByTestId('remind-show-all').click()
+  await expect(page.getByTestId('settle-view')).toBeVisible()
+  await expect(page.getByTestId('person-remind')).toHaveCount(0)
+})
+
 test('only the creator may delete a group while they are in it', async ({ page }) => {
   // Meera created the seeded gig group and is still in it: no Delete in the menu for you.
   await page.goto('/groups/g_gig')

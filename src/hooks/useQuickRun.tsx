@@ -23,6 +23,7 @@ import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQui
 import type { GroupInText } from '@/lib/quick-group'
 import { quickGroupChoices } from '@/lib/quick-people'
 import { quickAiAllowed, quickRoute, quickRouteNoGroups } from '@/lib/quick-route'
+import { remindAsk } from '@/lib/quick-remind'
 import { useChoose, useConfirm } from '@/components/ConfirmSheet'
 import { Avatar } from '@/components/Avatar'
 import { GroupIcon } from '@/components/GroupIcon'
@@ -282,6 +283,9 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
     const { target, fresh } = q
     // Checked after every wait, so a stop while AI reads the line opens nothing.
     const stop = () => !!q.stopped?.()
+    // "Remind Rahul": Balances with just their card, where Remind is a tap away (the share sheet needs one).
+    const asked = remindAsk(q.text)
+    if (asked) return leave(`/settle?remind=${encodeURIComponent(asked.join(','))}`)
     // No groups yet: the line starts one (with AI when it asks for more than a plain line can say).
     if (!target) {
       if (aiAllowed && quickRouteNoGroups(q.text).route === 'ai') {

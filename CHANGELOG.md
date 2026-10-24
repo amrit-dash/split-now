@@ -6,6 +6,12 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.9.0 — October 2026
+
+- Voice with AI on iPhone and iPad: AI records on its own, with no words shown live while you talk (as on Android). iOS gives the microphone to one listener at a time, and running both risked a silent recording and no words at all.
+- Settle up in a private group: your friend's UPI ID now shows as soon as you unlock the group on that screen. Before, Settle up opened before unlocking stayed without it until you left and came back.
+- Quick add: “remind Rahul” (also “remind Rahul and Priya”, “ask Kiran to pay”, “remind everyone”) opens Balances with just them, ready to Remind or Nudge, and says who doesn’t owe you anything or isn’t in your groups. Before, Quick add didn’t understand the request.
+
 ## 9.8.1 — October 2026
 
 - Quick add from Home finds the group by any distinctive word of its name in what you said, misheard or not (“when we were in Kodai on 3rd October I paid…”, “after Coldplay…”), with no “in” needed. Before, “Kodai” was taken for a person nobody has and it asked which group. Common words (“trip”, “dinner”, “birthday”) never pick a group on their own, and inside a group the line stays there unless it names another one (“in Goa”, “during the Kodai trip”, “@flat”).

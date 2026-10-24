@@ -8,6 +8,7 @@ import { useMe } from '@/hooks/auth'
 import { ChequeIcon } from '@/components/ChequeIcon'
 import { computeGroupData, memberOrder, useAllGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { useOcr } from '@/hooks/useOcr'
+import { useVaultOpen, useVaultVersion } from '@/hooks/useVault'
 import type { Cents, MemberId, PaymentHandles } from '@/types'
 import type { MemberProfile } from '@/data/repo'
 import { centsToInput, currencySymbol, formatMoney, fromHundredths, groupedInput } from '@/lib/money'
@@ -189,6 +190,9 @@ export default function SettleUp() {
   }, [from, to, init])
 
   const toUid = group?.members[to]?.uid
+  // A private group's copy opens only with its key: read again once it's unlocked here (it was a token).
+  const vaultOpen = useVaultOpen(groupId)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: vaultOpen is the trigger, not read inside.
   useEffect(() => {
     setPayee(null)
     // Payment handles are shared per group (only co-members can read them). A slower answer for
@@ -204,7 +208,7 @@ export default function SettleUp() {
     return () => {
       live = false
     }
-  }, [toUid, groupId])
+  }, [toUid, groupId, vaultOpen])
 
   // Method: what was used to pay this person last time, else UPI when they have a UPI ID.
   const payeeUpi = !!payee?.payment?.upi?.trim()
@@ -1051,6 +1055,8 @@ export function SettleWithPerson() {
 
   // The recipient's payment handles: per group, so try each shared group until one has some.
   const recipientUid = toMe ? user.uid : p?.parts.find((r) => r.uid)?.uid
+  // A private group opened here: its copy can now be read (a token before).
+  const vaultV = useVaultVersion()
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the groups' values (majorKey), not the live balance object, so a saved settlement does not refetch the handles.
   useEffect(() => {
     setPayee(null)
@@ -1073,7 +1079,7 @@ export function SettleWithPerson() {
     return () => {
       off = true
     }
-  }, [majorKey, toMe, cur, user.uid, p?.net === 0])
+  }, [majorKey, toMe, cur, user.uid, p?.net === 0, vaultV])
 
   // Method: what was last used to pay this person in one of these groups, else UPI when they have a UPI ID.
   const payeeUpi = !!payee?.payment?.upi?.trim()

@@ -5,17 +5,8 @@ remove an item when its release merges, and add anything left half-done.
 
 ## Next batch
 
-- [ ] Quick add: "remind Rahul" (opens Remind for that person).
-
 ## Left from 9.2.0 – 9.5.0 (check by hand)
 
-- [ ] 9.5.0 private groups: in a real private group, save your profile, then open the group on the phone: Settle up there shows your UPI ID to the others (sealed copy), and Firestore shows only `v1:` tokens in groups/{gid}/profiles/{uid}.
-
-
-- [ ] Voice with AI on a real iPhone: do the live words show while AI records (the phone's recognition and the recording share the microphone)?
-- [ ] Draw a picture with the new prompt and backdrop rule: a few real pictures (scenes too) come out see-through.
-
-- [ ] Opera GX / Brave: “Use AI for voice” on the can’t-turn-speech-into-text message turns AI transcription on, and the mic then records (no Vosk: owner, 24 Oct 2026, AI voice instead).
 - [ ] Scan → Statement with AI off: try real GPay / PhonePe / bank screenshots (the parser is tested on typed text only).
 - [ ] The production outage of 22 Oct (every callable 500 before reaching the code, ~21:00–02:40 IST): cause not found; it cleared by itself. Read the Cloud Run logs for that window if it happens again.
 - [ ] Multi-group Balances card (someone in several groups) screenshot: the demo has no such person.

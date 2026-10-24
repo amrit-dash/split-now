@@ -46,7 +46,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Voice (9.1) | Quick add's mic, holding + to talk (its talk pill with live words, slide away to cancel, double tap to stop, answer and teaching bubbles), Settings → AI features → Voice (Phone | AI; its one home, owner 22 Oct 2026) | |
 | Group | Chat, Open, Balances, Activity tabs, graph view, sort and filter, trip capture line | Whose-turn chip |
 | Group menu | Insights and the rest | Money received, Export CSV |
-| Group balances, Balances | Remind and Nudge | |
+| Group balances, Balances | Remind and Nudge; Quick add’s “remind Rahul” (Balances with just them, owner 23 Oct 2026: all of the Quick add revamp is Simple) | |
 | Expense form | Every split type, Repeat, Save as an open item, icon picker, Split at the table, currency picker and the converted amount | Editing the exchange rate (the Expense / Money received switch shows in Simple too, owner Oct 2026; the group menu's Money received stays hidden) |
 | Expense detail | Everything | |
 | Settle up | Read from screenshot, method chips, note, Pay in ₹ instead with its Trip / Today rate choice (owner, 24 Oct 2026) | Waive the rest |

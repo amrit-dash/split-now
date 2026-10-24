@@ -217,9 +217,14 @@ export function browserName(ua: string): string {
  * Whether the phone's own recognition may run next to an AI recording, only to show the words live
  * (owner, 23 Oct 2026). Not on Android: Chrome there hands recognition to Google's app, a second
  * app on the microphone, and Android gives the microphone to one of them, so the recording (or the
- * recognition) heard nothing and the next press found the microphone "refused".
+ * recognition) heard nothing and the next press found the microphone "refused". Not on iPhone or
+ * iPad either (owner's call, 25 Oct 2026, untested on a real one): iOS gives the microphone to one
+ * listener at a time, and Siri's dictation beside a recording risks a silent recording, which loses
+ * the words AI was there to write. The live words are a nicety; the recording is the point. iPadOS
+ * Safari says "Macintosh", so a Mac with a touch screen (`touchPoints` > 1) counts as an iPad.
  */
-export const liveWordsBesideRecording = (ua: string): boolean => !/Android/i.test(ua)
+export const liveWordsBesideRecording = (ua: string, touchPoints = 0): boolean =>
+  !/Android|iPhone|iPad|iPod/i.test(ua) && !(/Macintosh/.test(ua) && touchPoints > 1)
 
 /**
  * A press that heard nothing, before voice has ever worked on this device: the permission prompt

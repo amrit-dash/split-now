@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.9.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Say “remind Rahul” to Quick add: Balances opens with just them, ready to Remind', section: 'remind-pay-me' },
+      { text: 'Voice with AI on iPhone and iPad records on its own, so no words get lost', section: 'voice' },
+      { text: 'A private group’s UPI ID shows in Settle up as soon as you unlock it', section: 'settle-up-upi' },
+    ],
+  },
+  {
     version: '9.8.1',
     date: 'October 2026',
     items: [
