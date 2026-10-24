@@ -419,7 +419,7 @@ export const SECTIONS: HelpSection[] = [
       'In a group, a tap still adds an expense. Holding is for talking.',
       'A line it can’t act on gets a short answer instead.',
       'The first time, your phone asks for the microphone. Allow it, then hold + again.',
-      'Microphone blocked? It says where to allow it again.',
+      'Microphone blocked? It says where to allow it again. On Android the app asks Chrome: Chrome → ⋮ → Settings → Site settings → Microphone → Split Now’s address → Allow.',
       'On a computer, Chrome, Edge and Safari listen. Opera and Brave use their on-device recogniser where they have one, or AI if you turn it on.',
       'No voice at all here? Holding + opens the Create sheet as before.',
       'Settings → AI features → Voice: **Phone** listens for free. **AI** sends the recording to Google’s Flash-Lite, on your own Gemini key first, then Split Now’s. Your words show as you talk (not with AI on Android); with AI, its text replaces them when you let go.',

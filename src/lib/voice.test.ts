@@ -105,7 +105,11 @@ describe('micFailure and micProblemText', () => {
   })
   it('a refusal the browser will ask about again asks; a remembered block says where the switch is', () => {
     expect(micProblemText('refused', 'prompt', phone)).toMatch(/when your phone asks/)
-    expect(micProblemText('refused', 'denied', phone)).toMatch(/App info → Permissions → Microphone/)
+    // An installed app on Android: Chrome holds the permission for the site, App info has none.
+    expect(micProblemText('refused', 'denied', { ...phone, host: 'split-now.web.app' })).toBe(
+      'Chrome has the microphone blocked for split-now.web.app. Open Chrome → ⋮ → Settings → Site settings → Microphone → split-now.web.app → Allow, then try again.',
+    )
+    expect(micProblemText('refused', 'denied', phone)).not.toMatch(/App info/)
     expect(micProblemText('refused', 'denied', { ...phone, standalone: false })).toMatch(/Site settings/)
     expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: false })).toMatch(/Safari/)
     expect(micProblemText('busy', 'granted', phone)).toMatch(/Another app/)

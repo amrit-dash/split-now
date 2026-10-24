@@ -123,7 +123,12 @@ function whenAllowed(f: () => void) {
 
 const where = () => {
   const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent
-  return { android: /Android/i.test(ua), ios: /iPhone|iPad|iPod/.test(ua), standalone: isStandalone() }
+  return {
+    android: /Android/i.test(ua),
+    ios: /iPhone|iPad|iPod/.test(ua),
+    standalone: isStandalone(),
+    host: typeof location === 'undefined' ? undefined : location.host,
+  }
 }
 
 /**
