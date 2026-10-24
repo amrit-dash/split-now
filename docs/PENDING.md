@@ -5,7 +5,6 @@ remove an item when its release merges, and add anything left half-done.
 
 ## Next batch
 
-- [ ] Quick add: "remind Rahul" (opens Remind for that person).
 
 ## Left from 9.2.0 – 9.5.0 (check by hand)
 

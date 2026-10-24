@@ -390,6 +390,7 @@ export const SECTIONS: HelpSection[] = [
       'It can’t make you a sandwich. It says what it can do instead.',
       'Your phone reads it first, free: “they paid”, “Rahul owes 400”, “60/40”, “Rahul 2 shares”, “everyone except Rohan”, “hotel 6000, Priya 4000”.',
       '“paid Rahul 500 back” or “Priya paid me 300” opens Settle up, filled in.',
+      '“remind Rahul” (or “remind everyone”) opens Balances with just them, ready to **Remind** or **Nudge**.',
       'Outside a group, any word of a group’s name you say picks it, even misheard (“when we were in Kodai”, “codai trip” both find Kodai Trip), and so do the people you name. When two fit, or none does, it asks which.',
       'Inside a group, the line goes there unless it names another group: “in Goa”, “during the Kodai trip”, “@flat”.',
       'Spoken stories work too: “Priya wasn’t part of that lunch”, “I wasn’t there”, “only Rohan and Priya ate”, “500 each”, “the share was 2:3”, “twelve hundred”.',
@@ -1352,6 +1353,7 @@ export const SECTIONS: HelpSection[] = [
     ],
     points: [
       'The link works without an account.',
+      'Or say it to Quick add: “remind Rahul” shows just Rahul, with Remind a tap away.',
       'With your UPI ID set, a rupee amount gets a UPI QR.',
       'A link lasts 30 days and closes once paid.',
       'Open your own link to check it, or **Cancel this link**.',

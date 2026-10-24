@@ -29,6 +29,7 @@ import { Celebrate } from '@/components/Celebrate'
 import { PersonRemindActions, RemindActions } from '@/components/RemindActions'
 import { usePageTitle } from '@/lib/brand'
 import { type Hint, HintText } from '@/components/Hint'
+import { remindMatches, remindNote } from '@/lib/quick-remind'
 
 const BALANCES_HINT: Hint = { full: 'Across all your groups and 1:1s', tier: 'extra' }
 
@@ -67,7 +68,10 @@ export default function SettleAll() {
   const feed = useRecentActivity(owedIds)
   const chase: Chase = useMemo(() => ({ groups: Object.fromEntries((data ?? []).map((d) => [d.group.id, d.group])), feed }), [data, feed])
   const [params, setParams] = useSearchParams()
-  const view: View = params.get('view') === 'group' ? 'group' : 'person'
+  // Quick add's "remind Rahul": just the people asked for, by person (src/lib/quick-remind.ts).
+  const remind = params.get('remind')?.split(',').filter(Boolean) ?? null
+  const everyone = useMemo(() => (data ?? []).flatMap((d) => Object.values(d.group.members).map((m) => m.name)), [data])
+  const view: View = !remind && params.get('view') === 'group' ? 'group' : 'person'
   const setView = (v: View) => setParams(v === 'person' ? {} : { view: v }, { replace: true })
   // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
   const collect = collectsInHome(profile)
@@ -101,19 +105,24 @@ export default function SettleAll() {
         <AllSettled />
       ) : (
         <div className="space-y-6" data-testid="settle-all">
-          <Totals rows={rows} home={home} rates={collect && rowRates ? rates : undefined} rowRates={rowRates?.rates} />
-          <Segmented<View>
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'person', label: 'By person' },
-              { value: 'group', label: 'By group' },
-            ]}
-            label="Show balances"
-            testId="settle-view"
-          />
+          {!remind && (
+            <>
+              <Totals rows={rows} home={home} rates={collect && rowRates ? rates : undefined} rowRates={rowRates?.rates} />
+              <Segmented<View>
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'person', label: 'By person' },
+                  { value: 'group', label: 'By group' },
+                ]}
+                label="Show balances"
+                testId="settle-view"
+              />
+            </>
+          )}
           {view === 'person' ? (
             <ByPerson
+              remind={remind ? { asked: remind, everyone, clear: () => setParams({}, { replace: true }) } : undefined}
               rows={rows}
               chase={chase}
               home={home}
@@ -351,6 +360,7 @@ function RowAction({ r }: { r: SettleRow }) {
 /* ───────────────────────── By person ───────────────────────── */
 
 function ByPerson({
+  remind,
   rows,
   chase,
   home,
@@ -358,6 +368,8 @@ function ByPerson({
   rowRates,
   rowDays,
 }: {
+  /** Quick add's "remind Rahul": only them, with what wasn't found said above */
+  remind?: { asked: string[]; everyone: string[]; clear: () => void }
   rows: SettleRow[]
   chase: Chase
   home: string
@@ -380,6 +392,27 @@ function ByPerson({
       ))}
     </div>
   )
+
+  if (remind) {
+    const m = remindMatches(remind.asked, people, remind.everyone)
+    const shown = m.keys.map((k) => people.find((p) => p.key === k)).filter((p): p is PersonBalance | HomeBalance => !!p)
+    const note = remindNote(m)
+    return (
+      <Section title="Remind" testId="person-remind">
+        {note.length > 0 && (
+          <div className="card mb-3 space-y-1 px-4 py-3 text-sm" data-testid="remind-note">
+            {note.map((t) => (
+              <p key={t}>{t}</p>
+            ))}
+          </div>
+        )}
+        {shown.length > 0 ? list(shown) : !note.length && <EmptyLine text="Nobody owes you right now." />}
+        <button type="button" className="btn-ghost mt-3 min-h-11 w-full" onClick={remind.clear} data-testid="remind-show-all">
+          Show everyone
+        </button>
+      </Section>
+    )
+  }
 
   return (
     <>
