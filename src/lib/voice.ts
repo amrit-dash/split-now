@@ -87,13 +87,17 @@ export function micPreflight(o: { perm: MicPermission; okBefore: boolean }): 'go
   return o.okBefore ? 'go' : 'ask'
 }
 
-/** What went wrong opening the microphone, from the DOMException's name (getUserMedia). */
-export type MicFailure = 'refused' | 'busy' | 'missing' | 'insecure' | 'other'
-export function micFailure(name: string | undefined): MicFailure {
+/**
+ * What went wrong opening the microphone, from the DOMException's name (getUserMedia). Chromium
+ * browsers say "Permission denied by system" when the computer or phone, not the site, keeps the
+ * microphone from the browser: 'system' (owner's Mac, Opera GX, 24 Oct 2026: no site block at all).
+ */
+export type MicFailure = 'refused' | 'system' | 'busy' | 'missing' | 'insecure' | 'other'
+export function micFailure(name: string | undefined, message?: string): MicFailure {
   switch (name) {
     case 'NotAllowedError':
     case 'PermissionDeniedError':
-      return 'refused'
+      return /system/i.test(message ?? '') ? 'system' : 'refused'
     case 'NotReadableError':
     case 'TrackStartError':
     case 'AbortError':
@@ -113,20 +117,97 @@ export function micFailure(name: string | undefined): MicFailure {
 /**
  * Plain words for a microphone that couldn't be used. `perm` tells a refusal the browser now
  * remembers ('denied': only the site settings can undo it) from one it will ask about again.
- * `android` / `ios` name where the switch is.
+ * `android` / `ios` name where the switch is; `host` is the site's address, as Chrome lists it.
+ * An app added to an Android home screen has no Microphone of its own in App info: Chrome holds the
+ * permission for the site (and keeps it when the app is removed), and Android holds Chrome's own;
+ * the browser reports either as blocked, so the steps name both (owner's phone, 24 Oct 2026: Chrome's).
  */
-export function micProblemText(f: MicFailure, perm: MicPermission, where: { android: boolean; ios: boolean; standalone: boolean }): string {
-  if (f === 'refused' || perm === 'denied') {
-    if (perm !== 'denied') return 'Allow the microphone when your phone asks, then try again.'
-    if (where.ios) return 'The microphone is off for Split Now. Turn it on in Settings → Apps → Safari → Microphone (or the site’s aA menu), then try again.'
-    if (where.android && where.standalone)
-      return 'The microphone is off for Split Now. Press and hold the app’s icon → App info → Permissions → Microphone → Allow, then try again.'
-    return 'The microphone is blocked for this site. Tap the icon left of the address (or ⋮ → Site settings) → Microphone → Allow, then try again.'
+export interface MicWhere {
+  android: boolean
+  ios: boolean
+  standalone: boolean
+  host?: string
+  mac?: boolean
+  windows?: boolean
+  /** browserName(): how the device's Settings lists the browser */
+  browser?: string
+}
+
+/** Where a computer or phone keeps the microphone from the browser itself (not the site). */
+function deviceSwitch(w: MicWhere, app: string): string {
+  if (w.ios) return `Settings → Apps → ${app} → Microphone`
+  if (w.android) return `Android Settings → Apps → ${app} → Permissions → Microphone`
+  if (w.mac) return `System Settings → Privacy & Security → Microphone → ${app}`
+  if (w.windows) return 'Windows Settings → Privacy & security → Microphone (and “Let desktop apps access your microphone”)'
+  return 'your device’s privacy settings'
+}
+
+/** Where the browser keeps its per-site switch, browser by browser. */
+function siteSwitch(w: MicWhere, app: string): string {
+  const host = w.host || 'this site'
+  if (w.ios) return app === 'Safari' || !app ? 'the aA menu in the address bar → Website Settings → Microphone → Allow' : `${app}’s site settings → Microphone`
+  if (w.android) {
+    if (app === 'Samsung Internet') return `☰ → Settings → Sites and downloads → Site permissions → Microphone → ${host}`
+    if (app === 'Firefox') return 'the lock left of the address → Microphone → Allow'
+    return 'the icon left of the address → Permissions → Microphone → Allow (or ⋮ → Settings → Site settings → Microphone)'
   }
-  if (f === 'busy') return 'Another app is using the microphone. Close it (a call, a recorder, an assistant) and try again.'
-  if (f === 'missing') return 'No microphone was found.'
+  if (app === 'Firefox') return 'the crossed-out microphone (or the lock) left of the address → clear “Blocked”'
+  if (app === 'Safari') return `Safari → Settings for ${host} → Microphone → Allow`
+  return 'the icon left of the address → Site settings → Microphone → Allow'
+}
+
+export function micProblemText(f: MicFailure, perm: MicPermission, where: MicWhere): string {
+  const app = where.browser || (where.ios ? 'Safari' : '')
+  const appName = app || 'your browser'
+  const desktop = !where.android && !where.ios
+  // The computer or phone itself keeps the microphone from the browser (Chromium says "by system").
+  if (f === 'system') {
+    const reopen = desktop ? `, reopen ${appName}` : ''
+    return `Your ${where.mac ? 'Mac' : where.windows ? 'computer' : 'phone'} is keeping the microphone from ${appName}. Turn it on in ${deviceSwitch(where, appName)}${reopen}, then try again.`
+  }
+  if (f === 'refused' || perm === 'denied') {
+    if (perm !== 'denied') return `Allow the microphone when your ${desktop ? 'browser' : 'phone'} asks, then try again.`
+    // An installed iPhone app follows Safari's switch; Android's follows Chrome's site settings and Chrome's own.
+    if (where.ios && where.standalone) return 'The microphone is off for Split Now. Turn it on in Settings → Apps → Safari → Microphone, then reopen Split Now.'
+    if (where.ios)
+      return `The microphone is off for Split Now. Turn it on in ${siteSwitch(where, app)}, or Settings → Apps → ${app} → Microphone. Then try again.`
+    if (where.android && where.standalone && (!app || app === 'Chrome'))
+      return `The microphone is blocked. Allow it in Android Settings → Apps → Chrome → Permissions → Microphone, and in Chrome → ⋮ → Settings → Site settings → Microphone → ${where.host || 'this site'}. Then try again.`
+    // A browser reports "denied" for a block on the device too, so both switches are named.
+    if (where.android || where.mac || where.windows)
+      return `The microphone is blocked. Allow it for this site (${siteSwitch(where, app)}) and for ${appName} in ${deviceSwitch(where, appName)}. Then try again.`
+    return `The microphone is blocked for this site. Allow it in ${siteSwitch(where, app)}, then try again.`
+  }
+  // Some browsers report a device-level block as "busy" (Windows) or "no microphone" (Firefox on a Mac).
+  if (f === 'busy')
+    return `Another app is using the microphone. Close it (a call, a recorder, an assistant) and try again.${where.windows || where.mac ? ` If nothing is, allow ${appName} in ${deviceSwitch(where, appName)}.` : ''}`
+  if (f === 'missing')
+    return `No microphone was found.${desktop && (where.mac || where.windows) ? ` If one is connected, allow ${appName} in ${deviceSwitch(where, appName)}.` : ''}`
   if (f === 'insecure') return 'The microphone only works on the secure (https) app.'
   return 'Couldn’t open the microphone. Try again, or type it.'
+}
+
+/**
+ * The browser's own recognition was refused but the microphone opens: on Apple's devices that is
+ * Speech Recognition (a separate switch from the microphone); elsewhere the browser's speech service.
+ */
+export function speechRefusedText(where: MicWhere): string {
+  const app = where.browser || 'Safari'
+  if (where.ios)
+    return `Speech recognition is off for ${app}. Turn it on in Settings → Privacy & Security → Speech Recognition (and Siri & Dictation), then try again.`
+  if (where.mac) return `Speech recognition is off for ${app}. Turn it on in System Settings → Privacy & Security → Speech Recognition, then try again.`
+  return 'This browser’s speech service refused. Try again, or turn on Transcribe with AI in Settings → AI features.'
+}
+
+/** The browser's own name for the steps (Settings lists apps by it); '' when it can't be told. */
+export function browserName(ua: string): string {
+  if (/OPR\/|Opera/.test(ua)) return 'Opera'
+  if (/Edg\//.test(ua)) return 'Microsoft Edge'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/Firefox\//.test(ua)) return 'Firefox'
+  if (/Chrome\//.test(ua)) return 'Chrome'
+  if (/Safari\//.test(ua)) return 'Safari'
+  return ''
 }
 
 /**

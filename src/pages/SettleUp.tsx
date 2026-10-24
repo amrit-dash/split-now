@@ -21,7 +21,10 @@ import { nettableRows, pendingSettlements, personBalances, personKey, signedAmou
 import { allocateAcrossGroups } from '@/lib/settleMulti'
 import { clearedFor, collectsInHome, inHome, payeeCollects, paidIn, payInLine, planInHome, type HomeBalance } from '@/lib/collect'
 import { useTodayRates } from '@/hooks/useFx'
-import { formatRate, getRate, type FxRate } from '@/lib/fx'
+import { useRowTripRates, useTripRates } from '@/hooks/useTripRate'
+import { defaultRateBasis, type RateBasis, rateGapLine, rowTripDates, tripRateDate } from '@/lib/trip-rate'
+import { formatRate, type FxRate } from '@/lib/fx'
+import { formatDate } from '@/lib/locale'
 import { lastMethod, rememberMethod } from '@/lib/recents'
 import { waitingTotal } from '@/lib/trust'
 import { needsOkOnCreate } from '../../shared/payment-ok'
@@ -31,7 +34,7 @@ import { todayISO, uid } from '@/lib/id'
 import { Avatar } from '@/components/Avatar'
 import { QrCode } from '@/components/QrCode'
 import { encodeQr } from '@/lib/qr'
-import { Empty, Loading, PageHeader, Spinner } from '@/components/Misc'
+import { Empty, Loading, PageHeader, Segmented, Spinner } from '@/components/Misc'
 import { MoneyInput } from '@/components/MoneyInput'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
 import { Switch } from '@/components/Switch'
@@ -112,8 +115,8 @@ export default function SettleUp() {
   const [payIn, setPayIn] = useState<boolean | null>(null)
   /** what changes hands in that currency (minor units); undefined = the exact conversion */
   const [paidTyped, setPaidTyped] = useState<number>()
-  /** ECB rate payment currency → group currency; undefined while loading, null when unavailable */
-  const [rate, setRate] = useState<FxRate | null>()
+  /** today's rate or the trip's (src/lib/trip-rate.ts), picked by hand; null = the group's default */
+  const [basisPicked, setBasisPicked] = useState<RateBasis | null>(null)
   const typeAmount = (v: number | undefined) => {
     setAmount(v)
     setAmountTouched(true)
@@ -218,15 +221,22 @@ export default function SettleUp() {
   const recipientCur = to && d && to === d.me ? profile.currency : payee?.currency
   const otherCur = recipientCur && groupCur && recipientCur !== groupCur ? recipientCur : undefined
   const prefersOther = to && d && to === d.me ? collectsInHome(profile) : payeeCollects(payee)
-  useEffect(() => {
-    setRate(undefined)
-    if (!otherCur || !groupCur) return
-    let live = true
-    getRate(otherCur, groupCur, todayISO()).then((r) => live && setRate(r))
-    return () => {
-      live = false
-    }
-  }, [otherCur, groupCur])
+  // The rate on the trip's last day as well as today's (owner, 24 Oct 2026): a Trip group starts on the trip's.
+  const tripDate = useMemo(
+    () =>
+      group && expenses
+        ? tripRateDate(
+            group,
+            expenses.map((e) => e.date),
+            todayISO(),
+          )
+        : null,
+    [group, expenses],
+  )
+  const rates = useTripRates(otherCur, groupCur, tripDate)
+  const basis: RateBasis = basisPicked ?? (group ? defaultRateBasis(group, tripDate) : 'today')
+  /** ECB rate payment currency → group currency on the day in use; undefined while loading, null when unavailable */
+  const rate = basis === 'trip' && tripDate && rates.trip ? rates.trip : rates.today
 
   if (group === null)
     return (
@@ -429,6 +439,22 @@ export default function SettleUp() {
                 : ''
             }
             status={conv?.status}
+            tripDate={tripDate && rates.trip ? rates.trip.date : null}
+            basis={basis}
+            onBasis={(b) => {
+              setBasisPicked(b)
+              setPaidTyped(undefined)
+            }}
+            gap={
+              converting && otherCur && rates.today && rates.trip && tripDate
+                ? rateGapLine({
+                    basis,
+                    atToday: clearedFor(0, due, cur, otherCur, rates.today.rate).expected,
+                    atTrip: clearedFor(0, due, cur, otherCur, rates.trip.rate).expected,
+                    format: (m) => formatMoney(m, otherCur),
+                  })
+                : null
+            }
           />
         )}
         {restAfter > 0 && showWaive && (
@@ -594,6 +620,10 @@ function PayInPanel({
   onPaid,
   line,
   status,
+  tripDate,
+  basis,
+  onBasis,
+  gap,
 }: {
   groupCur: string
   otherCur: string
@@ -606,6 +636,12 @@ function PayInPanel({
   onPaid: (v: number | undefined) => void
   line: string
   status?: string
+  /** the trip's rate date (src/lib/trip-rate.ts), when the group has one: today's rate or that day's */
+  tripDate: string | null
+  basis: RateBasis
+  onBasis: (b: RateBasis) => void
+  /** how far the other rate is ("₹240 more than at today’s rate") */
+  gap: string | null
 }) {
   const label = toMe ? `Collect in ${otherCur} instead` : `Pay ${recipient} in ${otherCur} instead`
   return (
@@ -618,11 +654,29 @@ function PayInPanel({
               ? 'Getting today’s rate…'
               : rate === null
                 ? 'No exchange rate right now (offline?). Pay in the group’s currency, or try again online.'
-                : `1 ${groupCur} = ${formatRate(1 / rate.rate)} ${otherCur} · ECB, ${rate.date}`}
+                : `1 ${groupCur} = ${formatRate(1 / rate.rate)} ${otherCur} · ECB, ${formatDate(rate.date)}`}
           </div>
         </div>
         <Switch checked={on} onChange={onToggle} label={label} disabled={!rate} testId="pay-in-switch" />
       </div>
+      {on && tripDate && (
+        <div className="mt-3" data-testid="pay-in-basis">
+          <Segmented<RateBasis>
+            value={basis}
+            onChange={onBasis}
+            label="Which day’s exchange rate"
+            options={[
+              { value: 'trip', label: `Trip · ${formatDate(tripDate)}` },
+              { value: 'today', label: 'Today' },
+            ]}
+          />
+          {gap && (
+            <p className="text-muted mt-1 text-center text-xs" data-testid="pay-in-gap">
+              {gap}
+            </p>
+          )}
+        </div>
+      )}
       {on && (
         <div className="mt-3">
           <div className="flex items-baseline justify-center gap-2">
@@ -937,12 +991,26 @@ export function SettleWithPerson() {
   // A combined key (person|*, from Balances with Collect in my currency): every currency, in yours.
   const combined = key.endsWith('|*')
   const rates = useTodayRates(home, combined && rows ? rows.map((r) => r.currency) : [])
+  // Trips in another currency at the trip's rate, as in each group's own Settle up; Today puts every group on today's.
+  const [basisPicked, setBasisPicked] = useState<RateBasis | null>(null)
+  const basis: RateBasis = basisPicked ?? 'trip'
+  /** the choice changed: fill in the new total once it's worked out */
+  const [refill, setRefill] = useState(false)
+  /** the trip day of each row that has one (whatever the choice), for the choice and the payment's record */
+  const tripDays = useMemo(() => {
+    if (!combined || !rows || !data) return {}
+    const groups = Object.fromEntries(
+      data.map((d) => [d.group.id, { type: d.group.type, endDate: d.group.endDate, expenseDates: d.expenses.map((e) => e.date) }]),
+    )
+    return rowTripDates(rows, groups, home, todayISO())
+  }, [combined, rows, data, home])
+  const rowRates = useRowTripRates(combined ? rows : null, data, home, basis)
   const people = useMemo<(PersonBalance | HomeBalance)[] | null>(() => {
     if (!rows) return null
     const list = personBalances(rows)
     if (!combined) return list
-    return rates ? inHome(list, home, rates) : null
-  }, [rows, combined, rates, home])
+    return rates && rowRates ? inHome(list, home, rates, rowRates.rates, rowRates.days) : null
+  }, [rows, combined, rates, rowRates, home])
   /** frozen while saving: each saved settlement changes the live balance under us */
   const [snap, setSnap] = useState<PersonBalance | HomeBalance | null>(null)
   const p = snap ?? people?.find((x) => x.key === key) ?? null
@@ -974,6 +1042,12 @@ export function SettleWithPerson() {
     setAmount(p.net === 0 ? undefined : Math.abs(p.net))
     setMethod(settleMethods(p.currency)[0])
   }, [p, init])
+  // Trip rates ↔ Today: the total at the other rates, once they're in.
+  useEffect(() => {
+    if (!refill || !p) return
+    setRefill(false)
+    setAmount(p.net === 0 ? undefined : Math.abs(p.net))
+  }, [p, refill])
 
   // The recipient's payment handles: per group, so try each shared group until one has some.
   const recipientUid = toMe ? user.uid : p?.parts.find((r) => r.uid)?.uid
@@ -1083,7 +1157,9 @@ export function SettleWithPerson() {
         const counter = even || (homePlan ? !!a.counter : Math.sign(signedAmount(r)) !== Math.sign(p.net))
         // The part of the payment that went to this group, when it's in another currency than the money.
         const paid =
-          approx && !counter && r.currency !== cur && a.paid && 'rates' in p ? paidIn(cur, a.paid, 1 / (p as HomeBalance).rates[r.key], todayISO()) : undefined
+          approx && !counter && r.currency !== cur && a.paid && 'rates' in p
+            ? paidIn(cur, a.paid, 1 / (p as HomeBalance).rates[r.key], (basis === 'trip' && tripDays[r.key]) || todayISO())
+            : undefined
         await repo.saveSettlement({
           id: uid('s_'),
           groupId: r.groupId,
@@ -1257,16 +1333,40 @@ export function SettleWithPerson() {
             )}
           </div>
         )}
+        {approx && Object.keys(tripDays).length > 0 && (
+          <div className="mt-3" data-testid="settle-person-basis">
+            <Segmented<RateBasis>
+              value={basis}
+              onChange={(b) => {
+                setBasisPicked(b)
+                setRefill(true)
+              }}
+              label="Which day’s exchange rate"
+              options={[
+                { value: 'trip', label: 'Trip rates' },
+                { value: 'today', label: 'Today' },
+              ]}
+            />
+          </div>
+        )}
         {approx && (
           <p className="text-muted mt-3 text-xs" data-testid="settle-person-approx">
             <HintText
               as="span"
               className=""
-              hint={{
-                full: 'Converted at today’s ECB rate. Paying within 4% of the total clears it all. Each group records its own currency.',
-                short: 'At today’s ECB rate. Within 4% clears it all.',
-                tier: 'key',
-              }}
+              hint={
+                basis === 'trip' && Object.keys(tripDays).length > 0
+                  ? {
+                      full: 'Trips convert at the rate on the day each ended, the rest at today’s ECB rate. Paying within 4% of the total clears it all. Each group records its own currency.',
+                      short: 'Trips at their own rate, the rest at today’s. Within 4% clears it all.',
+                      tier: 'key',
+                    }
+                  : {
+                      full: 'Converted at today’s ECB rate. Paying within 4% of the total clears it all. Each group records its own currency.',
+                      short: 'At today’s ECB rate. Within 4% clears it all.',
+                      tier: 'key',
+                    }
+              }
             />
           </p>
         )}

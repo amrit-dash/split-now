@@ -4,6 +4,7 @@ import { formatMoney } from './money'
 import { groupThreshold, shortMoney } from './approval'
 import { FREQ_LABEL } from './recurrence'
 import { formatDate } from './locale'
+import { olderRateDay } from './trip-rate'
 import { isReceived } from '../../shared/received'
 
 /**
@@ -241,7 +242,8 @@ export function settlementActivity(
   reason?: string,
 ): NewActivity {
   // Paid in another currency: what changed hands too ("… $12.50, paid ₹1,045").
-  const paid = s.paid ? `, paid ${money(s.paid.amount, s.paid.currency)}` : ''
+  const older = olderRateDay(s.paid, s.date)
+  const paid = s.paid ? `, paid ${money(s.paid.amount, s.paid.currency)}${older ? ` at the ${formatDate(older)} rate` : ''}` : ''
   const what = `${ctx.memberName(s.from)} → ${ctx.memberName(s.to)} ${money(s.amount, ctx.currency)}${paid}`
   const text = {
     created: `${ctx.actorName} recorded a payment: ${what}`,

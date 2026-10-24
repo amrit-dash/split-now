@@ -7,7 +7,7 @@
  * Pure apart from the session counter; the repo writes it (Repo.reportError).
  */
 
-export type AppErrorKind = 'crash' | 'unhandled' | 'save' | 'voice'
+export type AppErrorKind = 'crash' | 'unhandled' | 'save' | 'voice' | 'layout'
 
 export interface AppErrorReport {
   uid: string

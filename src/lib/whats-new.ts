@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.6.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Settle a trip at the trip’s exchange rate or today’s', section: 'settle-up-upi' },
+      { text: 'Balances and Pay me links use each trip’s own rate too', section: 'money-preferences' },
+      { text: 'New group suggests keeping the group in your currency', section: 'foreign-currency' },
+    ],
+  },
+  {
     version: '9.5.0',
     date: 'October 2026',
     items: [

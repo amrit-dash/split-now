@@ -28,7 +28,7 @@ Status: **decided** = the owner's call (22 Oct 2026). **proposed** = waiting for
 | Settings → AI features | Use AI, free AI (when the admin offers it), Voice (when the admin's transcription switch is on), Your key and models | Per-feature switches, icons |
 | Settings → Data, Admin | As is | |
 | Scan | Camera and Photo per kind, the AI switch in the Bill and Statement cards' corner (owner, 24 Oct 2026); on every tab the line saying who reads it (Google Gemini or this phone) and the "Nothing is added until…" foot | |
-| New group, Edit group | Everything else | Approvals section (all off by default) |
+| New group, Edit group | Everything else, the “keep it in your currency” suggestion under Currency (owner, 24 Oct 2026) | Approvals section (all off by default) |
 | Members | Everything else | Merge, "Needs my OK" switch |
 | Live table, private groups | Shown | |
 | Help | Simple's sections, the Simple and Advanced section | Sections for features Simple hides |
@@ -49,7 +49,7 @@ Simple keeps nearly every everyday feature; it differs mostly in Settings and a 
 | Group balances, Balances | Remind and Nudge | |
 | Expense form | Every split type, Repeat, Save as an open item, icon picker, Split at the table, currency picker and the converted amount | Editing the exchange rate (the Expense / Money received switch shows in Simple too, owner Oct 2026; the group menu's Money received stays hidden) |
 | Expense detail | Everything | |
-| Settle up | Read from screenshot, method chips, note | Waive the rest |
+| Settle up | Read from screenshot, method chips, note, Pay in ₹ instead with its Trip / Today rate choice (owner, 24 Oct 2026) | Waive the rest |
 | Inbox | Every item, sort pickers, bulk add | Auto-capture promo |
 | Insights | Everything | |
 | Settings → Data | Everything | |

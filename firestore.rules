@@ -268,7 +268,7 @@ service cloud.firestore {
         && request.resource.data.at is int
         && request.resource.data.at > request.time.toMillis() - 600000
         && request.resource.data.at < request.time.toMillis() + 300000
-        && request.resource.data.kind in ['crash', 'unhandled', 'save', 'voice']
+        && request.resource.data.kind in ['crash', 'unhandled', 'save', 'voice', 'layout']
         && request.resource.data.message is string && request.resource.data.message.size() <= 500
         && request.resource.data.get('stack', '') is string && request.resource.data.get('stack', '').size() <= 3000
         && request.resource.data.get('route', '') is string && request.resource.data.get('route', '').size() <= 200

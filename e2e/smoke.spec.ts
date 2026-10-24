@@ -630,10 +630,7 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
-  await page
-    .getByTestId('choose-sheet')
-    .getByRole('radio', { name: /Leave Rahul out/ })
-    .click()
+  await leaveRahulOutIfAsked(page)
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
   // Remembered: the next time goes straight to the device's recogniser.
   expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
@@ -643,18 +640,27 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
  * The browser's microphone permission, faked: the Permissions API answers `state`, and getUserMedia
  * waits `delay` ms (a prompt being answered) before giving a silent stream, or refuses when blocked.
  */
-async function fakeMicPermission(page: Page, state: 'prompt' | 'denied', delay = 0) {
+/** Quick add asks about Rahul (no Rahul in the demo's Goa Trip) only when the words reached "with Rahul" before letting go. */
+async function leaveRahulOutIfAsked(page: Page) {
+  const ask = page.getByTestId('choose-sheet').getByRole('radio', { name: /Leave Rahul out/ })
+  await expect(ask.or(page.getByRole('textbox', { name: 'Description', exact: true }))).toBeVisible()
+  if (await ask.isVisible()) await ask.click()
+}
+
+async function fakeMicPermission(page: Page, state: 'prompt' | 'denied' | 'deniedThenAllowed' | 'deniedBySystem', delay = 0) {
   await page.addInitScript(
     ([st, ms]) => {
-      const perm = { state: st as string, onchange: null }
+      // 'deniedThenAllowed': reported blocked, but asking again works (Chrome's own prompt for Android's switch, allowed)
+      // 'deniedBySystem': the device keeps the microphone from the browser (Chromium's own words)
+      const perm = { state: st === 'deniedThenAllowed' || st === 'deniedBySystem' ? 'denied' : (st as string), onchange: null }
       const w = window as unknown as Record<string, unknown>
       w.__perm = perm
       if (st === 'prompt') w.__promptMs = ms
       Object.defineProperty(navigator, 'permissions', { value: { query: () => Promise.resolve(perm) }, configurable: true })
       if (!navigator.mediaDevices) return
       navigator.mediaDevices.getUserMedia = () =>
-        st === 'denied'
-          ? Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+        st === 'denied' || st === 'deniedBySystem'
+          ? Promise.reject(new DOMException(st === 'denied' ? 'blocked' : 'Permission denied by system', 'NotAllowedError'))
           : new Promise((resolve) =>
               setTimeout(() => {
                 perm.state = 'granted'
@@ -684,10 +690,7 @@ test('Voice: the first hold asks for the microphone; letting go to answer it is 
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
-  await page
-    .getByTestId('choose-sheet')
-    .getByRole('radio', { name: /Leave Rahul out/ })
-    .click()
+  await leaveRahulOutIfAsked(page)
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
 })
 
@@ -701,9 +704,36 @@ test('Voice: a blocked microphone keeps the mic and says where to allow it; an o
   await expect(plus).toHaveAttribute('aria-label', /press and hold to talk/)
   await plus.hover()
   await page.mouse.down()
-  await expect(page.getByTestId('toasts')).toContainText(/blocked for this site|microphone is off/)
+  await expect(page.getByTestId('toasts')).toContainText(/microphone is blocked|microphone is off/)
   await page.mouse.up()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
+test('Voice: a device that keeps the microphone from the browser is named, not the site', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'deniedBySystem')
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('toasts')).toContainText(/is keeping the microphone from/)
+  await expect(page.getByTestId('toasts')).not.toContainText(/for this site/)
+  await page.mouse.up()
+})
+
+test('Voice: reported blocked, it still asks once, so Chrome can offer Android’s switch; allowed, it listens', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'deniedThenAllowed')
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(plus).toHaveAttribute('data-voice', 'listening')
+  await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
+  await expect(page.getByTestId('toasts')).not.toContainText(/blocked/)
+  await page.mouse.up()
+  await leaveRahulOutIfAsked(page)
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
 })
 
 test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {
@@ -1226,6 +1256,73 @@ test.describe('Collect in my currency', () => {
     await page.getByTestId('settle-record').click()
     await expect(page).toHaveURL(/\/groups\/g_nyc$/)
     await expect(page.getByTestId('payment-row').first()).toContainText('paid ₹1,060.00')
+  })
+
+  test('Settle up a trip at the trip’s rate or today’s: a trip starts on its own, and the payment says which day', async ({ page }) => {
+    await usdTripWithRates(page)
+    // The dollar was dearer on the trip (9 Oct, ₹88) than today (₹83.6).
+    await page.route('**/api.frankfurter.dev/**', (route) => {
+      const url = new URL(route.request().url())
+      const base = url.searchParams.get('base')
+      const day = url.pathname.split('/').pop() ?? ''
+      const usd = /^\d{4}-\d{2}-\d{2}$/.test(day) ? 88 : 83.6
+      const rates = base === 'USD' ? { INR: usd } : base === 'INR' ? { USD: 1 / usd } : {}
+      return route.fulfill({ json: { date: /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '2026-10-24', base, rates } })
+    })
+    await page.goto('/groups/g_nyc/settle?from=p_rohan&to=me&amount=1250')
+    const basis = page.getByTestId('pay-in-basis')
+    await expect(basis.getByRole('radio', { name: /Trip/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('pay-in-amount')).toHaveValue(/1,?100/)
+    await expect(page.getByTestId('pay-in-gap')).toContainText('more than at today’s rate')
+    await basis.getByRole('radio', { name: 'Today' }).click()
+    await expect(page.getByTestId('pay-in-amount')).toHaveValue(/1,?045/)
+    await expect(page.getByTestId('pay-in-gap')).toContainText('less than at the trip’s rate')
+    await basis.getByRole('radio', { name: /Trip/ }).click()
+    await page.getByTestId('settle-record').click()
+    await expect(page).toHaveURL(/\/groups\/g_nyc$/)
+    await expect(page.getByTestId('payment-row').first()).toContainText(/paid ₹1,100\.00 at the .*rate/)
+  })
+
+  test('Settling with someone across groups converts a trip at the trip’s rate too, with the same Trip / Today choice', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.route('**/api.frankfurter.dev/**', (route) => {
+      const url = new URL(route.request().url())
+      const base = url.searchParams.get('base')
+      const day = url.pathname.split('/').pop() ?? ''
+      const usd = /^\d{4}-\d{2}-\d{2}$/.test(day) ? 88 : 83.6
+      const rates = base === 'USD' ? { INR: usd } : base === 'INR' ? { USD: 1 / usd } : {}
+      return route.fulfill({ json: { date: /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '2026-10-24', base, rates } })
+    })
+    await page.goto('/settle')
+    // Until the rates arrive Rohan shows once per currency; then as one ≈ ₹ card.
+    const rohan = page.getByTestId('person-card').filter({ hasText: 'Rohan' })
+    await expect(rohan).toHaveCount(1)
+    await expect(rohan).toContainText('≈ ₹')
+    await rohan.getByTestId('person-settle-all').click()
+    const amount = page.getByTestId('settle-person-amount')
+    const value = async () => Number((await amount.inputValue()).replace(/[^\d.]/g, ''))
+    await expect(page.getByTestId('settle-person-basis').getByRole('radio', { name: 'Trip rates' })).toHaveAttribute('aria-checked', 'true')
+    await expect(amount).not.toHaveValue('')
+    const atTrip = await value()
+    await page.getByTestId('settle-person-basis').getByRole('radio', { name: 'Today' }).click()
+    await expect.poll(value).toBeLessThan(atTrip)
+    // $12.50 at ₹88 rather than ₹83.6: ₹55 apart
+    expect(Math.round(atTrip - (await value()))).toBe(55)
+  })
+
+  test('New group in another currency than yours suggests keeping it in yours', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.goto('/groups/new')
+    await page.getByRole('textbox', { name: /name/i }).first().fill('NYC again')
+    const more = page.getByRole('button', { name: /More options/ })
+    if (await more.count()) await more.click()
+    await page.getByRole('combobox', { name: 'Currency' }).click()
+    await page.getByRole('option', { name: /USD/ }).first().click()
+    const hint = page.getByTestId('group-currency-home')
+    await expect(hint).toContainText('Keep the group in INR')
+    await hint.getByTestId('group-currency-home-use').click()
+    await expect(page.getByTestId('group-currency-home')).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Currency' })).toContainText('INR')
   })
 
   test('Collect in my currency: one Pay me link in rupees clears the rupee and the dollar group', async ({ page }) => {

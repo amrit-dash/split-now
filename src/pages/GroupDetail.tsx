@@ -83,6 +83,7 @@ import { errText } from '@/lib/errors'
 import { inviteLink } from '@/lib/invite-link'
 import { usePageTitle } from '@/lib/brand'
 import { formatDate } from '@/lib/locale'
+import { rateDayNote } from '@/lib/trip-rate'
 import { saveCapturePrefs, tripCaptureNotice } from '@/lib/capture-settings'
 import { setTripPaused } from '@/lib/capture-filters'
 import * as payments from '@/lib/payments'
@@ -1328,7 +1329,13 @@ function ActivityList({
                       </div>
                       <MetaLine added={addedNote(r)}>
                         {methodLabel(r.s.method)} · {formatDate(r.s.date)}
-                        {r.s.paid && <> · paid {formatMoney(r.s.paid.amount, r.s.paid.currency)}</>}
+                        {r.s.paid && (
+                          <>
+                            {' '}
+                            · paid {formatMoney(r.s.paid.amount, r.s.paid.currency)}
+                            {rateDayNote(r.s.paid, r.s.date, formatDate)}
+                          </>
+                        )}
                         {r.s.proofPath && (
                           <>
                             {' · '}

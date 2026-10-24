@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { clearedFor, collectsInHome, homeKey, inHome, payeeCollects, paidIn, PAY_TOLERANCE, payInLine, personOf, planInHome, toleranceBand } from './collect'
+import {
+  clearedFor,
+  collectsInHome,
+  foldedTotals,
+  homeKey,
+  inHome,
+  payeeCollects,
+  paidIn,
+  PAY_TOLERANCE,
+  payInLine,
+  personOf,
+  planInHome,
+  toleranceBand,
+} from './collect'
 import { personBalances, type SettleRow } from './settleAll'
 
 // $12.50 owed, paid in rupees at 83.6 INR per USD: 1 INR = 1/83.6 USD.
@@ -97,6 +110,36 @@ describe('inHome (Collect in my currency on Balances)', () => {
     const mixed = personBalances([row({ key: 'a', currency: 'INR', amount: 20000, dir: 'owe' }), row({ key: 'b', currency: 'USD', amount: 1000, dir: 'owed' })])
     const [p] = inHome(mixed, 'INR', { USD: { rate: 83.6 } })
     expect(p.net).toBe(83600 - 20000)
+  })
+  it('a group’s own rate (a trip at the trip’s) wins over today’s for its row', () => {
+    const out = inHome(people, 'INR', { USD: { rate: 83.6 } }, { test: 88 })
+    const t2 = out.find((p) => p.key === homeKey('u:u2'))!
+    expect(t2.home).toEqual({ kerala: 154000, test: 110000 })
+    expect(t2.rates.test).toBe(88)
+    expect(t2.net).toBe(154000 + 110000)
+    expect(t2.rateDays).toBeUndefined()
+    expect(inHome(people, 'INR', { USD: { rate: 83.6 } }, { test: 88 }, { test: '2026-10-06' }).find((p) => p.key === homeKey('u:u2'))?.rateDays).toEqual({
+      test: '2026-10-06',
+    })
+  })
+  it('a group’s own rate is enough even with today’s missing', () => {
+    const out = inHome(people, 'INR', { USD: null }, { test: 88 })
+    expect(out.find((p) => p.key === homeKey('u:u2'))?.approx).toBe(true)
+  })
+})
+
+describe('foldedTotals (Balances’ two totals in one currency)', () => {
+  const rows = [
+    { key: 'a', currency: 'INR', amount: 10000, dir: 'owed' as const },
+    { key: 'b', currency: 'USD', amount: 1000, dir: 'owed' as const },
+    { key: 'c', currency: 'USD', amount: 500, dir: 'owe' as const },
+  ]
+  it('each row at its group’s rate, else today’s', () => {
+    expect(foldedTotals(rows, 'INR', { USD: { rate: 80 } })).toEqual({ owed: 10000 + 80000, owe: 40000 })
+    expect(foldedTotals(rows, 'INR', { USD: { rate: 80 } }, { b: 88 })).toEqual({ owed: 10000 + 88000, owe: 40000 })
+  })
+  it('null while a rate is missing', () => {
+    expect(foldedTotals(rows, 'INR', { USD: null })).toBeNull()
   })
 })
 

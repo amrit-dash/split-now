@@ -6,6 +6,14 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.6.0 — October 2026
+
+- Voice on any computer or phone: when the microphone can't be used, the message now names the switch that's actually off, for your browser and device. A Mac or Windows that keeps the microphone from the browser (System Settings or Windows Settings → Privacy → Microphone) is told apart from a site block, Safari's separate Speech Recognition switch is named on iPhone and Mac, and Firefox, Safari, Edge, Opera and Samsung Internet get their own steps. Before, every desktop browser was told to allow the site, even when the site wasn't blocked (Opera GX on a Mac).
+- Voice on an Android phone: when the microphone is reported blocked, holding + now asks for it once anyway, so Chrome can show its own prompt for Android’s switch (Chrome itself not allowed the microphone in Android’s settings) and voice carries on once allowed. If it stays blocked, the message names both places to allow it: Android Settings → Apps → Chrome → Permissions → Microphone, and Chrome → Settings → Site settings → Microphone → the app’s address. Before, it gave up without asking and pointed to the app’s App info, which has no Microphone switch for an installed web app.
+- Balances: people’s pictures are the same size in By person and By group (By group drew them smaller).
+- Settle up in your own currency for a group in another one (Pay in ₹ instead) now offers the trip’s exchange rate as well as today’s: **Trip** uses the rate on the day the trip ended (its end date, or its last expense), **Today** today’s. A Trip group starts on the trip’s rate, so a fall in the dollar after you’re back no longer shrinks what friends pay you back; the line under it says how much the other rate would differ, Balances, settling with someone across all your groups, and Remind’s Pay me links use each trip’s own rate too (settling across groups has the same Trip rates / Today choice), so one debt never shows two amounts; the payment says which day’s rate it used (“paid ₹5,280 at the 6 Oct rate”). Before, it always used today’s rate.
+- New group and Edit group: a group in another currency than yours (before its first expense) suggests keeping it in yours, with a Use ₹ button. Costs added in the other currency then keep their own day’s rate, so what people owe never drifts with the exchange rate.
+
 ## 9.5.0 — October 2026
 
 - Admin → AI: removing the project or transcription key is a small bin at the right of the section's heading, and asks first, instead of a third button beside Test; “Use another key” is now “Replace key”, on one line; with no transcription key, the line says just that.

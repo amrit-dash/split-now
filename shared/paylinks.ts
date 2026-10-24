@@ -38,6 +38,8 @@ export interface PayLinkPart {
   currency: string
   /** this group's share of the link amount, minor units of the link's currency */
   paid: number
+  /** the day of the exchange rate `paid` was worked out at, when not the day it is paid (a trip at the trip's rate, src/lib/trip-rate.ts) */
+  rateDate?: string
 }
 
 /** A link with `parts` holds at most this many groups (firestore.rules). */
@@ -334,7 +336,7 @@ export function planRecordParts(
           currency: l.currency,
           amount: p.paid,
           rate: Number((p.amount / 10 ** digits(p.currency) / (p.paid / 10 ** digits(l.currency))).toPrecision(10)),
-          rateDate: date,
+          rateDate: partRateDate(p.rateDate, date),
           source: 'ecb',
         }
       : undefined
@@ -347,6 +349,11 @@ export function planRecordParts(
     })
   })
   return { records, skipped }
+}
+
+/** A part's own rate day when it is a real day no later than the payment, else the payment's day. */
+export function partRateDate(given: unknown, paidOn: string): string {
+  return typeof given === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(given) && given <= paidOn ? given : paidOn
 }
 
 /** Whether "I've paid" records a payment in a group (one group, or each of `parts`), rather than only telling the payee. */
