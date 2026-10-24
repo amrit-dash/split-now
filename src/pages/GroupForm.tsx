@@ -36,6 +36,7 @@ import {
 import { getRate } from '@/lib/fx'
 import { approveJoinsShown, joinsOffBlocker, waitingRequests } from '@/lib/join-approval'
 import { useTodayRates } from '@/hooks/useFx'
+import { suggestHomeCurrency } from '@/lib/trip-rate'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
@@ -799,6 +800,22 @@ export default function GroupForm() {
           <FieldError id="group-budget-error" text={errors.budget} />
         </div>
       </div>
+      {suggestHomeCurrency({ groupCurrency: currency, homeCurrency: profile.currency, type, locked: lockCurrency }) && (
+        // Paying each other in your own currency: kept in it, each cost in the other keeps its day's rate (src/lib/trip-rate.ts).
+        <div className="-mt-2 rounded-2xl bg-brand-50 p-3 text-sm dark:bg-brand-500/10" data-testid="group-currency-home">
+          <p>
+            Paying each other in {profile.currency}? Keep the group in {profile.currency}. Costs in {currency} keep their day’s rate.
+          </p>
+          <button
+            type="button"
+            className="btn-secondary !min-h-10 mt-2 whitespace-nowrap !rounded-full !px-4 !py-0 text-sm"
+            onClick={() => void changeCurrency(profile.currency)}
+            data-testid="group-currency-home-use"
+          >
+            Use {profile.currency}
+          </button>
+        </div>
+      )}
       {lockCurrency && expenses && (
         <div className="-mt-2" data-testid="group-currency-locked">
           <HintText

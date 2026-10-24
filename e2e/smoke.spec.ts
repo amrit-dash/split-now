@@ -1228,6 +1228,46 @@ test.describe('Collect in my currency', () => {
     await expect(page.getByTestId('payment-row').first()).toContainText('paid ₹1,060.00')
   })
 
+  test('Settle up a trip at the trip’s rate or today’s: a trip starts on its own, and the payment says which day', async ({ page }) => {
+    await usdTripWithRates(page)
+    // The dollar was dearer on the trip (9 Oct, ₹88) than today (₹83.6).
+    await page.route('**/api.frankfurter.dev/**', (route) => {
+      const url = new URL(route.request().url())
+      const base = url.searchParams.get('base')
+      const day = url.pathname.split('/').pop() ?? ''
+      const usd = /^\d{4}-\d{2}-\d{2}$/.test(day) ? 88 : 83.6
+      const rates = base === 'USD' ? { INR: usd } : base === 'INR' ? { USD: 1 / usd } : {}
+      return route.fulfill({ json: { date: /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '2026-10-24', base, rates } })
+    })
+    await page.goto('/groups/g_nyc/settle?from=p_rohan&to=me&amount=1250')
+    const basis = page.getByTestId('pay-in-basis')
+    await expect(basis.getByRole('radio', { name: /Trip/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('pay-in-amount')).toHaveValue(/1,?100/)
+    await expect(page.getByTestId('pay-in-gap')).toContainText('more than at today’s rate')
+    await basis.getByRole('radio', { name: 'Today' }).click()
+    await expect(page.getByTestId('pay-in-amount')).toHaveValue(/1,?045/)
+    await expect(page.getByTestId('pay-in-gap')).toContainText('less than at the trip’s rate')
+    await basis.getByRole('radio', { name: /Trip/ }).click()
+    await page.getByTestId('settle-record').click()
+    await expect(page).toHaveURL(/\/groups\/g_nyc$/)
+    await expect(page.getByTestId('payment-row').first()).toContainText(/paid ₹1,100\.00 at the .*rate/)
+  })
+
+  test('New group in another currency than yours suggests keeping it in yours', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.goto('/groups/new')
+    await page.getByRole('textbox', { name: /name/i }).first().fill('NYC again')
+    const more = page.getByRole('button', { name: /More options/ })
+    if (await more.count()) await more.click()
+    await page.getByRole('combobox', { name: 'Currency' }).click()
+    await page.getByRole('option', { name: /USD/ }).first().click()
+    const hint = page.getByTestId('group-currency-home')
+    await expect(hint).toContainText('Keep the group in INR')
+    await hint.getByTestId('group-currency-home-use').click()
+    await expect(page.getByTestId('group-currency-home')).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Currency' })).toContainText('INR')
+  })
+
   test('Collect in my currency: one Pay me link in rupees clears the rupee and the dollar group', async ({ page }) => {
     await usdTripWithRates(page)
     await page.evaluate(() => {

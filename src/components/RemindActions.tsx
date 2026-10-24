@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PRIVATE_GROUP_NAME } from '../../shared/names'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
@@ -6,6 +6,8 @@ import { BellRingingIcon, ShareIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { useFlag } from '@/hooks/useAppConfig'
+import { useExpenses } from '@/hooks/data'
+import { todayISO } from '@/lib/id'
 import type { ActivityEntry, Cents, Group, MemberId } from '@/types'
 import { errText } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
@@ -14,7 +16,8 @@ import { buildPayLink, MAX_LINK_PARTS, nameForPayer, newPayLinkCode, payLinkFeat
 import { canNudgePerson, personNudgeItems, settlePersonHref, type PersonBalance } from '@/lib/settleAll'
 import { collectsInHome, type HomeBalance } from '@/lib/collect'
 import { convertMinor } from '@/lib/fx'
-import { useTodayRates } from '@/hooks/useFx'
+import { useTripRates } from '@/hooks/useTripRate'
+import { defaultRateBasis, tripRateDate } from '@/lib/trip-rate'
 import { andList, cardSpec, firstName, renderShareCard, shareReminder, type ReminderArgs } from '@/lib/share-card'
 import { useToast } from '@/components/Toast'
 
@@ -63,7 +66,21 @@ export function RemindActions({
   // records the group's own amount when paid. Without today's rate, it stays in the group's.
   const home = profile.currency
   const collect = collectsInHome(profile) && home !== group.currency
-  const rate = useTodayRates(home, collect ? [group.currency] : [])?.[group.currency]
+  // The same day's rate Settle up starts on (src/lib/trip-rate.ts): the trip's for a Trip group, so the link and the payment agree.
+  const expenses = useExpenses(collect ? group.id : undefined)
+  const tripDate = useMemo(
+    () =>
+      collect && expenses
+        ? tripRateDate(
+            group,
+            expenses.map((e) => e.date),
+            todayISO(),
+          )
+        : null,
+    [collect, expenses, group],
+  )
+  const rates = useTripRates(collect ? group.currency : undefined, home, tripDate)
+  const rate = defaultRateBasis(group, tripDate) === 'trip' && rates.trip ? rates.trip : rates.today
   const inHome = collect && rate ? convertMinor(amount, group.currency, home, rate.rate) : undefined
 
   const remind = () =>

@@ -46,6 +46,7 @@ import { bulkCandidates, sumCaptures, targetGroupFor, type BulkCandidate } from 
 import { bulkDuplicates, duplicateLine } from '@/lib/duplicates'
 import { todayISO, uid } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
+import { rateDayNote } from '@/lib/trip-rate'
 import { formatMoney } from '@/lib/money'
 import type { AllPrefs } from '@/lib/push'
 import { buildExpense } from '@/lib/statement'
@@ -525,7 +526,13 @@ function PaymentConfirmRow({ s, group, matched }: { s: Settlement; group: Group;
           <span className="text-muted block truncate text-xs">
             <span aria-hidden>{group.emoji} </span>
             {group.name} · {formatDate(s.date)}
-            {s.paid && <> · paid {formatMoney(s.paid.amount, s.paid.currency)}</>}
+            {s.paid && (
+              <>
+                {' '}
+                · paid {formatMoney(s.paid.amount, s.paid.currency)}
+                {rateDayNote(s.paid, s.date, formatDate)}
+              </>
+            )}
             {matched ? ' · cleared by their screenshot' : ''}
           </span>
         </span>
