@@ -346,6 +346,13 @@ describe('sharersFromLine: names', () => {
     expect(sharersFromLine(line, g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
     expect(sharersFromLine('dinner 1200, Rohan didn’t come', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'n'])
   })
+  it('“everyone but Neha” and “only Rohan and Neha ate” (eval misses, 24 Oct 2026)', () => {
+    expect(sharersFromLine('beer 900 everyone but Neha', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
+    expect(sharersFromLine('lunch 900, Rohan paid, only Rohan and Neha ate', g, 'ro', ['me', 'n', 'ro'])).toEqual(['n', 'ro'])
+    expect(sharersFromLine('taxi 700 Rohan paid, me and Rohan only', g, 'ro', undefined)).toEqual(['me', 'ro'])
+    // "all but I remember…" is not "everyone but me"
+    expect(sharersFromLine('split by all but I remember Neha was not there', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
+  })
   it('“for Rohan” is bought for Rohan; “with” shares it', () => {
     expect(sharersFromLine('lunch for Rohan 500', g, 'me', undefined)).toEqual(['ro'])
     expect(sharersFromLine('lunch for Rohan 500 with Neha', g, 'me', undefined)).toEqual(['me', 'n', 'ro'])
