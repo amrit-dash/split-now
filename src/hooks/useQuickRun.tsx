@@ -369,7 +369,8 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
             if (q.stopped?.()) return stayed
             if (r && r !== 'unknown') return r
           }
-          return createGroup('', q)
+          // Named after the people, not the group it was typed in: a 1:1 for one person (noGroupsPrefill).
+          return createGroup('', { ...q, picked: undefined })
         case 'askWho': {
           const g = groupOf(step.groupId)
           if (!g) return stayed

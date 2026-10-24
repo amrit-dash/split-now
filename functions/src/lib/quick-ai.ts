@@ -124,7 +124,7 @@ Their groups (id: name; members as id=name, the writer not listed):
 ${groups || '(none)'}
 ${
   r.groupId && r.groupIdSure
-    ? `The writer is inside ${r.groupId}: everything goes there unless the line names another group.`
+    ? `The writer is inside ${r.groupId}: everything goes there. People named who are also in other groups don't move it ("paid Rahul 500 back" stays in ${r.groupId}).`
     : r.groupId
       ? `The writer isn't inside a group. Choosing the group: a group the line names; else the group whose members include everyone the line names (the smallest such group, so a 1:1 for one person); else, when it names nobody, ${r.groupId}. Put other groups that fit just as well in otherGroupIds.`
       : ''
@@ -135,10 +135,11 @@ ${
     ? '- The writer has no groups yet, so the action is group_and_expense whatever the line says (unless it is not about a group or a cost: unknown).'
     : `- action group_and_expense when the line asks to create, start, make or set up a group${r.groupIdSure ? '' : ', or when it names people and no listed group has them all (the new group is the writer and those people)'}. Otherwise the action is for a listed group.`
 }
-- Who paid: "I paid", "paid by me", "on me" is "me". "Rahul paid", "paid by Rahul", "Rahul got it", "Rahul covered it" is Rahul. "they paid", "he paid", "she paid", "he got the bill" means the other person the line names (with one other person, that person; with several, the last one named). Never null when the line says who paid.
-- Who shares it: "with Rahul" means the writer and Rahul. The payer shares the cost unless the line says it was only for others ("I paid for Rahul's ticket": only Rahul; "for Rohan only": only Rohan). When the line names people, participants lists exactly them and the writer (and the payer), even when the group has more members. Only "everyone", "all of us", or a line naming nobody gives participants null (the whole group). "everyone except Rohan": every member but Rohan.
-- Uneven splits: "Rahul owes 400", "Rahul 700 rest me": splitMode amounts with those people (whoever isn't given an amount shares the rest). "60/40", "Rahul 30 percent": splitMode percent. "Rahul 2 shares, me 1": splitMode shares. Otherwise splitMode equal.
-- ${r.payments ? 'action payment when money was paid back or sent to settle up, not spent: "paid Rahul 500 back", "sent Priya 300", "Rohan paid me back 200", "settled up with Rahul 1000". paidBy is who sent it, paidTo who got it, amount the money, description null.' : 'Money paid back to settle up is an expense from the payer to the other person.'}
+- People: a full name ("Rahul Verma") is exactly that member, never another with the same first name.
+- Who paid: "I paid", "paid by me", "on me" is "me". "Rahul paid", "paid by Rahul", "Rahul got it", "Rahul covered it", "drinks on Rahul" is Rahul. "they paid", "he paid", "she paid", "he got the bill" means the other person the line names (with one other person, that person; with several, the last one named). Never null when the line says who paid.
+- Who shares it: "with Rahul" means the writer and Rahul. The payer shares the cost unless the line says it was only for others ("I paid for Rahul's ticket": only Rahul; "for Rohan only", "lunch for Rohan 500": only Rohan). When the line names people, participants lists exactly them and the writer (and the payer), even when the group has more members. Only "everyone", "all of us", or a line naming nobody gives participants null (the whole group). "everyone except Rohan": every member but Rohan.
+- Uneven splits: the first number is the total; a number right after a person's name is that person's part ("hotel 6000 Priya 4000": total 6000, Priya 4000, the rest the payer's). "Rahul owes 400", "Rahul 700 rest me": splitMode amounts with those people (whoever isn't given an amount shares the rest). "60/40", "Rahul 30 percent": splitMode percent. "Rahul 2 shares, me 1": splitMode shares. Otherwise splitMode equal.
+- ${r.payments ? 'action payment when money was paid back or sent to settle up, not spent: "paid Rahul 500 back", "sent Priya 300", "Rohan paid me back 200", "settled up with Rahul 1000". paidBy is who sent it, paidTo who got it, amount the money, description null. A refund from a shop, hotel or app ("got 500 back for the hotel", "refund 500") is not a payment between people: action expense.' : 'Money paid back to settle up is an expense from the payer to the other person.'}
 - open_item only when the writer says they are unsure who paid ("not sure who paid", "someone paid", "might have", "sort it out later"). A line that says who paid is never an open item.
 - A new group's name is short, in title case: the place or occasion the line names ("for my Bali trip" → "Bali Trip"), else the people ("Rahul & Priya"), else what the cost was for ("Dinner"). Never the writer's name alone.
 - newGroupMembers are every other person the line names, as written, in order ("with Rahul, Priya and Subramaniam" → Rahul, Priya, Subramaniam). Never the writer.
@@ -295,6 +296,11 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
     return out
   }
 
+  // Inside a group (its page, or picked), the answer stays there: the model sometimes moves "paid
+  // Rahul 500 back" to the 1:1 with Rahul. A group named in the line was already picked by the app.
+  const groupFor = (id: unknown) =>
+    (req.groupIdSure ? undefined : req.groups.find((x) => x.id === id)) ?? req.groups.find((x) => x.id === req.groupId) ?? req.groups.find((x) => x.id === id)
+
   // Other groups that fit as well, when the person wasn't in one: the app asks which.
   const alsoFits = (chosen: string) =>
     req.groupIdSure
@@ -308,7 +314,7 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
   }
 
   if (r.action === 'payment' && req.payments) {
-    const g = req.groups.find((x) => x.id === r.groupId) ?? req.groups.find((x) => x.id === req.groupId)
+    const g = groupFor(r.groupId)
     if (!g) return { action: 'unknown' }
     const person = groupPerson(g, isMe)
     const from = typeof r.paidBy === 'string' ? person(r.paidBy) : undefined
@@ -354,7 +360,7 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
 
   // An app without open items gets the line as an expense (it never asked for open_item).
   if (r.action === 'expense' || (r.action === 'open_item' && !req.openItems)) {
-    const g = req.groups.find((x) => x.id === r.groupId) ?? req.groups.find((x) => x.id === req.groupId)
+    const g = groupFor(r.groupId)
     if (!g) return { action: 'unknown' }
     const expense = base(groupPerson(g, isMe))
     if (!expense) return { action: 'unknown' }
@@ -369,7 +375,7 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
   }
 
   if (r.action === 'open_item') {
-    const g = req.groups.find((x) => x.id === r.groupId) ?? req.groups.find((x) => x.id === req.groupId)
+    const g = groupFor(r.groupId)
     if (!g || !description) return { action: 'unknown' }
     const person = groupPerson(g, isMe)
     const suspects = [
@@ -481,7 +487,10 @@ const word = (name: string) => new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${
  */
 export function sharersFromLine(text: string, g: QuickAiGroupIn, paidBy: string, said: string[] | undefined): string[] | undefined {
   const t = fold(text)
-  const named = g.members.filter((m) => word(fold(m.name)).test(t) || word(fold(m.name).split(' ')[0]).test(t)).map((m) => m.id)
+  const first = (m: { name: string }) => fold(m.name).split(' ')[0]
+  // A full name ("Rahul Verma") is that member alone: a namesake ("Rahul Sharma") isn't pulled in by the first name.
+  const full = g.members.filter((m) => fold(m.name).includes(' ') && word(fold(m.name)).test(t))
+  const named = g.members.filter((m) => full.includes(m) || (word(first(m)).test(t) && !full.some((f) => f !== m && first(f) === first(m)))).map((m) => m.id)
   const all = ['me', ...g.members.map((m) => m.id)]
   const except = t.match(/\b(?:except|but not|without|minus|other than)\b(.*)$/)
   if (except) {
@@ -494,9 +503,13 @@ export function sharersFromLine(text: string, g: QuickAiGroupIn, paidBy: string,
     }
   }
   if (/\b(everyone|everybody|all of us|whole group|the group)\b/.test(t)) return undefined
-  const onlyOthers = /\b(only for|for \w+ only|'s (ticket|share|bill|order)|on behalf of)\b/.test(t)
+  // "lunch for Rohan 500": bought for them, not shared with the writer (unless the line says "with").
+  const forSomeone = !/\bwith\b/.test(t) && g.members.some((m) => word(`for ${first(m)}`).test(t))
+  const onlyOthers = forSomeone || /\b(only for|for \w+ only|'s (ticket|share|bill|order)|on behalf of)\b/.test(t)
   if (named.length) {
-    const set = new Set(said?.length ? said : [])
+    // The model's list, less any namesake of a full name the line gives.
+    const namesake = (id: string) => full.some((f) => f.id !== id && g.members.some((m) => m.id === id && first(m) === first(f)))
+    const set = new Set((said ?? []).filter((id) => !namesake(id)))
     for (const p of named) set.add(p)
     if (!onlyOthers) {
       set.add('me')

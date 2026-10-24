@@ -323,6 +323,28 @@ describe('splitParts', () => {
   })
 })
 
+describe('sharersFromLine: names', () => {
+  const g = {
+    id: 'g',
+    name: 'College',
+    members: [
+      { id: 'rs', name: 'Rahul Sharma' },
+      { id: 'rv', name: 'Rahul Verma' },
+      { id: 'n', name: 'Neha' },
+      { id: 'ro', name: 'Rohan' },
+    ],
+  }
+  it('a full name is that member alone', () => {
+    expect(sharersFromLine('dinner 900 with Rahul Verma', g, 'me', undefined)).toEqual(['me', 'rv'])
+    // even when the model put both Rahuls in
+    expect(sharersFromLine('dinner 900 with Rahul Verma', g, 'me', ['me', 'rs', 'rv'])).toEqual(['me', 'rv'])
+  })
+  it('“for Rohan” is bought for Rohan; “with” shares it', () => {
+    expect(sharersFromLine('lunch for Rohan 500', g, 'me', undefined)).toEqual(['ro'])
+    expect(sharersFromLine('lunch for Rohan 500 with Neha', g, 'me', undefined)).toEqual(['me', 'n', 'ro'])
+  })
+})
+
 describe('sharersFromLine', () => {
   const g = {
     id: 'g_goa',
@@ -369,5 +391,15 @@ describe('payments and other groups that fit', () => {
       { ...r2, groupIdSure: true },
     )
     expect(sure.action === 'expense' && 'alsoFits' in sure).toBe(false)
+  })
+  it('inside a group the answer stays there, even when the model picks another', () => {
+    const sure = { ...r2, groupIdSure: true }
+    const pay = normaliseQuickAi({ action: 'payment', groupId: 'g_goa', paidTo: 'Dev', amount: 500 }, sure)
+    expect(pay).toMatchObject({ action: 'payment', group: { existingId: 'g_flat' }, payment: { from: 'me', to: 'm_dev' } })
+    const cost = normaliseQuickAi({ action: 'expense', groupId: 'g_goa', description: 'tea', amount: 50 }, sure)
+    expect(cost.action === 'expense' && cost.group).toEqual({ existingId: 'g_flat' })
+    // not inside one: the model's pick stands
+    const free = normaliseQuickAi({ action: 'expense', groupId: 'g_goa', description: 'tea', amount: 50 }, r2)
+    expect(free.action === 'expense' && free.group).toEqual({ existingId: 'g_goa' })
   })
 })

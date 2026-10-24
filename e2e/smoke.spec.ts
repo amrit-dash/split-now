@@ -437,6 +437,30 @@ test('Quick add: “paid Rohan 500 back” opens Settle up filled in, and “the
   await expect(page.getByText(/2 of 4/)).toBeVisible()
 })
 
+test('Quick add asks about someone the group doesn’t have, and adds them when asked; a payment from Home finds its group', async ({ page }) => {
+  await noSpeech(page)
+  await page.goto('/groups/g_goa')
+  await page.getByTestId('nav-create').click({ button: 'right' })
+  let quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('lunch 900 with Kabir')
+  await quick.getByTestId('create-quick-add-go').click()
+  const sheet = page.getByTestId('choose-sheet')
+  await expect(sheet).toContainText('Kabir isn’t in Goa Trip')
+  await sheet.getByRole('radio', { name: /Add Kabir to Goa Trip/ }).click()
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
+  await expect(amountField(page)).toHaveValue(/900/)
+  // shared by you and Kabir, now in the group
+  await expect(page.getByText(/2 of 5/)).toBeVisible()
+
+  // From Home, the person named picks the group: Arjun is in the flat.
+  await page.goto('/')
+  await page.getByTestId('nav-create').click()
+  quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('paid Arjun 500 back')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/groups\/g_flat\/settle\?from=me&to=p_arjun&amount=50000/)
+})
+
 test('Quick add can start a new group, then lands on the form with the line', async ({ page }) => {
   await page.getByTestId('nav-create').click()
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
@@ -526,8 +550,10 @@ test('Voice: Quick add’s mic is a toggle; the words land in the box and wait f
   await expect(field).toHaveValue('Dinner 1200 with Rahul, I paid')
   await expect(page).toHaveURL(/\/$/)
   await quick.getByTestId('create-quick-add-go').click()
-  await expect(page).toHaveURL(/\/add\?group=[^&]+&quick=1/)
-  await expect(amountField(page)).toHaveValue(/1200/)
+  // From Home, and none of the demo's groups has a Rahul: a 1:1 with him to check first, the line waiting for the form.
+  await expect(page).toHaveURL(/\/groups\/new\?.*type=direct/)
+  await expect(page).toHaveURL(/people=Rahul/)
+  await expect(page).toHaveURL(/quick=1/)
 })
 
 test('Voice: hold + inside a group to talk; letting go runs Quick add and opens the form filled in', async ({ page }) => {
@@ -541,6 +567,10 @@ test('Voice: hold + inside a group to talk; letting go runs Quick add and opens 
   await expect(page.getByTestId('voice-bars')).toBeVisible()
   await page.waitForTimeout(700)
   await page.mouse.up()
+  // The demo's Goa Trip has no Rahul: asked first, then the form opens without him.
+  const sheet = page.getByTestId('choose-sheet')
+  await expect(sheet).toContainText('Rahul isn’t in Goa Trip')
+  await sheet.getByRole('radio', { name: /Leave Rahul out/ }).click()
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
   await expect(amountField(page)).toHaveValue(/1200/)
   await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Dinner')
@@ -600,6 +630,10 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
+  await page
+    .getByTestId('choose-sheet')
+    .getByRole('radio', { name: /Leave Rahul out/ })
+    .click()
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
   // Remembered: the next time goes straight to the device's recogniser.
   expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
@@ -650,6 +684,10 @@ test('Voice: the first hold asks for the microphone; letting go to answer it is 
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
+  await page
+    .getByTestId('choose-sheet')
+    .getByRole('radio', { name: /Leave Rahul out/ })
+    .click()
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
 })
 

@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Quick add reads much more on your phone, free and without AI: “they paid” or “he got the bill” (the person named paid), uneven parts (“Rahul owes 400”, “60/40 with Meera”, “Rahul 2 shares”, “Rahul 30%”, “hotel 6000 Priya 4000”), “everyone except Rohan”, payments back, and full names (“Rahul Verma” is never the group’s other Rahul). When it isn’t sure it asks instead of guessing: which group, which Rahul, who paid, or whether to add someone the group doesn’t have (or leave them out). Only what your phone can’t read goes to Quick add with AI. A line from Home naming someone in none of your groups starts a 1:1 with them.
+- Quick add with AI keeps a line in the group you’re in (it sometimes moved “paid Rahul 500 back” into your 1:1 with Rahul), and a full name or “lunch for Rohan” is read the way it was meant.
 - Add expense: the switch at the top reads **Money spent** / **Money received** (it said Expense / Money received), so the two read as a pair.
 - Scan: the AI switch in the Bill and Statement cards shows in Simple mode too, so you can choose AI reading there without going to Settings.
 - Quick add: one spinner while it works, beside the status words at the top of the card; the box and the send button no longer spin as well.
