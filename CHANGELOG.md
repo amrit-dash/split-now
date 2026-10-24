@@ -6,6 +6,9 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.8.0 — October 2026
+
+- Dependencies: undici, serialize-javascript, fast-uri and (in the server) body-parser updated to their patched versions.
 - Groups: swipe a group (or press and hold it) for Settle up when you owe or are owed, Archive once you’re square, and Unarchive in Archived. Only what you can do now shows; there’s no Delete in the swipe (it’s in the group’s menu), and Home has no swipe.
 - Recently deleted shows Delete forever only when it can be done now; before, its creator saw a greyed-out one during the first week.
 - Opera, Brave and Vivaldi: “This browser can’t turn speech into text” now has a **Use AI for voice** button that switches voice to AI in one tap (or opens AI features to add a key when no key can serve you).

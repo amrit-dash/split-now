@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.8.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Swipe a group on Groups to settle up or archive it', section: 'archive-leave-delete' },
+      { text: 'Quick add with AI checks the AI’s answer against your words', section: 'quick-add' },
+      { text: 'Use AI for voice in browsers that can’t turn speech into text', section: 'voice' },
+    ],
+  },
+  {
     version: '9.7.0',
     date: 'October 2026',
     items: [

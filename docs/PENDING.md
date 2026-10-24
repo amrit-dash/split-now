@@ -10,9 +10,8 @@ remove an item when its release merges, and add anything left half-done.
 ## Left from 9.2.0 – 9.5.0 (check by hand)
 
 - [ ] 9.5.0 private groups: in a real private group, save your profile, then open the group on the phone: Settle up there shows your UPI ID to the others (sealed copy), and Firestore shows only `v1:` tokens in groups/{gid}/profiles/{uid}.
-- [ ] 9.5.0 Quick add with AI: `scripts/quick-eval.ts` gave 62–64 of 67 on gemini-3.5-flash-lite (24 Oct); the misses are lines the phone settles first (Which group?, a hotel refund). Re-run after prompt changes.
+- [ ] Quick add with AI eval (`scripts/quick-eval.ts -- --delay 6000`, 24 Oct, 83 lines): Gemma 4 26B 70 alone / 81 as the app does it (7 lines reach AI); Flash-Lite 79 alone. The two Gemma misses are fixed in code (unknown names ask which group; 2048-token answers): re-run once to confirm.
 
-- [ ] 9.4.0 voice on Android (installed app and Chrome): the mic shows, the first hold asks, words come once (no repeats), no "refused" after allowing. Read Admin → Logs → Voice afterwards.
 
 - [ ] Voice with AI on a real iPhone: do the live words show while AI records (the phone's recognition and the recording share the microphone)?
 - [ ] Draw a picture with the new prompt and backdrop rule: a few real pictures (scenes too) come out see-through.
