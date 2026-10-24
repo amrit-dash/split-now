@@ -87,7 +87,7 @@ export function QuickAdd({
   const voiced = useRef(false)
   /** when the finger went down on the mic (null: not a press that started listening) */
   const pressed = useRef<number | null>(null)
-  const { engine, offer } = useVoiceSetup()
+  const { engine, offer, whyNot } = useVoiceSetup()
   const transcribeFlag = useFlag('aiTranscribe')
   const navigate = useNavigate()
   const { user } = useMe()
@@ -124,7 +124,9 @@ export function QuickAdd({
 
   const picked: Group | undefined = groups.find((g) => g.id === groupId) ?? groups[0]
   const people = useMemo(() => (picked ? Object.values(activeMembers(picked.members)).map((m) => m.name) : []), [picked])
-  const named = useMemo(() => groupInText(text, groups, people), [text, groups, people])
+  // Outside a group (not on its page, none picked), any distinctive word of a group's name picks it.
+  const loose = !(groupSure || chose)
+  const named = useMemo(() => groupInText(text, groups, people, { loose }), [text, groups, people, loose])
   // What the line says about its group, after the user's answers: where it goes, and the words left to read.
   const { match, which, fresh, target, line } = lineFor({ text, named, groups, picked, undone, answered })
 
@@ -201,6 +203,11 @@ export function QuickAdd({
   // The mic: a tap starts and the next tap stops; held while talking, letting go stops (src/lib/voice.ts micRelease).
   const micDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return
+    // Voice can't listen here: say why (and how to fix it) instead of hiding the mic.
+    if (!engine) {
+      if (whyNot) setProblem(whyNot.text)
+      return
+    }
     primeAudio()
     if (voice.state === 'listening') {
       pressed.current = null
@@ -328,7 +335,7 @@ export function QuickAdd({
               />
             )}
           </div>
-          {engine && (
+          {(engine || whyNot) && (
             <button
               type="button"
               onPointerDown={micDown}
@@ -337,6 +344,7 @@ export function QuickAdd({
               // Enter and Space (a click with no pointer): the same toggle as a tap.
               onClick={(e) => {
                 if (e.detail !== 0) return
+                if (!engine) return void (whyNot && setProblem(whyNot.text))
                 if (listening) void stopMic()
                 else if (voice.state === 'idle') void startMic()
               }}
@@ -375,6 +383,16 @@ export function QuickAdd({
           >
             <AlertCircle size={16} className="shrink-0" aria-hidden />
             <span className="min-w-0 flex-1">{problem}</span>
+            {problem && whyNot?.fix === 'settings' && problem === whyNot.text && (
+              <button
+                type="button"
+                onClick={() => navigate('/settings/ai')}
+                className="-my-1 min-h-11 shrink-0 rounded-full bg-white px-3 text-xs font-semibold text-rose-800 shadow-sm active:scale-95 dark:bg-ink-900 dark:text-rose-200"
+                data-testid={`${testId}-ai-settings`}
+              >
+                AI features
+              </button>
+            )}
             {problem === NO_SERVICE_TEXT && aiStep && (
               <button
                 type="button"

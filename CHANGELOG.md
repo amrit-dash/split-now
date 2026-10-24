@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.8.1 — October 2026
+
+- Quick add from Home finds the group by any distinctive word of its name in what you said, misheard or not (“when we were in Kodai on 3rd October I paid…”, “after Coldplay…”), with no “in” needed. Before, “Kodai” was taken for a person nobody has and it asked which group. Common words (“trip”, “dinner”, “birthday”) never pick a group on their own, and inside a group the line stays there unless it names another one (“in Goa”, “during the Kodai trip”, “@flat”).
+- Voice: the mic no longer disappears when voice can’t listen in this browser (Opera GX with AI chosen and no key that can serve it, or no speech recognition). A tap says why, with the way to fix it: Use AI for voice, or AI features to add a key.
+
 ## 9.8.0 — October 2026
 
 - Dependencies: undici, serialize-javascript, fast-uri and (in the server) body-parser updated to their patched versions.

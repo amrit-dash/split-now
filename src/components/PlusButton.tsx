@@ -158,12 +158,13 @@ export function PlusButton({ groupId, onSheet }: { groupId?: string; onSheet: (i
       const defaultGroupId = (groupId && groups.some((g) => g.id === groupId) ? groupId : undefined) ?? liveTripFor(groups, todayISO()) ?? lastGroup()
       const picked = groups.find((g) => g.id === defaultGroupId) ?? groups[0]
       const people = picked ? Object.values(activeMembers(picked.members)).map((m) => m.name) : []
-      const named = groupInText(text, groups, people)
+      const sure = !!groupId && groups.some((g) => g.id === groupId)
+      // Outside a group, any distinctive word of a group's name picks it ("when we were in Kodai").
+      const named = groupInText(text, groups, people, { loose: !sure })
       const l = lineFor({ text, named, groups, picked })
       // Two groups fit the words: the person says which, in Quick add, with the line in it.
       if (l.which) return onSheet(text)
       // Held inside a group: the line goes there. Elsewhere the people it names choose the group.
-      const sure = !!groupId && groups.some((g) => g.id === groupId)
       const o = await run.send({ text, line: l.line, target: l.target, picked, fresh: l.fresh, named, sure, stopped: () => stopped.current })
       if (o.kind === 'answer' && !stopped.current) setAnswer({ kind: 'answer', text: o.text })
     } finally {

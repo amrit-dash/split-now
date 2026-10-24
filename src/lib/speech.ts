@@ -9,7 +9,7 @@
  * through us; the browser does the recognition. A refused microphone doesn't hide the mic: the
  * press explains how to allow it (src/hooks/useVoice.ts).
  */
-import { addFinal, googleBuiltSpeech, joinHeard, speechNoneStill, speechServiceMissing } from './voice'
+import { addFinal, googleBuiltSpeech, joinHeard, NO_SERVICE_TEXT_VOICE, speechNoneStill, speechServiceMissing } from './voice'
 
 /** Google's or Apple's own browser: its speech service is there, so "network" means the network. */
 const googleBuilt = (): boolean =>
@@ -117,7 +117,7 @@ async function localLang(C: RecognitionCtor, lang: string): Promise<string | nul
   return null
 }
 
-export const NO_SERVICE_TEXT = 'This browser can’t turn speech into text. Chrome, Edge and Safari can, or turn on Transcribe with AI in Settings → AI features.'
+export const NO_SERVICE_TEXT = NO_SERVICE_TEXT_VOICE
 
 // ---- Refused: never remembered ----------------------------------------------------------
 // Earlier versions hid the mic after a not-allowed error and remembered it on the device. On

@@ -516,13 +516,15 @@ test('Quick add with AI (demo reader): "create a group … and add …" asks fir
   await expect(page.getByText('Manali trip', { exact: true })).toBeVisible()
 })
 
-test('Voice: without speech recognition there is no mic, and holding + inside a group opens the Create sheet as before', async ({ page }) => {
+test('Voice: without speech recognition the mic stays and says why, and holding + inside a group opens the Create sheet as before', async ({ page }) => {
   await noSpeech(page)
   await page.goto('/')
   await page.getByTestId('nav-create').click()
   const quick = page.getByRole('dialog').getByTestId('create-quick-add')
   await expect(quick.getByRole('textbox', { name: 'Quick add' })).toBeVisible()
-  await expect(quick.getByTestId('create-quick-add-mic')).toHaveCount(0)
+  // The mic no longer disappears: a tap says this browser can't turn speech into text (Opera GX, 24 Oct 2026).
+  await quick.getByTestId('create-quick-add-mic').click()
+  await expect(quick.getByTestId('create-quick-add-problem')).toContainText('can’t turn speech into text')
   await page.keyboard.press('Escape')
   await page.goto('/groups/g_goa')
   await expect(page.getByTestId('nav-create')).toHaveAttribute('aria-label', /press and hold for more/)
@@ -1623,6 +1625,17 @@ test('Groups: a row’s actions show only what can be done now: Settle up when y
   await expect(menu.getByRole('button', { name: /Archive Goa Trip/ })).toHaveCount(0)
   await menu.getByRole('button', { name: 'Settle up in Goa Trip' }).click()
   await expect(page).toHaveURL(/\/groups\/g_goa\/settle$/)
+})
+
+test('Quick add from Home: a group’s own word anywhere in the line picks it (“after Coldplay …”)', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('nav-create').click()
+  const quick = page.getByRole('dialog').getByTestId('create-quick-add')
+  // Not the default group (Goa Trip): the word alone, with no "in", moves it.
+  await quick.getByRole('textbox', { name: 'Quick add' }).fill('after coldplay I paid 900 for the cab')
+  await quick.getByTestId('create-quick-add-go').click()
+  await expect(page).toHaveURL(/\/add\?group=g_gig&quick=1/)
+  await expect(amountField(page)).toHaveValue(/900/)
 })
 
 test('only the creator may delete a group while they are in it', async ({ page }) => {

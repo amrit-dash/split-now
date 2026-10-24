@@ -9,6 +9,8 @@
 export interface NamedGroup {
   id: string
   name: string
+  /** a 1:1: its name is the friend's, so the people in the line pick it, never a loose name match */
+  type?: string
 }
 
 export type GroupInText =
@@ -51,9 +53,18 @@ const nameWords = (name: string) =>
 /** Two neighbouring tokens belong to one phrase only when nothing but spaces sits between them. */
 const joined = (text: string, a: Token, b: Token) => /^\s+$/.test(text.slice(a.end, b.start))
 
-const STRONG = new Set(['in', 'into'])
+const STRONG = new Set(['in', 'into', 'during'])
 const WEAK = new Set(['for', 'to'])
 const FILLER = new Set(['the', 'our', 'my', 'group', 'grp'])
+/**
+ * Words too common to pick a group on their own when no "in" / "@" names it ("during the trip",
+ * "birthday dinner"): a loose match needs a distinctive word of the name ("Kodai", "Goa").
+ */
+const GENERIC = new Set(
+  'trip trips tour group grp flat home house room pg hostel friends friend family office work team gang club college school lunch dinner breakfast brunch party birthday bday plan plans weekend holiday holidays vacation outing night day the and of with my our new old main'.split(
+    ' ',
+  ),
+)
 const NOT_A_GROUP = new Set(['me', 'myself', 'i', 'us', 'all', 'everyone', 'everybody', 'it', 'this', 'that', 'a', 'an', 'new'])
 /** Words that end a new group's name ("in a new group Bali trip with Rahul, I paid"). */
 const NAME_STOP = new Set([
@@ -176,11 +187,11 @@ function findNewGroup(text: string, tokens: Token[]): GroupInText | null {
  * `people` (the picked group's members) or "me"/"everyone". Two groups that fit equally well
  * are ambiguous. An explicit "new group …" wins over any match.
  */
-export function groupInText(text: string, groups: NamedGroup[], people: string[] = []): GroupInText {
+export function groupInText(text: string, groups: NamedGroup[], people: string[] = [], opts: { loose?: boolean } = {}): GroupInText {
   const tokens = tokenize(text)
   const fresh = findNewGroup(text, tokens)
   if (fresh) return fresh
-  const named = groups.map((g) => ({ id: g.id, words: nameWords(g.name) })).filter((g) => g.words.length)
+  const named = groups.map((g) => ({ id: g.id, words: nameWords(g.name), direct: g.type === 'direct' })).filter((g) => g.words.length)
   const personWords = new Set(people.flatMap(nameWords))
   let best: { score: number; ids: string[]; start: number; end: number } | null = null
   for (let i = 0; i < tokens.length; i++) {
@@ -207,6 +218,31 @@ export function groupInText(text: string, groups: NamedGroup[], people: string[]
       else if (s.score === best.score && span.start === best.start && !best.ids.includes(g.id)) {
         best.ids.push(g.id)
         best.end = Math.max(best.end, span.end)
+      }
+    }
+  }
+  // Outside a group (Home, holding + there): a distinctive word of a group's name anywhere in the line
+  // picks it, as speech hears it ("when we were in Kodai", "codai trip lunch"), with no "in" needed
+  // (owner, 24 Oct 2026). Inside a group the line stays there unless it names another one as above.
+  if (!best && opts.loose) {
+    const MARK = new Set([...STRONG, ...WEAK, 'to', 'at', 'from', 'on', ...FILLER])
+    for (let i = 0; i < tokens.length; i++) {
+      const w = tokens[i].word
+      if (w.length < 4 || GENERIC.has(w) || NOT_A_GROUP.has(w) || [...personWords].some((p) => p === w)) continue
+      for (const g of named) {
+        if (g.direct) continue
+        const distinct = g.words.filter((x) => !GENERIC.has(x) && x.length >= 4)
+        if (!distinct.some((x) => fits(w, x))) continue
+        const s = score(tokens, i, text, g.words)
+        if (!s.score) continue
+        let first = i
+        // the lead-in goes too: "during the Kodai trip", "in our Goa"
+        while (first > 0 && MARK.has(tokens[first - 1].word) && joined(text, tokens[first - 1], tokens[first])) first--
+        let last = i + s.used - 1
+        if (last + 1 < tokens.length && /^(?:group|grp)$/.test(tokens[last + 1].word) && joined(text, tokens[last], tokens[last + 1])) last++
+        const span = { start: tokens[first].start, end: tokens[last].end }
+        if (!best || s.score > best.score) best = { score: s.score, ids: [g.id], ...span }
+        else if (s.score === best.score && !best.ids.includes(g.id)) best.ids.push(g.id)
       }
     }
   }

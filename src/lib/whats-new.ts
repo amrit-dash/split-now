@@ -24,6 +24,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.8.1',
+    date: 'October 2026',
+    items: [
+      { text: 'Quick add finds the group from any word of its name you say', section: 'quick-add' },
+      { text: 'The mic stays, and says why when voice can’t listen in your browser', section: 'voice' },
+    ],
+  },
+  {
     version: '9.8.0',
     date: 'October 2026',
     items: [
