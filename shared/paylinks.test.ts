@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  partRateDate,
   canMarkPaid,
   claimStatus,
   claimSummary,
@@ -261,6 +262,15 @@ describe('links in another currency or across groups (parts)', () => {
     expect(records.map((r) => r.settlement.groupId)).toEqual(['g_goa'])
     expect(skipped).toEqual([{ groupId: 'g_nyc', reason: 'currency' }])
     expect(planRecordParts(CODE, bundle, {}, 'd', NOW, money, digits).skipped.map((x) => x.reason)).toEqual(['no_group', 'no_group'])
+  })
+  it('a part worked out at the trip’s rate records that day; a bad or later day falls back to the payment’s', () => {
+    const atTrip = { ...bundle, parts: [bundle.parts![0], { ...bundle.parts![1], rateDate: '2026-10-02' }] }
+    expect(planRecordParts(CODE, atTrip, { g_goa: group, g_nyc: nyc }, '2026-10-09', NOW, money, digits).records[1].settlement.paid?.rateDate).toBe(
+      '2026-10-02',
+    )
+    expect(partRateDate('2026-10-12', '2026-10-09')).toBe('2026-10-09')
+    expect(partRateDate('soon', '2026-10-09')).toBe('2026-10-09')
+    expect(partRateDate(undefined, '2026-10-09')).toBe('2026-10-09')
   })
   it('reads at most MAX_LINK_PARTS parts', () => {
     const many = { ...bundle, parts: Array.from({ length: MAX_LINK_PARTS + 3 }, () => bundle.parts![0]) }

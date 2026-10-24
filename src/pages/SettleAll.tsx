@@ -18,9 +18,10 @@ import {
   type PersonBalance,
   type SettleRow,
 } from '@/lib/settleAll'
-import { collectsInHome, inHome, type HomeBalance } from '@/lib/collect'
-import { convertMinor, type FxRate } from '@/lib/fx'
+import { collectsInHome, foldedTotals, inHome, type HomeBalance } from '@/lib/collect'
+import type { FxRate } from '@/lib/fx'
 import { useTodayRates } from '@/hooks/useFx'
+import { useRowTripRates } from '@/hooks/useTripRate'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { CardSkeleton, ListSkeleton } from '@/components/Skeleton'
@@ -71,6 +72,8 @@ export default function SettleAll() {
   // Collect in my currency: other currencies are folded into the home one at today's rate (≈).
   const collect = collectsInHome(profile)
   const rates = useTodayRates(home, collect && rows ? rows.map((r) => r.currency) : [])
+  // A trip in another currency at the trip's rate, as its own Settle up starts (src/lib/trip-rate.ts).
+  const rowRates = useRowTripRates(collect ? rows : null, data, home)
   // A locked private group adds nothing here (hooks/data.ts); the line says so, and its lock takes the pattern.
   const locked = data?.filter((d) => d.locked && !d.group.archived).length ?? 0
 
@@ -98,7 +101,7 @@ export default function SettleAll() {
         <AllSettled />
       ) : (
         <div className="space-y-6" data-testid="settle-all">
-          <Totals rows={rows} home={home} rates={collect ? rates : undefined} />
+          <Totals rows={rows} home={home} rates={collect && rowRates ? rates : undefined} rowRates={rowRates?.rates} />
           <Segmented<View>
             value={view}
             onChange={setView}
@@ -109,22 +112,41 @@ export default function SettleAll() {
             label="Show balances"
             testId="settle-view"
           />
-          {view === 'person' ? <ByPerson rows={rows} chase={chase} home={home} rates={collect ? rates : undefined} /> : <ByGroup rows={rows} chase={chase} />}
+          {view === 'person' ? (
+            <ByPerson
+              rows={rows}
+              chase={chase}
+              home={home}
+              rates={collect && rowRates ? rates : undefined}
+              rowRates={rowRates?.rates}
+              rowDays={rowRates?.days}
+            />
+          ) : (
+            <ByGroup rows={rows} chase={chase} />
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function Totals({ rows, home, rates }: { rows: SettleRow[]; home: string; rates?: Record<string, FxRate | null> }) {
+function Totals({
+  rows,
+  home,
+  rates,
+  rowRates,
+}: {
+  rows: SettleRow[]
+  home: string
+  rates?: Record<string, FxRate | null>
+  rowRates?: Record<string, number>
+}) {
   const totals = totalsByCurrency(rows, home)
-  // In one ≈ home-currency figure per column when collecting in it and every rate is known.
-  const folded = rates && totals.every((t) => t.currency === home || (rates[t.currency]?.rate ?? 0) > 0)
+  // In one ≈ home-currency figure per column when collecting in it and every rate is known: each
+  // group's row at its own rate (a trip's at the trip's), like the balances under it.
+  const folded = rates ? foldedTotals(rows, home, rates, rowRates) : null
   if (folded && totals.some((t) => t.currency !== home)) {
-    const sum = (k: 'owe' | 'owed') =>
-      totals.reduce((a, t) => a + (t.currency === home ? t[k] : convertMinor(t[k], t.currency, home, (rates[t.currency] as FxRate).rate)), 0)
-    const owe = sum('owe'),
-      owed = sum('owed')
+    const { owe, owed } = folded
     return (
       <div className="card grid grid-cols-2 divide-x divide-slate-100 overflow-hidden dark:divide-white/5" data-testid="settle-totals">
         <TotalCol label="You owe" cls="neg" values={owe ? [`≈\u00a0${formatMoney(owe, home)}`] : []} />
@@ -325,8 +347,25 @@ function RowAction({ r }: { r: SettleRow }) {
 
 /* ───────────────────────── By person ───────────────────────── */
 
-function ByPerson({ rows, chase, home, rates }: { rows: SettleRow[]; chase: Chase; home: string; rates?: Record<string, FxRate | null> }) {
-  const people = useMemo<(PersonBalance | HomeBalance)[]>(() => (rates ? inHome(personBalances(rows), home, rates) : personBalances(rows)), [rows, home, rates])
+function ByPerson({
+  rows,
+  chase,
+  home,
+  rates,
+  rowRates,
+  rowDays,
+}: {
+  rows: SettleRow[]
+  chase: Chase
+  home: string
+  rates?: Record<string, FxRate | null>
+  rowRates?: Record<string, number>
+  rowDays?: Record<string, string>
+}) {
+  const people = useMemo<(PersonBalance | HomeBalance)[]>(
+    () => (rates ? inHome(personBalances(rows), home, rates, rowRates, rowDays) : personBalances(rows)),
+    [rows, home, rates, rowRates, rowDays],
+  )
   const owe = people.filter((p) => p.net < 0)
   const owed = people.filter((p) => p.net > 0)
   const even = people.filter((p) => p.net === 0)

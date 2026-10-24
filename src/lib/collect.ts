@@ -73,6 +73,8 @@ export interface HomeBalance extends PersonBalance {
   home: Record<string, Cents>
   /** home-currency units per 1 unit of each part's currency, by SettleRow key */
   rates: Record<string, number>
+  /** the day of each part's rate when it isn't today's (a trip at the trip's), by SettleRow key */
+  rateDays?: Record<string, string>
 }
 
 /** The person part of a PersonBalance key ("u:abc|INR" → "u:abc"). */
@@ -87,13 +89,21 @@ export const homeKey = (person: string) => `${person}|*`
  * the home currency is unchanged; someone with another currency is merged into one ≈ balance,
  * unless a rate is missing (offline), then their balances stay apart as before.
  */
-export function inHome(people: PersonBalance[], home: string, rates: Record<string, { rate: number } | null | undefined>): HomeBalance[] {
+export function inHome(
+  people: PersonBalance[],
+  home: string,
+  rates: Record<string, { rate: number } | null | undefined>,
+  /** a group's own rate for its row (by SettleRow key): a trip at the trip's rate (src/lib/trip-rate.ts); others use `rates` */
+  rowRates: Record<string, number> = {},
+  /** the day each of those rates is from */
+  rowDays: Record<string, string> = {},
+): HomeBalance[] {
   const byPerson = new Map<string, PersonBalance[]>()
   for (const p of people) byPerson.set(personOf(p.key), [...(byPerson.get(personOf(p.key)) ?? []), p])
   const out: HomeBalance[] = []
   for (const [person, list] of byPerson) {
     const foreign = list.filter((p) => p.currency !== home)
-    const known = foreign.every((p) => (rates[p.currency]?.rate ?? 0) > 0)
+    const known = foreign.every((p) => p.parts.every((r) => (rowRates[r.key] ?? rates[p.currency]?.rate ?? 0) > 0))
     if (foreign.length === 0 || !known) {
       for (const p of list) out.push({ ...p, approx: false, home: {}, rates: {} })
       continue
@@ -101,9 +111,12 @@ export function inHome(people: PersonBalance[], home: string, rates: Record<stri
     const parts = list.flatMap((p) => p.parts)
     const home_: Record<string, Cents> = {}
     const rates_: Record<string, number> = {}
+    const days_: Record<string, string> = {}
     for (const r of parts) {
-      const rate = r.currency === home ? 1 : (rates[r.currency]?.rate as number)
+      const own = r.currency !== home && rowRates[r.key] !== undefined
+      const rate = r.currency === home ? 1 : own ? rowRates[r.key] : (rates[r.currency]?.rate as number)
       rates_[r.key] = rate
+      if (own && rowDays[r.key]) days_[r.key] = rowDays[r.key]
       home_[r.key] = Math.sign(signedAmount(r)) * convertMinor(r.amount, r.currency, home, rate)
     }
     const first = list[0]
@@ -119,6 +132,7 @@ export function inHome(people: PersonBalance[], home: string, rates: Record<stri
       approx: true,
       home: home_,
       rates: rates_,
+      ...(Object.keys(days_).length ? { rateDays: days_ } : {}),
     })
   }
   return out.sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || a.name.localeCompare(b.name))
@@ -197,4 +211,23 @@ export function payInLine(c: PayCheck, paid: Cents, due: Cents, fmtPay: (m: Cent
   if (c.status === 'over') return `More than the ${fmtPay(c.expected)} owed. Lower it, or pay the rest separately.`
   if (c.status === 'part') return `${fmtPay(paid)} clears ${fmtGroup(c.cleared)} of ${fmtGroup(due)}. ${fmtGroup(due - c.cleared)} stays owed.`
   return `${fmtPay(c.expected)} clears ${fmtGroup(due)}`
+}
+
+/**
+ * Balances' two totals in one ≈ home-currency figure each (Collect in my currency): every row at its
+ * group's own rate when it has one (a trip at the trip's), else today's. null while a rate is missing.
+ */
+export function foldedTotals(
+  rows: ReadonlyArray<{ key: string; currency: string; amount: Cents; dir: 'owe' | 'owed' }>,
+  home: string,
+  rates: Record<string, { rate: number } | null | undefined>,
+  rowRates: Record<string, number> = {},
+): { owe: Cents; owed: Cents } | null {
+  const out = { owe: 0, owed: 0 }
+  for (const r of rows) {
+    const rate = r.currency === home ? 1 : (rowRates[r.key] ?? rates[r.currency]?.rate ?? 0)
+    if (!(rate > 0)) return null
+    out[r.dir] += r.currency === home ? r.amount : convertMinor(r.amount, r.currency, home, rate)
+  }
+  return out
 }

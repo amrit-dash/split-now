@@ -106,7 +106,20 @@ export function RemindActions({
                 currency: inHome ? home : group.currency,
                 payment: profile.payment,
                 createdBy: user.uid,
-                parts: inHome ? [{ groupId: group.id, groupName: shownName, from: debtor, to: me, amount, currency: group.currency, paid: inHome }] : undefined,
+                parts: inHome
+                  ? [
+                      {
+                        groupId: group.id,
+                        groupName: shownName,
+                        from: debtor,
+                        to: me,
+                        amount,
+                        currency: group.currency,
+                        paid: inHome,
+                        ...(rate === rates.trip && tripDate ? { rateDate: tripDate } : {}),
+                      },
+                    ]
+                  : undefined,
               },
               Date.now(),
             ),
@@ -218,6 +231,7 @@ export function PersonRemindActions({
                   amount: r.amount,
                   currency: r.currency,
                   paid: Math.abs(hb.home[r.key] ?? r.amount),
+                  ...(hb.rateDays?.[r.key] ? { rateDate: hb.rateDays[r.key] } : {}),
                 })),
               },
               Date.now(),

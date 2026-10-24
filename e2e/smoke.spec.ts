@@ -1253,6 +1253,33 @@ test.describe('Collect in my currency', () => {
     await expect(page.getByTestId('payment-row').first()).toContainText(/paid ₹1,100\.00 at the .*rate/)
   })
 
+  test('Settling with someone across groups converts a trip at the trip’s rate too, with the same Trip / Today choice', async ({ page }) => {
+    await usdTripWithRates(page)
+    await page.route('**/api.frankfurter.dev/**', (route) => {
+      const url = new URL(route.request().url())
+      const base = url.searchParams.get('base')
+      const day = url.pathname.split('/').pop() ?? ''
+      const usd = /^\d{4}-\d{2}-\d{2}$/.test(day) ? 88 : 83.6
+      const rates = base === 'USD' ? { INR: usd } : base === 'INR' ? { USD: 1 / usd } : {}
+      return route.fulfill({ json: { date: /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '2026-10-24', base, rates } })
+    })
+    await page.goto('/settle')
+    // Until the rates arrive Rohan shows once per currency; then as one ≈ ₹ card.
+    const rohan = page.getByTestId('person-card').filter({ hasText: 'Rohan' })
+    await expect(rohan).toHaveCount(1)
+    await expect(rohan).toContainText('≈ ₹')
+    await rohan.getByTestId('person-settle-all').click()
+    const amount = page.getByTestId('settle-person-amount')
+    const value = async () => Number((await amount.inputValue()).replace(/[^\d.]/g, ''))
+    await expect(page.getByTestId('settle-person-basis').getByRole('radio', { name: 'Trip rates' })).toHaveAttribute('aria-checked', 'true')
+    await expect(amount).not.toHaveValue('')
+    const atTrip = await value()
+    await page.getByTestId('settle-person-basis').getByRole('radio', { name: 'Today' }).click()
+    await expect.poll(value).toBeLessThan(atTrip)
+    // $12.50 at ₹88 rather than ₹83.6: ₹55 apart
+    expect(Math.round(atTrip - (await value()))).toBe(55)
+  })
+
   test('New group in another currency than yours suggests keeping it in yours', async ({ page }) => {
     await usdTripWithRates(page)
     await page.goto('/groups/new')

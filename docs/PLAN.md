@@ -462,7 +462,8 @@ payLinks/{code}                               ← Pay me link; code = 20–40 lo
   paidAt?, paidBy? (uid that tapped "I've paid"), method? (≤ 40), proofPath? (payproofs/{code}/<name>.jpg), cancelledAt?,
   settlementId? (a member's own from Settle up, which must exist between the same people for this link, or the server's pl_{code}), recordedAt? (server),
   skipReason? (server: why it wasn't recorded: deleted | no_group | not_member | not_payee | currency | bad_amount), held? (server: its group is in Recently deleted; can't be paid),
-  parts?: [{ groupId, groupName, from, to, amount, currency, paid }] (1–8; instead of groupId: one link across groups, each part recorded as pl_{code}_{i} in its own currency with `paid`)
+  parts?: [{ groupId, groupName, from, to, amount, currency, paid, rateDate? }] (1–8; instead of groupId: one link across groups, each part recorded as pl_{code}_{i} in its own currency with `paid`;
+    rateDate: the day `paid` was converted at when it was a trip's rate (src/lib/trip-rate.ts), recorded as the payment's paid.rateDate, else the day it's paid)
 
 fxRates/{yyyy-mm-dd | latest}                 ← server; any signed-in user reads (§4.1a)
 

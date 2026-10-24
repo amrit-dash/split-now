@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultRateBasis, olderRateDay, rateDayNote, rateGapLine, suggestHomeCurrency, tripRateDate } from './trip-rate'
+import { rowTripDates, defaultRateBasis, olderRateDay, rateDayNote, rateGapLine, suggestHomeCurrency, tripRateDate } from './trip-rate'
 
 const today = '2026-11-05'
 
@@ -66,5 +66,24 @@ describe('suggestHomeCurrency', () => {
     expect(suggestHomeCurrency({ ...base, groupCurrency: 'INR' })).toBe(false)
     expect(suggestHomeCurrency({ ...base, type: 'personal' })).toBe(false)
     expect(suggestHomeCurrency({ ...base, locked: true })).toBe(false)
+  })
+})
+
+describe('rowTripDates', () => {
+  const rows = [
+    { key: 'a', groupId: 'nyc', currency: 'USD' },
+    { key: 'b', groupId: 'flat', currency: 'USD' },
+    { key: 'c', groupId: 'goa', currency: 'INR' },
+  ]
+  const groups = {
+    nyc: { type: 'trip', endDate: '2026-10-06', expenseDates: ['2026-10-02'] },
+    flat: { type: 'home', expenseDates: ['2026-10-02'] },
+    goa: { type: 'trip', expenseDates: ['2026-09-01'] },
+  }
+  it('a trip in another currency at its trip’s day; homes and your own currency at today’s', () => {
+    expect(rowTripDates(rows, groups, 'INR', '2026-11-05')).toEqual({ a: '2026-10-06' })
+  })
+  it('Today: none', () => {
+    expect(rowTripDates(rows, groups, 'INR', '2026-11-05', 'today')).toEqual({})
   })
 })

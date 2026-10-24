@@ -1713,7 +1713,7 @@ export const SECTIONS: HelpSection[] = [
     points: [
       'Each group keeps its own currency.',
       'Collect in folds other currencies into one total.',
-      'Totals use today’s rate, shown with ≈.',
+      'Totals use today’s rate, shown with ≈. A trip in another currency uses its own trip’s rate, as its Settle up does.',
       'Friends paying you see your currency first.',
       'Settling a trip later: the trip’s rate or today’s, your pick. The payment says which day’s rate it used.',
     ],

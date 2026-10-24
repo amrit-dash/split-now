@@ -68,3 +68,26 @@ export function rateDayNote(paid: { rateDate?: string } | undefined, paidOn: str
 export function suggestHomeCurrency(o: { groupCurrency: string; homeCurrency: string; type: string; locked: boolean }): boolean {
   return !o.locked && o.type !== 'personal' && !!o.homeCurrency && o.groupCurrency !== o.homeCurrency
 }
+
+/**
+ * Settling with someone across groups (Balances, Collect in my currency): the day each group's
+ * row converts at, by SettleRow key, for rows in another currency than `home` whose group starts on
+ * its trip's rate (defaultRateBasis). 'today' asks for none: every row at today's rate.
+ */
+export function rowTripDates(
+  rows: ReadonlyArray<{ key: string; groupId: string; currency: string }>,
+  groups: Record<string, { type?: string; endDate?: string; expenseDates: ReadonlyArray<string | undefined> }>,
+  home: string,
+  today: string,
+  basis: RateBasis = 'trip',
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (basis === 'today') return out
+  for (const r of rows) {
+    const g = groups[r.groupId]
+    if (!g || r.currency === home) continue
+    const day = tripRateDate(g, g.expenseDates, today)
+    if (defaultRateBasis(g, day) === 'trip' && day) out[r.key] = day
+  }
+  return out
+}
