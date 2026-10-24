@@ -7,6 +7,7 @@
  */
 import { minorDigitsOf } from '../../../shared/money-core'
 import { excludedPeople } from '../../../shared/quick-exclude'
+import { groundedAmount } from '../../../shared/line-amounts'
 import {
   QUICK_GROUP_TYPES,
   type QuickAiExpense,
@@ -261,7 +262,10 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
   const isMe = (s: string) => ME.test(fold(s)) || (!!meName && (fold(s) === meName || fold(s) === meName.split(' ')[0]))
 
   const currency = typeof r.currency === 'string' && /^[A-Z]{3}$/.test(r.currency.trim().toUpperCase()) ? r.currency.trim().toUpperCase() : req.currency
-  const amount = toMinor(r.amount, currency)
+  // The amount is checked against the line's own words: a small model drops or changes plain amounts
+  // (shared/line-amounts.ts). A number the line doesn't say gives way to the one it does.
+  const said = typeof r.amount === 'string' ? Number(r.amount.replace(/[,₹\s]/g, '')) : r.amount
+  const amount = toMinor(groundedAmount(typeof said === 'number' && Number.isFinite(said) && said > 0 ? said : undefined, req.text), currency)
   const description = clean(r.description, 80)
   const date = isoDate(r.date)
   const dateOk = date && dayNumber(date) <= dayNumber(req.today) + 1 && dayNumber(date) >= dayNumber(req.today) - 400

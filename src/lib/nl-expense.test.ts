@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { bindQuickPrefill, exactFromParts, matchName, mergeAiParse, nameMatches, parseNlExpense, toQuickPrefill, type NlContext } from './nl-expense'
+import {
+  firmUpPrefill,
+  bindQuickPrefill,
+  exactFromParts,
+  matchName,
+  mergeAiParse,
+  nameMatches,
+  parseNlExpense,
+  toQuickPrefill,
+  type NlContext,
+} from './nl-expense'
 
 const ctx: NlContext = {
   members: [
@@ -379,5 +389,26 @@ describe('spoken stories (owner’s lines, 24 Oct 2026)', () => {
       me: 92000,
       rahul: 138000,
     })
+  })
+})
+
+describe('firmUpPrefill: what the phone was sure of wins over AI’s answer', () => {
+  const ai = { text: 'x', description: 'Lunch', currency: 'INR', payer: 'me' }
+  it('an amount AI dropped, parts AI made equal, the payer the line names, the date', () => {
+    const local = parse('cab 600 Priya paid, Rahul owes 400 on 2 Oct')
+    const out = firmUpPrefill({ ...ai, amount: undefined }, local)
+    expect(out.amount).toBe(60000)
+    expect(out.exact).toEqual(local.exact)
+    expect(out.payer).toBe('priya')
+    expect(out.date).toBe('2026-10-02')
+  })
+  it('who shares it, when AI said everyone and the line says otherwise', () => {
+    const local = parse('dinner 1200, Priya wasn’t there')
+    expect(firmUpPrefill({ ...ai, amount: 120000 }, local).participants).toEqual(['me', 'rahul', 'sam2'])
+  })
+  it('AI’s own reading stays where the phone wasn’t sure', () => {
+    const local = parse('villa 3000, Rahul pays double')
+    const out = firmUpPrefill({ ...ai, amount: 300000, exact: { me: 100000, rahul: 200000 }, participants: ['me', 'rahul'] }, local)
+    expect(out.exact).toEqual({ me: 100000, rahul: 200000 })
   })
 })

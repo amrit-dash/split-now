@@ -4,7 +4,7 @@ import { cleanQuickRequest, normaliseQuickAi, quickPrompt, sharersFromLine, spli
 const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 2 * 86_400_000
 const req = cleanQuickRequest(
   {
-    text: 'create a group Goa trip with Rahul and Priya and add dinner 2400 paid by me split equally',
+    text: 'create a group Goa trip with Rahul and Priya and add dinner paid by me split equally',
     today: '2026-10-09',
     currency: 'INR',
     me: 'Asha',

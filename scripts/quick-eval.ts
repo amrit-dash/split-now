@@ -14,6 +14,8 @@
  */
 import { CASE_GROUPS, CASE_UID, QUICK_CASES, type QuickExpect } from '../src/lib/quick-cases'
 import { buildQuickRequest, planQuickAi, type QuickAiPlan } from '../src/lib/quick-ai'
+import { quickLocal } from '../src/lib/quick-local'
+import { firmUpPrefill } from '../src/lib/nl-expense'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from '../functions/src/lib/quick-ai'
 import { generateJson } from '../functions/src/lib/gemini'
 
@@ -98,6 +100,7 @@ function miss(plan: QuickAiPlan, want: QuickExpect): string | null {
 let pass = 0
 let fail = 0
 let tokens = 0
+let appPass = 0
 for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
   const home = c.from === 'home'
   const target = CASE_GROUPS.find((g) => g.id === (home ? 'g_goa' : c.from))
@@ -130,10 +133,18 @@ for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
     const why = miss(plan, c.expect)
     if (why) fail++
     else pass++
-    console.log(`${why ? '✗' : '✓'} [${c.from}] ${c.line}${why ? `: ${why}` : ''} (${Date.now() - t0} ms)`)
+    // As the app does it: the phone's reading of the line in that group firms up AI's (firmUpPrefill).
+    const local = quickLocal({ line: c.line, groups: CASE_GROUPS, uid: CASE_UID, groupId: target?.id ?? 'g_goa', sure: !home, today: TODAY, openItems: true })
+    const firm =
+      plan.kind === 'expense' && 'parse' in local && local.groupId === plan.groupId ? { ...plan, prefill: firmUpPrefill(plan.prefill, local.parse) } : plan
+    const whyApp = miss(firm, c.expect)
+    if (!whyApp) appPass++
+    console.log(
+      `${why ? '✗' : '✓'}${whyApp ? '✗' : '✓'} [${c.from}] ${c.line}${why ? `: AI ${why}` : ''}${whyApp && whyApp !== why ? `; app ${whyApp}` : ''} (${Date.now() - t0} ms)`,
+    )
   } catch (e) {
     fail++
     console.log(`✗ [${c.from}] ${c.line}: ${(e as Error).message.slice(0, 160)}`)
   }
 }
-console.log(`\n${model}: ${pass} of ${pass + fail} as expected, ${tokens} tokens`)
+console.log(`\n${model}: AI alone ${pass} of ${pass + fail}; with the phone's reading (as the app does it) ${appPass} of ${pass + fail}; ${tokens} tokens`)

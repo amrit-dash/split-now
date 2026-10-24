@@ -46,6 +46,8 @@ export interface QuickLine {
   named: GroupInText
   /** The person is in `picked` (its page, or picked it): the line goes there unless it names another. */
   sure?: boolean
+  /** the phone's own reading of the line in a group, for AI's answer to be firmed up with */
+  local?: { groupId: string; parse: NlParse }
   /** The person stopped it while it worked (double tap on + after talking): nothing opens. */
   stopped?: () => boolean
 }
@@ -243,7 +245,10 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
       }
       if (plan.kind === 'payment') return leave(settleUrl(plan.groupId, plan.payment))
       if (plan.kind === 'expense') {
-        pending.quick = { groupId: plan.groupId, prefill: plan.prefill }
+        // What the phone read for certain in the same group wins over AI's answer (src/lib/nl-expense.ts).
+        const local = q.local?.groupId === plan.groupId ? q.local.parse : undefined
+        const prefill = local ? (await loadParser()).firmUpPrefill(plan.prefill, local) : plan.prefill
+        pending.quick = { groupId: plan.groupId, prefill }
         return leave(`/add?group=${encodeURIComponent(plan.groupId)}&quick=1`)
       }
       if (plan.kind === 'openItem') return openOpenItem(plan.groupId, plan.input)
@@ -447,7 +452,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
         case 'ai': {
           const g = groupOf(step.groupId) ?? target
           if (aiAllowed) {
-            const r = await askAi({ ...q, target: g, picked: g, sure: true })
+            const r = await askAi({ ...q, target: g, picked: g, sure: true, local: { groupId: step.groupId, parse: step.parse } })
             if (q.stopped?.()) return stayed
             if (r && r !== 'unknown') return r
             if (r === 'unknown') return go(q, g, true)
