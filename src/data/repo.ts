@@ -39,8 +39,8 @@ import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResp
 import type { DeletionBlocker, DeletionStep } from '../../shared/account-delete'
 import { defaultCurrency, formatDate } from '@/lib/locale'
 import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
-import { sharedPhotoURL, type OwnMemberPatch } from '@/lib/memberSync'
-import { devShown, proShown } from '@/lib/pro'
+import type { OwnMemberPatch } from '@/lib/memberSync'
+import { sharedProfileCopy } from '../../shared/profile-share'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
 
 export type Unsub = () => void
@@ -164,7 +164,7 @@ export interface MemberProfile {
   currency?: string
   /** Collect in my currency (on unless false, src/lib/collect.ts payeeCollects): Settle up starts out paying them in `currency` */
   collect?: boolean
-  /** Their Pro badge shows (src/lib/pro.ts proShown); absent otherwise. Cosmetic, set by their own app. */
+  /** Their Pro badge shows (src/lib/pro.ts proShown); absent otherwise. Cosmetic, set by their own app (and copied by the server). */
   pro?: boolean
   /** Their Dev badge shows (an admin, src/lib/pro.ts devShown); the rules accept it only from an admin. */
   dev?: boolean
@@ -176,18 +176,8 @@ export function memberProfileOf(
   /** an admin (admins/{uid}): shares `dev` unless they hid it */
   admin = false,
 ): MemberProfile {
-  const photo = sharedPhotoURL(p.photoURL)
-  return compact({
-    displayName: p.displayName,
-    payment: p.payment ?? {},
-    photoURL: photo,
-    currency: p.currency && /^[A-Z]{3}$/.test(p.currency) ? p.currency : undefined,
-    // On unless turned off (src/lib/collect.ts collectsInHome); always written, so payers see the choice.
-    collect: p.collectInHome !== false,
-    // Only while it shows: turning the badge off removes it here (the doc is replaced, not merged).
-    pro: proShown(p) ? true : undefined,
-    dev: devShown(p, admin) ? true : undefined,
-  })
+  // The server writes the same copy when the profile changes (functions/src/profileSync.ts), so the rule is shared.
+  return sharedProfileCopy(p, admin) as MemberProfile
 }
 
 export interface RepoError {
@@ -295,9 +285,16 @@ export interface Repo {
   watchProfile(uid: string, cb: Watch<UserProfile | null>): Unsub
   /**
    * Saves the private profile and copies name + payment handles + photo into every group the
-   * user is in. A missing photoURL removes the stored photo.
+   * user is in. A missing photoURL removes the stored photo. A private group gets its copy only
+   * through `sealCopy` (src/data/vault-repo.ts, with the group's key on this phone): without it,
+   * or while that group is locked, it gets none, never one in the clear (docs/VAULT.md).
    */
-  saveProfile(p: UserProfile): Promise<void>
+  saveProfile(p: UserProfile, opts?: { sealCopy?: (groupId: string, copy: MemberProfile) => Promise<MemberProfile | null> }): Promise<void>
+  /**
+   * Writes this person's copy into one group (groups/{gid}/profiles/{uid}) as given. vault-repo
+   * seals it for a private group and refuses while that group is locked. Fire-and-forget.
+   */
+  shareProfile(groupId: string, copy: MemberProfile): Promise<void>
   /**
    * The first time this account held + to talk (users/{uid}.voiceTried = now, merged; nothing is
    * copied into groups): the app stops teaching it on every device. Fire-and-forget.

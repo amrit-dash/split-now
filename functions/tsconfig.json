@@ -35,7 +35,8 @@
     "../shared/members.ts",
     "../shared/paylinks.ts",
     "../shared/archive.ts",
-    "../shared/group-trash.ts"
+    "../shared/group-trash.ts",
+    "../shared/profile-share.ts"
   ],
   "exclude": [
     "**/*.test.ts"

@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { type DragSample, pushSample, releaseVelocity, sheetExit, shouldCloseSheet } from '@/lib/sheet-drag'
 import { haptic } from '@/lib/haptics'
 import { sheetArea } from '@/lib/keyboard'
+import { toastLift, topLift } from '@/lib/toast-place'
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -11,6 +12,20 @@ const FOCUSABLE =
 // Sheets stack (a confirm on top of a form); the app root stays inert until the last one closes.
 let openCount = 0
 let savedOverflow = ''
+
+// Each open sheet's toast lift (src/lib/toast-place.ts), in the order they opened: the top one moves the toast lane.
+const lifts = new Map<symbol, number | null>()
+function applyLift() {
+  const lift = topLift([...lifts.values()])
+  const html = document.documentElement
+  if (lift === null) {
+    delete html.dataset.toastLift
+    html.style.removeProperty('--toast-lift')
+  } else {
+    html.dataset.toastLift = ''
+    html.style.setProperty('--toast-lift', `${lift}px`)
+  }
+}
 
 /**
  * Bottom sheet (centred dialog on wider screens). Closes on the backdrop, Escape, the close
@@ -119,6 +134,29 @@ export function Sheet({
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open, onClose])
+
+  // Toasts float above a short sheet (half the screen or less), else keep their lane. Measured from
+  // the laid-out box (offsetTop ignores the slide-in transform), again whenever the sheet resizes.
+  useEffect(() => {
+    const el = panel.current
+    if (!open || !el) return
+    const key = Symbol('sheet')
+    const measure = () => {
+      const box = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect().top : 0
+      lifts.set(key, toastLift({ top: box + el.offsetTop, height: el.offsetHeight }, window.innerHeight))
+      applyLift()
+    }
+    measure()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    ro?.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+      lifts.delete(key)
+      applyLift()
+    }
+  }, [open])
 
   // Before the early return below: hooks run the same way every time.
   const area = useSheetArea(open)

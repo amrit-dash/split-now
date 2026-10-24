@@ -11,6 +11,7 @@ import {
   type QuickAiExpense,
   type QuickAiGroupIn,
   type QuickAiOpenItem,
+  type QuickAiPayment,
   type QuickAiRequest,
   type QuickAiResult,
   type QuickGroupType,
@@ -32,11 +33,17 @@ export const QUICK_SCHEMA: Schema = {
   properties: {
     action: {
       type: 'STRING',
-      enum: ['expense', 'open_item', 'group_and_expense', 'unknown'],
+      enum: ['expense', 'payment', 'open_item', 'group_and_expense', 'unknown'],
       description:
-        'group_and_expense when the note asks to create / start / make a new group (with or without a cost), or when the writer has no groups; expense for a cost in a listed group; unknown when it is neither',
+        'expense for a cost shared in a listed group; payment for money paid back or sent to settle up; group_and_expense to create a new group (with or without a cost); open_item when unsure who paid; unknown when it is none of these',
     },
-    groupId: nstr('id of the listed group the cost goes into (action expense)'),
+    groupId: nstr('id of the listed group it goes into (actions expense, payment, open_item)'),
+    otherGroupIds: {
+      type: 'ARRAY',
+      nullable: true,
+      items: { type: 'STRING' },
+      description: 'other listed groups that fit the line just as well (same people, no group named); null when one group clearly fits',
+    },
     newGroupName: nstr(
       'name of the group to create (action group_and_expense), short and in title case: the place or occasion ("Bali Trip", "Flat 4B"), else the people ("Rahul & Priya"), else what the cost was for',
     ),
@@ -51,7 +58,8 @@ export const QUICK_SCHEMA: Schema = {
     amount: { type: 'NUMBER', nullable: true, description: 'the amount as a plain number in the currency, e.g. 2400 or 12.50' },
     currency: nstr('ISO 4217 code only if the note names a currency, else null'),
     date: nstr('YYYY-MM-DD only if the note names a day, else null'),
-    paidBy: nstr('who paid: "me" for the writer, else a member id (existing group) or a name from newGroupMembers'),
+    paidBy: nstr('who paid: "me" for the writer, else a member id (existing group) or a name from newGroupMembers; for a payment, who sent the money'),
+    paidTo: nstr('action payment only: who received the money, same identifiers as paidBy'),
     maybePaidBy: {
       type: 'ARRAY',
       nullable: true,
@@ -62,13 +70,15 @@ export const QUICK_SCHEMA: Schema = {
       type: 'ARRAY',
       nullable: true,
       items: { type: 'STRING' },
-      description: 'who shares the cost, same identifiers as paidBy; null when everyone in the group shares it',
+      description:
+        'everyone who shares the cost, the payer included unless the line says they are not sharing it; same identifiers as paidBy; null when everyone in the group shares it',
     },
-    splitMode: { type: 'STRING', nullable: true, enum: ['equal', 'amounts'] },
+    splitMode: { type: 'STRING', nullable: true, enum: ['equal', 'amounts', 'percent', 'shares'] },
     shares: {
       type: 'ARRAY',
       nullable: true,
-      description: 'only for splitMode amounts: each person and the amount they owe',
+      description:
+        'for splitMode amounts, percent or shares: each person the line gives a part to, and their part (an amount in the currency, a percent, or a number of shares); people left out share what is left equally',
       items: {
         type: 'OBJECT',
         properties: { person: { type: 'STRING' }, amount: { type: 'NUMBER' } },
@@ -81,6 +91,7 @@ export const QUICK_SCHEMA: Schema = {
   propertyOrdering: [
     'action',
     'groupId',
+    'otherGroupIds',
     'newGroupName',
     'newGroupType',
     'newGroupMembers',
@@ -89,6 +100,7 @@ export const QUICK_SCHEMA: Schema = {
     'currency',
     'date',
     'paidBy',
+    'paidTo',
     'maybePaidBy',
     'participants',
     'splitMode',
@@ -110,13 +122,25 @@ The line is often a rough speech-to-text transcript: no punctuation, words mishe
 The writer is "${r.me || 'me'}"; "I", "me", "my" or that name mean the writer: answer "me".
 Their groups (id: name; members as id=name, the writer not listed):
 ${groups || '(none)'}
-${r.groupId ? `When the line names no group, the cost goes into ${r.groupId}.` : ''}
+${
+  r.groupId && r.groupIdSure
+    ? `The writer is inside ${r.groupId}: everything goes there. People named who are also in other groups don't move it ("paid Rahul 500 back" stays in ${r.groupId}).`
+    : r.groupId
+      ? `The writer isn't inside a group. Choosing the group: a group the line names; else the group whose members include everyone the line names (the smallest such group, so a 1:1 for one person); else, when it names nobody, ${r.groupId}. Put other groups that fit just as well in otherGroupIds.`
+      : ''
+}
 Rules:
 ${
   none
     ? '- The writer has no groups yet, so the action is group_and_expense whatever the line says (unless it is not about a group or a cost: unknown).'
-    : '- action group_and_expense only when the line asks to create, start, make or set up a group. Otherwise expense, in the group the line names, else the default.'
+    : `- action group_and_expense when the line asks to create, start, make or set up a group${r.groupIdSure ? '' : ', or when it names people and no listed group has them all (the new group is the writer and those people)'}. Otherwise the action is for a listed group.`
 }
+- People: a full name ("Rahul Verma") is exactly that member, never another with the same first name.
+- Who paid: "I paid", "paid by me", "on me" is "me". "Rahul paid", "paid by Rahul", "Rahul got it", "Rahul covered it", "drinks on Rahul" is Rahul. "they paid", "he paid", "she paid", "he got the bill" means the other person the line names (with one other person, that person; with several, the last one named). Never null when the line says who paid.
+- Who shares it: "with Rahul" means the writer and Rahul. The payer shares the cost unless the line says it was only for others ("I paid for Rahul's ticket": only Rahul; "for Rohan only", "lunch for Rohan 500": only Rohan). When the line names people, participants lists exactly them and the writer (and the payer), even when the group has more members. Only "everyone", "all of us", or a line naming nobody gives participants null (the whole group). "everyone except Rohan": every member but Rohan.
+- Uneven splits: the first number is the total; a number right after a person's name is that person's part ("hotel 6000 Priya 4000": total 6000, Priya 4000, the rest the payer's). "Rahul owes 400", "Rahul 700 rest me": splitMode amounts with those people (whoever isn't given an amount shares the rest). "60/40", "Rahul 30 percent": splitMode percent. "Rahul 2 shares, me 1": splitMode shares. Otherwise splitMode equal.
+- ${r.payments ? 'action payment when money was paid back or sent to settle up, not spent: "paid Rahul 500 back", "sent Priya 300", "Rohan paid me back 200", "settled up with Rahul 1000". paidBy is who sent it, paidTo who got it, amount the money, description null. A refund from a shop, hotel or app ("got 500 back for the hotel", "refund 500") is not a payment between people: action expense.' : 'Money paid back to settle up is an expense from the payer to the other person.'}
+- open_item only when the writer says they are unsure who paid ("not sure who paid", "someone paid", "might have", "sort it out later"). A line that says who paid is never an open item.
 - A new group's name is short, in title case: the place or occasion the line names ("for my Bali trip" → "Bali Trip"), else the people ("Rahul & Priya"), else what the cost was for ("Dinner"). Never the writer's name alone.
 - newGroupMembers are every other person the line names, as written, in order ("with Rahul, Priya and Subramaniam" → Rahul, Priya, Subramaniam). Never the writer.
 - For an existing group, people are member ids from its list; never invent ids. For a new group, people are the names in newGroupMembers.
@@ -187,6 +211,8 @@ export function cleanQuickRequest(raw: unknown, serverToday: string, near: (a: s
     groups,
     ...(d.groupOnly === true ? { groupOnly: true } : {}),
     ...(d.openItems === true ? { openItems: true } : {}),
+    ...(d.payments === true ? { payments: true } : {}),
+    ...(groupId && d.groupIdSure === true ? { groupIdSure: true } : {}),
   }
 }
 
@@ -241,23 +267,26 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
         ]
       : []
     let split: QuickAiExpense['split'] = 'equal'
-    if (r.splitMode === 'amounts' && Array.isArray(r.shares) && amount !== undefined) {
-      const map: Record<string, number> = {}
+    const mode = r.splitMode
+    if ((mode === 'amounts' || mode === 'percent' || mode === 'shares') && Array.isArray(r.shares) && amount !== undefined) {
+      const given: Array<[string, number]> = []
       let ok = true
       for (const s of r.shares.slice(0, 60)) {
         const o = (s ?? {}) as Record<string, unknown>
         const who = people(o.person)
-        const v = o.amount === 0 ? 0 : toMinor(o.amount, currency)
-        if (!who || v === undefined || who in map) {
+        const v = typeof o.amount === 'number' && Number.isFinite(o.amount) && o.amount >= 0 ? o.amount : undefined
+        if (!who || v === undefined || given.some(([w]) => w === who)) {
           ok = false
           break
         }
-        map[who] = v
+        given.push([who, v])
       }
-      const sum = Object.values(map).reduce((a, b) => a + b, 0)
-      // Shares that don't add up to the amount are not trusted as amounts: the people still are.
-      if (ok && Object.keys(map).length && sum === amount) split = map
-      else if (ok && Object.keys(map).length && !participants.length) participants.push(...Object.keys(map))
+      // Whoever shares the cost but got no part of their own takes what's left (the payer by default).
+      const others = (participants.length ? participants : [paidBy]).filter((p) => !given.some(([w]) => w === p))
+      const map = ok && given.length ? splitParts(mode, given, others, amount, currency) : null
+      if (map) split = map
+      // A split that can't be made exact keeps its people, shared equally.
+      else if (given.length && !participants.length) participants.push(...given.map(([w]) => w))
     }
     const out: QuickAiExpense = { description, currency, paidBy, split }
     if (amount !== undefined) out.amount = amount
@@ -265,6 +294,39 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
     const who = split === 'equal' ? participants : Object.keys(split)
     if (who.length) out.participants = who
     return out
+  }
+
+  // Inside a group (its page, or picked), the answer stays there: the model sometimes moves "paid
+  // Rahul 500 back" to the 1:1 with Rahul. A group named in the line was already picked by the app.
+  const groupFor = (id: unknown) =>
+    (req.groupIdSure ? undefined : req.groups.find((x) => x.id === id)) ?? req.groups.find((x) => x.id === req.groupId) ?? req.groups.find((x) => x.id === id)
+
+  // Other groups that fit as well, when the person wasn't in one: the app asks which.
+  const alsoFits = (chosen: string) =>
+    req.groupIdSure
+      ? []
+      : [...new Set(Array.isArray(r.otherGroupIds) ? r.otherGroupIds : [])]
+          .filter((id): id is string => typeof id === 'string' && id !== chosen && req.groups.some((g) => g.id === id))
+          .slice(0, 4)
+  const fits = (chosen: string) => {
+    const a = alsoFits(chosen)
+    return a.length ? { alsoFits: a } : {}
+  }
+
+  if (r.action === 'payment' && req.payments) {
+    const g = groupFor(r.groupId)
+    if (!g) return { action: 'unknown' }
+    const person = groupPerson(g, isMe)
+    const from = typeof r.paidBy === 'string' ? person(r.paidBy) : undefined
+    const to = typeof r.paidTo === 'string' ? person(r.paidTo) : undefined
+    // One side is always the writer when the line names only one person ("paid Rahul 500 back").
+    const a = from ?? (to && to !== 'me' ? 'me' : undefined)
+    const b = to ?? (from && from !== 'me' ? 'me' : undefined)
+    if (!a || !b || a === b) return { action: 'unknown' }
+    const payment: QuickAiPayment = { from: a, to: b, currency }
+    if (amount !== undefined) payment.amount = amount
+    if (dateOk) payment.date = date
+    return { action: 'payment', group: { existingId: g.id }, payment, ...fits(g.id) }
   }
 
   if (r.action === 'group_and_expense') {
@@ -298,14 +360,22 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
 
   // An app without open items gets the line as an expense (it never asked for open_item).
   if (r.action === 'expense' || (r.action === 'open_item' && !req.openItems)) {
-    const g = req.groups.find((x) => x.id === r.groupId) ?? req.groups.find((x) => x.id === req.groupId)
+    const g = groupFor(r.groupId)
     if (!g) return { action: 'unknown' }
     const expense = base(groupPerson(g, isMe))
-    return expense ? { action: 'expense', group: { existingId: g.id }, expense } : { action: 'unknown' }
+    if (!expense) return { action: 'unknown' }
+    // Who shares it, checked against the words themselves: the model often leaves it empty (the
+    // whole group) when the line names people, or drops the writer.
+    if (expense.split === 'equal') {
+      const who = sharersFromLine(req.text, g, expense.paidBy, expense.participants)
+      if (who) expense.participants = who
+      else delete expense.participants
+    }
+    return { action: 'expense', group: { existingId: g.id }, expense, ...fits(g.id) }
   }
 
   if (r.action === 'open_item') {
-    const g = req.groups.find((x) => x.id === r.groupId) ?? req.groups.find((x) => x.id === req.groupId)
+    const g = groupFor(r.groupId)
     if (!g || !description) return { action: 'unknown' }
     const person = groupPerson(g, isMe)
     const suspects = [
@@ -319,7 +389,7 @@ export function normaliseQuickAi(raw: unknown, req: QuickAiRequest): QuickAiResu
     if (amount !== undefined) item.amount = amount
     if (dateOk) item.date = date
     if (suspects.length) item.suspects = suspects
-    return { action: 'open_item', group: { existingId: g.id }, item }
+    return { action: 'open_item', group: { existingId: g.id }, item, ...fits(g.id) }
   }
   return { action: 'unknown' }
 }
@@ -337,4 +407,119 @@ function groupPerson(g: QuickAiGroupIn, isMe: (s: string) => boolean) {
     const first = g.members.filter((m) => fold(m.name).split(' ')[0] === n)
     return first.length === 1 ? first[0].id : undefined
   }
+}
+
+/**
+ * Exact minor units per person from the parts the line gave: amounts as they are, percents of the
+ * amount, or shares as weights; `others` (people sharing it with no part of their own) split what's
+ * left equally. Largest remainder, so the parts always add up to `amount`. null when it can't be
+ * made exact (parts over the amount, or something left with nobody to take it).
+ */
+export function splitParts(
+  mode: 'amounts' | 'percent' | 'shares',
+  given: Array<[string, number]>,
+  others: string[],
+  amount: number,
+  currency: string,
+): Record<string, number> | null {
+  const out: Record<string, number> = {}
+  let left = amount
+  if (mode === 'amounts') {
+    for (const [who, v] of given) {
+      const m = toMinor(v, currency) ?? (v === 0 ? 0 : undefined)
+      if (m === undefined) return null
+      out[who] = m
+      left -= m
+    }
+  } else {
+    const total = mode === 'percent' ? 100 : given.reduce((a, [, v]) => a + v, 0)
+    if (total <= 0) return null
+    // Percents may leave a part for the others; shares cover the whole amount.
+    const pool = mode === 'percent' ? Math.round((amount * given.reduce((a, [, v]) => a + v, 0)) / 100) : amount
+    if (pool > amount) return null
+    const parts = largestRemainder(
+      pool,
+      given.map(([, v]) => v),
+    )
+    given.forEach(([who], i) => {
+      out[who] = parts[i]
+    })
+    left -= pool
+  }
+  if (left < 0) return null
+  if (left > 0) {
+    if (!others.length) return null
+    const parts = largestRemainder(
+      left,
+      others.map(() => 1),
+    )
+    others.forEach((who, i) => {
+      out[who] = (out[who] ?? 0) + parts[i]
+    })
+  }
+  return out
+}
+
+/** `total` minor units across weights, rounding so the parts sum exactly to `total`. */
+function largestRemainder(total: number, weights: number[]): number[] {
+  const sum = weights.reduce((a, b) => a + b, 0)
+  if (sum <= 0) return weights.map(() => 0)
+  const raw = weights.map((w) => (total * w) / sum)
+  const floor = raw.map(Math.floor)
+  let rest = total - floor.reduce((a, b) => a + b, 0)
+  const order = raw.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0])
+  for (const [, i] of order) {
+    if (rest <= 0) break
+    floor[i] += 1
+    rest -= 1
+  }
+  return floor
+}
+
+const word = (name: string) => new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\p{L}])`, 'iu')
+
+/**
+ * Who shares an equal split, from the line's own words and the group: undefined for the whole group.
+ * "everyone except Rohan" (except / but not / without / minus): every member but them, the writer
+ * included. A line naming members (first or full name): them, the writer and the payer, unless it
+ * says everyone, and unless the cost was only for others ("for Rahul only", "Rahul's ticket"), when
+ * the payer is left out. Otherwise what the model said.
+ */
+export function sharersFromLine(text: string, g: QuickAiGroupIn, paidBy: string, said: string[] | undefined): string[] | undefined {
+  const t = fold(text)
+  const first = (m: { name: string }) => fold(m.name).split(' ')[0]
+  // A full name ("Rahul Verma") is that member alone: a namesake ("Rahul Sharma") isn't pulled in by the first name.
+  const full = g.members.filter((m) => fold(m.name).includes(' ') && word(fold(m.name)).test(t))
+  const named = g.members.filter((m) => full.includes(m) || (word(first(m)).test(t) && !full.some((f) => f !== m && first(f) === first(m)))).map((m) => m.id)
+  const all = ['me', ...g.members.map((m) => m.id)]
+  const except = t.match(/\b(?:except|but not|without|minus|other than)\b(.*)$/)
+  if (except) {
+    // "except Rohan, Priya paid": the exception ends at the comma (or where the payer comes in).
+    const clause = except[1].split(/[,.;]|\bpaid\b|\bwho\b/)[0]
+    const out = g.members.filter((m) => word(fold(m.name).split(' ')[0]).test(clause)).map((m) => m.id)
+    if (out.length) {
+      const left = all.filter((p) => !out.includes(p))
+      return left.length === all.length ? undefined : left
+    }
+  }
+  if (/\b(everyone|everybody|all of us|whole group|the group)\b/.test(t)) return undefined
+  // "lunch for Rohan 500": bought for them, not shared with the writer (unless the line says "with").
+  const forSomeone = !/\bwith\b/.test(t) && g.members.some((m) => word(`for ${first(m)}`).test(t))
+  const onlyOthers = forSomeone || /\b(only for|for \w+ only|'s (ticket|share|bill|order)|on behalf of)\b/.test(t)
+  if (named.length) {
+    // The model's list, less any namesake of a full name the line gives.
+    const namesake = (id: string) => full.some((f) => f.id !== id && g.members.some((m) => m.id === id && first(m) === first(f)))
+    const set = new Set((said ?? []).filter((id) => !namesake(id)))
+    for (const p of named) set.add(p)
+    if (!onlyOthers) {
+      set.add('me')
+      set.add(paidBy)
+    }
+    const out = all.filter((p) => set.has(p))
+    return out.length === all.length ? undefined : out
+  }
+  // Nobody named in the line: the model's list as it is.
+  if (!said?.length) return undefined
+  const list = all.filter((p) => said.includes(p))
+  return list.length === all.length ? undefined : list
 }

@@ -332,7 +332,7 @@ export function LoginInstallBanner() {
     <InstallBar
       hint={install.ios ? 'Add to Home Screen first' : phone ? 'Install, then sign in once' : 'Own window, works offline'}
       onDone={() => setHidden(true)}
-      className="animate-pop mt-8"
+      className="animate-pop"
       wrap
     />
   )

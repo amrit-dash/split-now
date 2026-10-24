@@ -31,7 +31,7 @@ export const FLAG_SECTIONS: readonly Section<FlagName>[] = [
     id: 'groups',
     title: 'Groups',
     hint: 'What a group offers besides its expenses.',
-    keys: ['groupChat', 'openItems', 'liveTables', 'vaults', 'joinApproval'],
+    keys: ['groupChat', 'openItems', 'liveTables', 'vaults', 'joinApproval', 'profileSync'],
   },
   {
     id: 'payments',

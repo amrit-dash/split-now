@@ -34,9 +34,10 @@
        * is dark (the manifest's background_color, which Android's own launch screen uses) with a
        * faint glow of the accent, so the hand-over from the system splash is seamless. Every
        * delay is offset by --t, the ms already elapsed, so React's copy continues the animation
-       * instead of restarting it. The accent variables come from index.css once it lands.
+       * instead of restarting it. The accent variables come from index.css once it lands; the logo is
+       * drawn inline (not /favicon.svg) so its gradient is the person's accent from the first frame.
        */
-      .boot { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 0 1.25rem; background: #0b0a14; background: radial-gradient(70% 50% at 50% 45%, rgb(124 58 237 / 0.2), transparent 70%), #0b0a14; background: radial-gradient(70% 50% at 50% 45%, color-mix(in oklab, var(--color-brand-600, #7c3aed) 22%, transparent), transparent 70%), #0b0a14; color: #fff; font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif; text-align: center; }
+      .boot { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 0 1.25rem; background: #0b0a14; background: radial-gradient(70% 50% at 50% 45%, rgb(124 58 237 / 0.2), transparent 70%), #0b0a14; background: radial-gradient(70% 50% at 50% 45%, color-mix(in oklab, var(--boot-from, var(--color-brand-600, #7c3aed)) 22%, transparent), transparent 70%), #0b0a14; color: #fff; font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif; text-align: center; }
       .boot-stack { display: flex; flex-direction: column; align-items: center; animation: boot-up 0.5s cubic-bezier(0.3, 0, 0.2, 1) calc(650ms - var(--t, 0ms)) both; }
       .boot-logo { width: 5.5rem; height: 5.5rem; filter: drop-shadow(0 18px 32px rgb(0 0 0 / 0.5)); animation: boot-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.35) calc(0ms - var(--t, 0ms)) both; }
       .boot-tag { margin: 1rem 0 0; }
@@ -79,6 +80,19 @@
         if (ink !== 'light' && ink !== 'dark') ink = darkInk.indexOf(a) >= 0 ? 'dark' : 'light'
         root.setAttribute('data-ink', ink)
         document.querySelector('meta[name="theme-color"]').setAttribute('content', root.classList.contains('dark') ? '#0b0a14' : accents[a])
+        // The splash logo's gradient in this accent: brand-600 → duo-600, as in index.css (one colour with
+        // the dual tone off). src/lib/splash.test.ts checks these against index.css.
+        var logo = {
+          violet: ['#7c3aed', 'oklch(59.1% 0.293 322.896)'],
+          ocean: ['oklch(54.6% 0.245 262.881)', 'oklch(52% 0.105 223.128)'],
+          neon: ['oklch(52% 0.15 129)', 'oklch(54% 0.1 196)'],
+          berry: ['oklch(53% 0.2 343)', 'oklch(51.5% 0.095 197)'],
+          koi: ['oklch(55.5% 0.165 48)', 'oklch(51.5% 0.215 277)'],
+          gold: ['oklch(54% 0.12 80)', 'oklch(44% 0.105 58)'],
+          graphite: ['oklch(44.6% 0.043 257.281)', 'oklch(32% 0.02 268)'],
+        }
+        root.style.setProperty('--boot-from', logo[a][0])
+        root.style.setProperty('--boot-to', root.getAttribute('data-duo') === 'off' ? logo[a][0] : logo[a][1])
       } catch (e) {}
       // Animations (src/lib/motion.ts): a stilled colour flow and its speed, before the buttons paint.
       try {
@@ -90,7 +104,7 @@
     </script>
   </head>
   <body>
-    <div id="root"><div class="boot" role="img" aria-label="Split Now"><div class="boot-stack"><img class="boot-logo" src="/favicon.svg" alt="" /><p class="boot-tag" aria-hidden="true"><span class="boot-l1">Spending is wise, splitting is free.</span><span class="boot-l2">Split Now!</span></p></div></div></div>
+    <div id="root"><div class="boot" role="img" aria-label="Split Now"><div class="boot-stack"><svg class="boot-logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="boot-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color: var(--boot-from, #7c3aed)" /><stop offset="1" style="stop-color: var(--boot-to, #db2777)" /></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#boot-g)" /><circle cx="256" cy="256" r="166" fill="none" stroke="#fff" stroke-width="46" /><path d="M256 90 V422" stroke="#fff" stroke-width="46" stroke-linecap="round" /><path d="M256 256 L373 373" stroke="#fff" stroke-width="46" stroke-linecap="round" opacity=".85" /></svg><p class="boot-tag" aria-hidden="true"><span class="boot-l1">Spending is wise, splitting is free.</span><span class="boot-l2">Split Now!</span></p></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

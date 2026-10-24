@@ -88,7 +88,6 @@ export function IconSheet({
     if (!open) setQ('')
   }, [open])
   // New words: what AI said before was for other words, and the wait starts over.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the words change
   useEffect(() => {
     setFound(null)
     setProblem(null)

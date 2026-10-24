@@ -163,46 +163,49 @@ export function PushPrompt({ place, className = '' }: { place: PushPromptPlace; 
       : 'Know when someone adds an expense with you, pays you back or writes in a group.'
 
   return (
-    <section className={`card flex items-start gap-3 p-4 ${className}`} aria-labelledby={`push-prompt-${place}`} data-testid={`push-prompt-${place}`}>
-      <span className={STEP} aria-hidden>
-        <BellRingingIcon size={20} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h2 id={`push-prompt-${place}`} className="font-semibold">
-          Turn on notifications
-        </h2>
-        <p className="text-muted text-sm">{line}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {step === 'allow' ? (
-            <button
-              type="button"
-              onClick={turnOn}
-              disabled={push.busy}
-              className="btn-primary !min-h-10 !rounded-full !px-4 !py-0 text-sm"
-              data-testid="push-prompt-on"
-            >
-              <BellIcon size={16} aria-hidden /> Turn on
-            </button>
-          ) : null}
+    <section className={`card p-4 ${className}`} aria-labelledby={`push-prompt-${place}`} data-testid={`push-prompt-${place}`}>
+      <div className="flex items-start gap-3">
+        <span className={STEP} aria-hidden>
+          <BellRingingIcon size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id={`push-prompt-${place}`} className="font-semibold">
+            Turn on notifications
+          </h2>
+          <p className="text-muted text-sm">{line}</p>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className="text-muted -mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800"
+          data-testid="push-prompt-close"
+        >
+          <X size={18} aria-hidden />
+        </button>
+      </div>
+      {/* One row across the whole card (owner, 24 Oct 2026): under the words, not squeezed beside the icon, so both fit at 320px. */}
+      <div className="mt-3 flex items-center gap-2">
+        {step === 'allow' ? (
           <button
             type="button"
-            onClick={() => setOpen(true)}
-            className={`${step === 'allow' ? 'btn-ghost' : 'btn-primary'} !min-h-10 !rounded-full !px-4 !py-0 text-sm`}
-            data-testid="push-prompt-how"
+            onClick={turnOn}
+            disabled={push.busy}
+            className="btn-primary !min-h-10 whitespace-nowrap !rounded-full !px-4 !py-0 text-sm"
+            data-testid="push-prompt-on"
           >
-            {step === 'allow' ? 'What you get' : 'Show me how'}
+            <BellIcon size={16} aria-hidden /> Turn on
           </button>
-        </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`${step === 'allow' ? 'btn-ghost' : 'btn-primary'} !min-h-10 whitespace-nowrap !rounded-full !px-4 !py-0 text-sm`}
+          data-testid="push-prompt-how"
+        >
+          {step === 'allow' ? 'What you get' : 'Show me how'}
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={close}
-        aria-label="Close"
-        className="text-muted -mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800"
-        data-testid="push-prompt-close"
-      >
-        <X size={18} aria-hidden />
-      </button>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Turn on notifications" testId="push-prompt-sheet">
         <ul className="mb-5 space-y-2 text-sm">

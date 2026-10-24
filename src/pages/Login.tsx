@@ -84,7 +84,9 @@ export default function Login() {
   const field = 'input !bg-white/10 !text-white placeholder:!text-slate-400'
 
   return (
-    <AuthShell>
+    // Install before signing in, so it's once (an iPhone's Home Screen app has its own sign-in). It sits at
+    // the bottom of the screen, apart from signing in, not under the last button.
+    <AuthShell footer={<LoginInstallBanner />}>
       <div className="flex items-center gap-4">
         <img src="/pwa-192.png" alt="" width={80} height={80} className="h-16 w-16 shrink-0 rounded-3xl shadow-2xl shadow-brand-600/40 sm:h-20 sm:w-20" />
         <h1 className="text-[clamp(1.5rem,7.4vw,2.25rem)] font-extrabold leading-tight tracking-tight">Split bills, not friendships.</h1>
@@ -112,7 +114,7 @@ export default function Login() {
         </div>
       )}
 
-      <div className="mt-8 space-y-3">
+      <div className="mt-10 space-y-4">
         {demo ? (
           <form
             className="space-y-3"
@@ -314,8 +316,8 @@ export default function Login() {
         )}
         {/* A different job from signing in (no account needed), so it sits apart, as an outline button. */}
         {cfg.flags.liveTables !== false && (
-          <div className="pt-4">
-            <div className="flex items-center gap-3 pb-3 text-xs text-slate-400">
+          <div className="pt-6">
+            <div className="flex items-center gap-3 pb-4 text-xs text-slate-400">
               <span className="h-px flex-1 bg-white/10" aria-hidden />
               Splitting a bill at a table?
               <span className="h-px flex-1 bg-white/10" aria-hidden />
@@ -330,14 +332,12 @@ export default function Login() {
           </div>
         )}
       </div>
-      {/* Install before signing in, so it's once (an iPhone's Home Screen app has its own sign-in). */}
-      <LoginInstallBanner />
     </AuthShell>
   )
 }
 
 /** The dark sign-in surface (it matches the install splash), shared with the email code screen. */
-export function AuthShell({ children }: { children: ReactNode }) {
+export function AuthShell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ink-950 text-white">
       {/* The two glows are radial gradients, not blurred circles: Safari (and the installed app on a Mac) cuts a large
@@ -350,9 +350,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
         className="pointer-events-none absolute -bottom-[15rem] -right-[11rem] h-[36rem] w-[36rem] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--color-duo-600)_30%,transparent),transparent)]"
         aria-hidden
       />
-      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center-safe px-6 pb-12 pt-[max(3rem,env(safe-area-inset-top))]">
+      <main
+        className={`relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center-safe px-6 pt-[max(3rem,env(safe-area-inset-top))] ${footer ? 'pb-6' : 'pb-12'}`}
+      >
         {children}
       </main>
+      {/* Pinned to the bottom (the install banner): clear of the home bar, with room above it. */}
+      {footer && <div className="relative mx-auto w-full max-w-md px-6 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))]">{footer}</div>}
     </div>
   )
 }

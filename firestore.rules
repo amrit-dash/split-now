@@ -313,9 +313,9 @@ service cloud.firestore {
       function validFlags(f) {
         return f is map
           && f.keys().hasOnly(['aiImages', 'aiSms', 'liveTables', 'autoCapture', 'quickAdd', 'nudges', 'statementImport',
-              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval', 'aiTranscribe', 'aiTranscribeShared'])
+              'payLinks', 'duplicates', 'merchantMemory', 'whoseTurn', 'budgetAlerts', 'aiQuickAdd', 'aiPayments', 'openItems', 'groupChat', 'chatAi', 'pushPrompt', 'moneyReceived', 'vaults', 'aiIcons', 'aiIconAuto', 'whatsNew', 'joinApproval', 'aiTranscribe', 'aiTranscribeShared', 'profileSync'])
           && f.get('joinApproval', true) is bool
-          && f.get('aiTranscribe', true) is bool && f.get('aiTranscribeShared', true) is bool
+          && f.get('aiTranscribe', true) is bool && f.get('aiTranscribeShared', true) is bool && f.get('profileSync', true) is bool
           && f.get('openItems', true) is bool && f.get('groupChat', true) is bool && f.get('chatAi', true) is bool && f.get('aiIcons', true) is bool && f.get('aiIconAuto', true) is bool && f.get('whatsNew', true) is bool
           && f.get('pushPrompt', true) is bool && f.get('moneyReceived', true) is bool && f.get('vaults', true) is bool
           && f.get('aiQuickAdd', true) is bool && f.get('aiPayments', true) is bool
@@ -1200,6 +1200,13 @@ service cloud.firestore {
       // Name + payment handles (+ profile photo URL, currency, Collect in, and `pro` / `dev` while their
       // badge shows, src/lib/pro.ts: pro cosmetic, dev only from an admin) a member shares with this group only.
       // Written by the owner (also in the same batch as creating/joining the group, hence getAfter).
+      // A private group's copy of someone (docs/VAULT.md): their name, photo link and payment details
+      // only as tokens sealed on their phone, never in the clear (an older app's plain copy is refused).
+      function sealedProfileCopy(d) {
+        return (d.displayName == '' || (d.displayName.size() <= 200 && d.displayName.matches('v1:[A-Za-z0-9_-]+')))
+          && (!('photoURL' in d) || (d.photoURL is string && d.photoURL.size() <= 2048 && d.photoURL.matches('v1:[A-Za-z0-9_-]+')))
+          && (!('payment' in d) || (d.payment is string && d.payment.size() <= 1000 && d.payment.matches('v1:[A-Za-z0-9_-]+')));
+      }
       match /profiles/{userId} {
         allow read: if isGroupMember(groupId);
         allow create, update: if isUser() && uid() == userId && writesOpen() && groupLive(groupId)
@@ -1211,10 +1218,13 @@ service cloud.firestore {
           && (!('dev' in request.resource.data) || request.resource.data.dev == false || (request.resource.data.dev == true && isAdmin()))
           && (!('currency' in request.resource.data) || (request.resource.data.currency is string && request.resource.data.currency.size() == 3))
           && (!('collect' in request.resource.data) || request.resource.data.collect is bool)
-          && (!('photoURL' in request.resource.data)
-            || (request.resource.data.photoURL is string
-              && request.resource.data.photoURL.size() <= 2048
-              && request.resource.data.photoURL.matches('https://.+')));
+          && (groupAfter(groupId).data.get('vault', false) == true
+            ? sealedProfileCopy(request.resource.data)
+            : (!('payment' in request.resource.data) || request.resource.data.payment is map)
+              && (!('photoURL' in request.resource.data)
+                || (request.resource.data.photoURL is string
+                  && request.resource.data.photoURL.size() <= 2048
+                  && request.resource.data.photoURL.matches('https://.+'))));
         // the owner, or the group creator when removing the member / deleting the group
         allow delete: if isUser() && writesOpen() && (uid() == userId
           || (isGroupMember(groupId) && groupDoc(groupId).data.createdBy == uid()));

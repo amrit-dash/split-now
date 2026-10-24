@@ -37,6 +37,7 @@ const NEW_GROUP = '__new'
 export function QuickAdd({
   groups,
   defaultGroupId,
+  groupSure,
   onLeave,
   initialText = '',
   testId = 'quick-add',
@@ -48,6 +49,8 @@ export function QuickAdd({
    */
   groups: Group[]
   defaultGroupId?: string
+  /** the person is inside that group (its page): the line goes there unless it names another */
+  groupSure?: boolean
   /** called just before it navigates away (the Create sheet closes) */
   onLeave?: () => void
   /** a line already said (holding + when it needs a choice made here, such as which group) */
@@ -62,6 +65,8 @@ export function QuickAdd({
   const enabled = useFlag('quickAdd')
   const [text, setText] = useState(initialText)
   const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id)
+  // Picked in the chip: as sure as being inside it.
+  const [chose, setChose] = useState(false)
   /** 'ai': Quick add with AI is working the line out; 'read': the gap-filling reader */
   const [busy, setBusy] = useState<'ai' | 'read' | null>(null)
   const [answer, setAnswer] = useState<string | null>(null)
@@ -118,7 +123,7 @@ export function QuickAdd({
   if (!enabled) return null
   const hint = picked ? HINT : HINT_FIRST
 
-  const q = (): QuickLine => ({ text, line, target, picked, fresh, named })
+  const q = (): QuickLine => ({ text, line, target, picked, fresh, named, sure: !!groupSure || chose })
   const done = (o: Awaited<ReturnType<typeof run.send>>) => {
     if (o.kind === 'left') setText('')
     else if (o.kind === 'answer') setAnswer(o.text)
@@ -147,6 +152,7 @@ export function QuickAdd({
       return
     }
     setGroupId(v)
+    setChose(true)
     if (named.kind === 'ambiguous') setAnswered(named.phrase)
   }
 
@@ -205,7 +211,7 @@ export function QuickAdd({
             ref={input}
             id={`${testId}-input`}
             aria-label="Quick add"
-            className={`block w-full rounded-t-2xl bg-transparent px-4 pb-1.5 pt-3.5 text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-slate-100 ${showHint ? 'placeholder:text-transparent' : ''} ${transcribing ? 'pr-11' : ''}`}
+            className={`block w-full rounded-t-2xl bg-transparent px-4 pb-1.5 pt-3.5 text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-slate-100 ${showHint ? 'placeholder:text-transparent' : ''}`}
             placeholder={transcribing ? 'Writing it down…' : listening ? 'Listening…' : hint}
             value={text}
             onChange={(e) => {
@@ -225,13 +231,6 @@ export function QuickAdd({
             data-testid={`${testId}-input`}
           />
           {showHint && <Hint text={hint} />}
-          {/* AI is writing the recording down: a spinner in the box, where the words will land. */}
-          {transcribing && (
-            <span className="absolute bottom-1.5 right-3 top-3.5 flex items-center text-brand-600 dark:text-brand-300" data-testid={`${testId}-transcribing`}>
-              <Loader2 size={18} className="animate-spin" aria-hidden />
-              <span className="sr-only">Writing down what you said</span>
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-1.5 px-2 pb-2 pt-1">
           <div ref={picker} className="flex min-w-0 flex-1 items-center">
@@ -338,7 +337,8 @@ export function QuickAdd({
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-fill text-on-fill shadow-sm transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
             data-testid={`${testId}-go`}
           >
-            {busy ? <Loader2 size={20} className="animate-spin" aria-hidden /> : <ArrowRight size={20} aria-hidden />}
+            {/* One spinner only, with the status words (the card's header, or the line under the box): the button just waits. */}
+            <ArrowRight size={20} aria-hidden />
           </button>
         </div>
       </div>

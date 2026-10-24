@@ -20,7 +20,7 @@ import { CURRENCIES, formatMoney, fromHundredths } from '@/lib/money'
 import { matchMember, parsePaymentScreenshot, parseReceipt, type ParsedPayment, type ParsedReceipt } from '@/lib/ocr-parse'
 import { pending } from '@/lib/pending'
 import { GroupIcon } from '@/components/GroupIcon'
-import { ScanCard, ScanIntro } from '@/components/ScanCard'
+import { ScanCard, ScanFoot, ScanIntro } from '@/components/ScanCard'
 import { StatementImport } from '@/components/StatementImport'
 import { DuplicatePrompt, RecentScans, useScanHistory } from '@/components/ScanHistory'
 import { entryFile, type ScanEntry, type ScanKind, type ScanMatch, type ScanPrint } from '@/lib/scanHistory'
@@ -28,7 +28,8 @@ import { ListSkeleton } from '@/components/Skeleton'
 import { PageHeader, Segmented } from '@/components/Misc'
 import { Select, currencyOptions } from '@/components/Select'
 import { useToast } from '@/components/Toast'
-import { Detail, type Hint, HintText } from '@/components/Hint'
+import { Detail, type Hint } from '@/components/Hint'
+import { useScanAi } from '@/components/AiScanToggle'
 import { activeMembers } from '@/lib/members'
 import { AddIcon, LiveTableIcon, PhoneIcon } from '@/components/icons'
 
@@ -43,11 +44,6 @@ const RECEIPT_HINT: Hint = {
 const PAYMENT_HINT: Hint = {
   full: 'From GPay, PhonePe, Paytm, a bank or PayPal. Reads the amount and who you paid.',
   short: 'Reads the amount and who you paid',
-  tier: 'help',
-}
-const FOOT_HINT: Hint = {
-  full: 'Nothing is added until you pick a group. Recent scans stay on this device.',
-  short: 'Nothing is added until you pick a group',
   tier: 'help',
 }
 
@@ -83,6 +79,8 @@ export default function Scan() {
   const [readOnDevice, setReadOnDevice] = useState(false)
   const [params0] = useSearchParams()
   const [mode, setMode] = useState<Mode>(() => (['receipt', 'statement', 'payment'] as const).find((m) => m === params0.get('mode')) ?? 'receipt')
+  // Bill and Payment share one card; Statement has its own (StatementImport).
+  const ai = useScanAi(mode === 'payment' ? 'payment' : 'receipt', deviceFirst)
   // Statement import can be switched off for everyone from the admin console; the tab goes with it.
   // It shows in Simple too (the owner's call): only the flag decides.
   const statements = useFlag('statementImport')
@@ -183,7 +181,9 @@ export default function Scan() {
     setCancelled(false)
     try {
       if (mode === 'receipt') {
-        const r = await reader.read(f, deviceFirst)
+        // The line under the buttons says who reads it, so the read follows the same answer: when
+        // it says this phone, nothing is sent (before, a stale local switch could still send it).
+        const r = await reader.read(f, deviceFirst || ai.reader === 'phone')
         if (run.current !== id) return
         setReadOnDevice(deviceFirst)
         setText('')
@@ -306,7 +306,7 @@ export default function Scan() {
     if (receipt) {
       let parsed = receipt
       // Read on the phone because of private groups, and the group picked isn't one: now the AI may read it.
-      if (aiAfterPick({ readOnDevice, pickedPrivate: !!picked?.vault, aiOn: aiScanEnabled() && aiScanPossible() })) {
+      if (aiAfterPick({ readOnDevice, pickedPrivate: !!picked?.vault, aiOn: ai.reader === 'phoneFirst' })) {
         const id = ++run.current
         try {
           const r = await reader.read(file)
@@ -355,7 +355,7 @@ export default function Scan() {
             </p>
           )}
           <ScanCard
-            kind={mode === 'receipt' ? 'receipt' : 'payment'}
+            ai={ai}
             onFiles={(fs) => void onFile(fs[0])}
             disabled={busy}
             aiHidden={busy}
@@ -528,7 +528,7 @@ export default function Scan() {
               )}
             </div>
           )}
-          <HintText hint={FOOT_HINT} className="text-muted mt-6 text-center text-xs" />
+          <ScanFoot kind={mode === 'payment' ? 'payment' : 'receipt'} />
         </>
       )}
     </div>

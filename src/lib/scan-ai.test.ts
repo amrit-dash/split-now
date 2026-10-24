@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { type ScanAiInput, scanAiButton, scanAiTitle, scanAiToggledText, scanAiWhyLink, scanAiWhyText } from './scan-ai'
+import {
+  type ScanAiInput,
+  scanAiButton,
+  scanAiTitle,
+  scanAiToggledText,
+  scanAiWhyLink,
+  scanAiWhyText,
+  scanFootHint,
+  scanReader,
+  scanReaderLine,
+} from './scan-ai'
 
-const base: ScanAiInput = { kind: 'receipt', simple: false, demo: false, adminOn: true, available: true, masterOn: true, on: true }
+const base: ScanAiInput = { kind: 'receipt', demo: false, adminOn: true, available: true, masterOn: true, on: true }
 
 describe('scanAiButton', () => {
   it('shows on Bill and Statement, following the bills switch', () => {
@@ -14,11 +24,9 @@ describe('scanAiButton', () => {
     expect(scanAiButton({ ...base, kind: 'payment' })).toEqual({ show: false })
   })
 
-  it('hides on every card in Simple, even when AI is unavailable', () => {
-    for (const kind of ['receipt', 'payment', 'statement'] as const) {
-      expect(scanAiButton({ ...base, kind, simple: true })).toEqual({ show: false })
-      expect(scanAiButton({ ...base, kind, simple: true, demo: true })).toEqual({ show: false })
-    }
+  it('shows the same in Simple and Advanced: the mode is not an input', () => {
+    expect(scanAiButton({ ...base, kind: 'receipt' })).toEqual({ show: true, state: 'on' })
+    expect(scanAiButton({ ...base, kind: 'statement', on: false })).toEqual({ show: true, state: 'off' })
   })
 
   it('says why instead of toggling, in the same order as the old switch', () => {
@@ -65,6 +73,89 @@ describe('scan AI copy', () => {
       scanAiToggledText(true),
       scanAiToggledText(false),
     ]
+    for (const t of all) expect(t).not.toMatch(/[!—]/)
+  })
+})
+
+describe('scanReader', () => {
+  const r = { kind: 'receipt' as const, demo: false, adminOn: true, available: true, masterOn: true, on: true }
+
+  it('reads a bill with Gemini only when the corner button would be on', () => {
+    expect(scanReader(r)).toBe('ai')
+    expect(scanReader({ ...r, on: false })).toBe('phone')
+    expect(scanReader({ ...r, adminOn: false })).toBe('phone')
+    expect(scanReader({ ...r, available: false })).toBe('phone')
+    expect(scanReader({ ...r, masterOn: false })).toBe('phone')
+  })
+
+  it('follows the bills switch while the status and prefs load', () => {
+    expect(scanReader({ ...r, available: undefined, masterOn: undefined })).toBe('ai')
+    expect(scanReader({ ...r, available: undefined, masterOn: undefined, on: false })).toBe('phone')
+  })
+
+  it('reads demo bills on the phone and shows a sample statement', () => {
+    expect(scanReader({ ...r, demo: true })).toBe('phone')
+    expect(scanReader({ ...r, kind: 'statement', demo: true })).toBe('demo')
+    expect(scanReader({ ...r, kind: 'payment', demo: true })).toBe('phone')
+  })
+
+  it('always reads payment screenshots on the phone', () => {
+    expect(scanReader({ ...r, kind: 'payment' })).toBe('phone')
+  })
+
+  it('reads statements like bills', () => {
+    expect(scanReader({ ...r, kind: 'statement' })).toBe('ai')
+    expect(scanReader({ ...r, kind: 'statement', on: false })).toBe('phone')
+  })
+
+  it('reads a bill on the phone first for someone with private groups, only when AI is on', () => {
+    expect(scanReader({ ...r, deviceFirst: true })).toBe('phoneFirst')
+    expect(scanReader({ ...r, deviceFirst: true, on: false })).toBe('phone')
+    expect(scanReader({ ...r, kind: 'statement', deviceFirst: true })).toBe('ai')
+  })
+})
+
+describe('scan card lines', () => {
+  const readers = ['ai', 'phone', 'phoneFirst', 'demo'] as const
+  const kinds = ['receipt', 'payment', 'statement'] as const
+
+  it('says Google Gemini when AI reads, and this phone otherwise', () => {
+    expect(scanReaderLine('receipt', 'ai')).toEqual({ icon: 'ai', hint: expect.objectContaining({ short: 'Read by Google Gemini' }) })
+    expect(scanReaderLine('statement', 'ai')).toEqual({ icon: 'ai', hint: expect.objectContaining({ short: 'Read by Google Gemini' }) })
+    expect(scanReaderLine('receipt', 'phone').hint.short).toBe('Read on this phone, check the total')
+    expect(scanReaderLine('statement', 'phone').hint.short).toBe('Read on this phone, check each payment')
+    expect(scanReaderLine('payment', 'phone').hint.short).toBe('Read on this phone, check the amount')
+    expect(scanReaderLine('receipt', 'phoneFirst')).toEqual({
+      icon: 'phone',
+      hint: expect.objectContaining({ short: expect.stringContaining('Google Gemini') }),
+    })
+    expect(scanReaderLine('statement', 'demo').hint.full).toContain('sample')
+  })
+
+  it('never says a payment screenshot goes to Gemini', () => {
+    for (const reader of ['ai', 'phone', 'phoneFirst'] as const) {
+      const line = scanReaderLine('payment', reader)
+      expect(line.icon).toBe('phone')
+      expect(line.hint.full).not.toContain('Gemini')
+    }
+  })
+
+  it('keeps every line in Simple: where the photo goes, and that nothing is added by itself', () => {
+    for (const kind of kinds) {
+      expect(scanFootHint(kind).tier).toBe('key')
+      for (const reader of readers) expect(scanReaderLine(kind, reader).hint.tier).toBe('key')
+    }
+  })
+
+  it('words the foot for each tab', () => {
+    expect(scanFootHint('receipt').full).toContain('pick a group')
+    expect(scanFootHint('payment')).toEqual(scanFootHint('receipt'))
+    expect(scanFootHint('statement').full).toContain('tick payments')
+    expect(scanFootHint('statement').full).toContain('stay on this device')
+  })
+
+  it('uses no exclamation marks or em dashes', () => {
+    const all = kinds.flatMap((k) => [scanFootHint(k).full, ...readers.map((r) => scanReaderLine(k, r).hint.full)])
     for (const t of all) expect(t).not.toMatch(/[!—]/)
   })
 })

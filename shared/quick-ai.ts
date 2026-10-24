@@ -29,6 +29,14 @@ export interface QuickAiRequest {
   me: string
   /** the group the line goes into unless it names another (the Quick add picker) */
   groupId?: string
+  /**
+   * The person is in that group (its page, or they picked it in Quick add): the line goes there
+   * unless it names another group. Without it, `groupId` is only a guess (the trip that's on, the
+   * group used last) and the people the line names decide the group (4.0).
+   */
+  groupIdSure?: boolean
+  /** The app takes a payment between two people (action 'payment': "paid Rahul 500 back"). */
+  payments?: boolean
   groups: QuickAiGroupIn[]
   /**
    * The app takes a new group with no expense (action 'group': "create a group for my Bali trip
@@ -78,9 +86,26 @@ export interface QuickAiOpenItem {
   suspects?: QuickAiPerson[]
 }
 
+/** Money that changed hands to settle up, not a cost to split ("paid Rahul 500 back", "Priya sent me 300"). */
+export interface QuickAiPayment {
+  /** who paid: 'me' or a member id */
+  from: QuickAiPerson
+  /** who got it: 'me' or a member id, never the same as `from` */
+  to: QuickAiPerson
+  /** integer minor units of `currency`, when the line gave one */
+  amount?: number
+  currency: string
+  date?: string
+}
+
+/**
+ * `alsoFits`: other groups the line could go into as well, when the person wasn't in a group and
+ * the line didn't name one (the app asks which, the chosen group first).
+ */
 export type QuickAiResult =
-  | { action: 'expense'; group: { existingId: string }; expense: QuickAiExpense }
-  | { action: 'open_item'; group: { existingId: string }; item: QuickAiOpenItem }
+  | { action: 'expense'; group: { existingId: string }; expense: QuickAiExpense; alsoFits?: string[] }
+  | { action: 'open_item'; group: { existingId: string }; item: QuickAiOpenItem; alsoFits?: string[] }
+  | { action: 'payment'; group: { existingId: string }; payment: QuickAiPayment; alsoFits?: string[] }
   | { action: 'group_and_expense'; group: QuickAiNewGroup; expense: QuickAiExpense }
   | { action: 'group'; group: QuickAiNewGroup }
   | { action: 'unknown' }

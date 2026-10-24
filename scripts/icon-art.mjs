@@ -40,6 +40,17 @@ const RUPEE =
 /** A rupee for the middle of Solar's money bag (centred near 12, 14). */
 const POT_RUPEE = 'M9.75 10.5h4.5M9.75 12.6h4.5M10.6 10.5c1.7 0 2.55.85 2.55 2.05s-.85 2.1-2.55 2.1h-.85l3.4 3.35'
 
+/** A Fluent drawing as a kind badge (the 1:1 handshake and its New group neighbours): its line over
+ *  its own fill at .42 (Outline), the fill alone (Filled). Unlike DUO's hidden layer, this fill always shows. */
+const kindArt = (name) => ({
+  get line() {
+    return `<g opacity=".42">${body('fluent', `${name}-24-filled`)}</g>${body('fluent', `${name}-24-regular`)}`
+  },
+  get fill() {
+    return body('fluent', `${name}-24-filled`)
+  },
+})
+
 const CUSTOM = {
   /* Profile's Settings button: Fluent's gear with a clean, even ring in the middle (owner: Fluent's own
      inner circle looked off), the same weight as the gear's outline. Filled is Fluent's as it is. */
@@ -111,14 +122,11 @@ const CUSTOM = {
   /* The 1:1 badge (owner, 22 Oct 2026; replaces the 🤝 emoji): Fluent's handshake. Outline is its
      line over its own fill at .42 (the duotone the light theme shows); Filled is the fill alone (the
      dark theme's, where the soft layer muddied). src/components/GroupIcon.tsx picks per theme. */
-  handshake: {
-    get line() {
-      return `<g opacity=".42">${body('fluent', 'handshake-24-filled')}</g>${body('fluent', 'handshake-24-regular')}`
-    },
-    get fill() {
-      return body('fluent', 'handshake-24-filled')
-    },
-  },
+  handshake: kindArt('handshake'),
+  /* New group's other two kind tiles (owner, 23 Oct 2026; they were the 👥 and 👛 emoji beside the
+     handshake): drawn the same way so the row reads as one set. The team is the Groups tab's picture. */
+  peopleTeam: kindArt('people-team'),
+  wallet: kindArt('wallet'),
   /* The lifebuoy as a Solar-style duotone, for the Profile row tiles beside Solar's pictures:
      Outline, a line ring with its coloured sections at half tone; Filled, the classic buoy (half-tone
      ring, solid sections). */
@@ -198,6 +206,9 @@ const UI = {
   FlagIcon: 'flag',
   GroupsIcon: 'people-team',
   HandshakeIcon: '~handshake',
+  /* New group's Group and Personal tiles, the handshake's neighbours: see CUSTOM.peopleTeam. */
+  KindGroupIcon: '~peopleTeam',
+  KindPersonalIcon: '~wallet',
   /* Claim: Solar's hand holding a note, two-tone like the lifebuoy (owner): the note strong, the hand lighter. */
   HandCoinsIcon: 'solar:hand-money',
   HandHeartIcon: 'heart',

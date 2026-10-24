@@ -37,6 +37,8 @@ export function buildQuickRequest(o: {
   today: string
   /** open items are on (the flag): the answer may be one */
   openItems?: boolean
+  /** the person is in `target` (its page, or picked it); else the people the line names choose the group */
+  sure?: boolean
 }): QuickAiRequest {
   const t = o.target
   const ordered = (t ? [t, ...o.groups.filter((g) => g.id !== t.id)] : o.groups).slice(0, MAX_GROUPS)
@@ -46,7 +48,9 @@ export function buildQuickRequest(o: {
     currency: t?.currency ?? o.currency ?? 'INR',
     me: o.me,
     ...(t ? { groupId: t.id } : {}),
+    ...(t && o.sure !== false ? { groupIdSure: true } : {}),
     groupOnly: true,
+    payments: true,
     ...(o.openItems ? { openItems: true } : {}),
     groups: ordered.map((g) => ({
       id: g.id,
@@ -93,10 +97,24 @@ export function peopleFor(names: string[], known: KnownPerson[]): Array<{ name: 
 
 export type NewGroupDraft = Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>
 
+/** Settle up, filled in: who paid whom, and how much when the line said. */
+export interface QuickPaymentPlan {
+  from: MemberId
+  to: MemberId
+  amount?: number
+}
+
+/**
+ * `alsoFits`: other groups the line fits as well, when the person wasn't in a group: Quick add
+ * asks which, `groupId` first. The plan for another group is made again with it (planQuickAi with
+ * the answer moved there: replanFor).
+ */
 export type QuickAiPlan =
-  | { kind: 'expense'; groupId: string; prefill: QuickPrefill }
+  | { kind: 'expense'; groupId: string; prefill: QuickPrefill; alsoFits?: string[] }
   /** the open item sheet, filled in, in an existing group */
-  | { kind: 'openItem'; groupId: string; input: OpenItemInput }
+  | { kind: 'openItem'; groupId: string; input: OpenItemInput; alsoFits?: string[] }
+  /** Settle up in an existing group, filled in */
+  | { kind: 'payment'; groupId: string; payment: QuickPaymentPlan; alsoFits?: string[] }
   /** a new group to confirm; `prefill` when the line also had a cost (else the empty expense form opens in it) */
   | { kind: 'create'; group: NewGroupDraft; people: string[]; prefill?: QuickPrefill }
   | { kind: 'fallback' }
@@ -120,12 +138,28 @@ export function planQuickAi(
     makeId: () => string
   },
 ): QuickAiPlan {
+  const also = (r: { alsoFits?: string[] }, g: Group) => {
+    const ids = (r.alsoFits ?? []).filter((id) => id !== g.id && o.groups.some((x) => x.id === id))
+    return ids.length ? { alsoFits: ids } : {}
+  }
   if (result.action === 'expense') {
     const g = o.groups.find((x) => x.id === result.group.existingId)
     const meId = g && Object.entries(g.members).find(([, m]) => m.uid === o.uid)?.[0]
     if (!g || !meId) return { kind: 'fallback' }
     const map = (p: string): MemberId | undefined => (p === 'me' ? meId : p in activeMembers(g.members) ? p : undefined)
-    return { kind: 'expense', groupId: g.id, prefill: toPrefill(result.expense, o.line, map, meId) }
+    return { kind: 'expense', groupId: g.id, prefill: toPrefill(result.expense, o.line, map, meId), ...also(result, g) }
+  }
+  if (result.action === 'payment') {
+    const g = o.groups.find((x) => x.id === result.group.existingId)
+    const meId = g && Object.entries(g.members).find(([, m]) => m.uid === o.uid)?.[0]
+    if (!g || !meId) return { kind: 'fallback' }
+    const map = (p: string): MemberId | undefined => (p === 'me' ? meId : p in activeMembers(g.members) ? p : undefined)
+    const from = map(result.payment.from)
+    const to = map(result.payment.to)
+    if (!from || !to || from === to) return { kind: 'fallback' }
+    const { amount, currency } = result.payment
+    // Another currency would need a rate: Settle up opens without the amount.
+    return { kind: 'payment', groupId: g.id, payment: { from, to, ...(amount !== undefined && currency === g.currency ? { amount } : {}) }, ...also(result, g) }
   }
   if (result.action === 'open_item') {
     const g = o.groups.find((x) => x.id === result.group.existingId)
@@ -139,11 +173,13 @@ export function planQuickAi(
     if (date && date <= o.today) input.date = date
     const who = [...new Set((suspects ?? []).map(map).filter((x): x is MemberId => !!x))]
     if (who.length) input.suspects = who
-    return { kind: 'openItem', groupId: g.id, input }
+    return { kind: 'openItem', groupId: g.id, input, ...also(result, g) }
   }
   if (result.action === 'group_and_expense' || result.action === 'group') {
     const type: GroupType = result.group.type ?? guessGroup(result.group.name)?.type ?? 'trip'
-    const kind = isSharedType(type) ? type : 'trip'
+    // One other person and no place or occasion named: a 1:1 with them (owner, 23 Oct 2026).
+    const oneToOne = result.group.members.length === 1 && fold(result.group.name) === fold(result.group.members[0])
+    const kind: GroupType = oneToOne ? 'direct' : isSharedType(type) ? type : 'trip'
     const meId = o.uid
     const members: Record<MemberId, Member> = { [meId]: { name: o.me.name, uid: o.uid, ...(o.me.email ? { email: o.me.email } : {}), color: colorFor(0) } }
     // Each name as the answer typed it ("Rahul") → its member id; two names for one known person share it.
@@ -163,7 +199,8 @@ export function planQuickAi(
     }
     const map = (p: string): MemberId | undefined => (p === 'me' ? meId : byName.get(fold(p)))
     const info = GROUP_TYPES[kind]
-    const name = result.group.name.slice(0, 60)
+    // A 1:1 takes the friend's name, as GroupForm names one.
+    const name = (oneToOne ? (people[0] ?? result.group.name) : result.group.name).slice(0, 60)
     const group: NewGroupDraft = {
       name,
       emoji: guessGroup(name)?.emoji ?? info.emoji,
@@ -301,4 +338,37 @@ export function peopleGroupName(people: string[]): string {
         ? `${first[0]}, ${first[1]} & ${first[2]}`
         : `${first[0]}, ${first[1]} & ${first.length - 2} more`
   return name.slice(0, 60)
+}
+
+/** Settle up's address for a payment plan (the same query the group's debt rows use). */
+export function settleUrl(groupId: string, p: QuickPaymentPlan): string {
+  const q = new URLSearchParams({ from: p.from, to: p.to, ...(p.amount !== undefined ? { amount: String(p.amount) } : {}) })
+  return `/groups/${encodeURIComponent(groupId)}/settle?${q}`
+}
+
+/** The same answer, for another group the person picked: its people mapped by name onto that group's members. */
+export function replanFor(result: QuickAiResult, toGroup: Group, from: Group, uid: string): QuickAiResult {
+  if (result.action !== 'expense' && result.action !== 'payment' && result.action !== 'open_item') return result
+  const theirs = Object.entries(activeMembers(toGroup.members))
+  const moveId = (p: string): string => {
+    if (p === 'me') return p
+    const name = from.members[p]?.name
+    if (!name) return p
+    const hit =
+      theirs.find(([, m]) => m.uid !== uid && fold(m.name) === fold(name)) ??
+      theirs.find(([, m]) => m.uid !== uid && fold(m.name).split(' ')[0] === fold(name).split(' ')[0])
+    return hit?.[0] ?? p
+  }
+  const group = { existingId: toGroup.id }
+  if (result.action === 'payment')
+    return { action: 'payment', group, payment: { ...result.payment, from: moveId(result.payment.from), to: moveId(result.payment.to) } }
+  if (result.action === 'open_item')
+    return { action: 'open_item', group, item: { ...result.item, ...(result.item.suspects ? { suspects: result.item.suspects.map(moveId) } : {}) } }
+  const e = result.expense
+  const split = e.split === 'equal' ? 'equal' : Object.fromEntries(Object.entries(e.split).map(([k, v]) => [moveId(k), v]))
+  return {
+    action: 'expense',
+    group,
+    expense: { ...e, paidBy: moveId(e.paidBy), split, ...(e.participants ? { participants: e.participants.map(moveId) } : {}) },
+  }
 }

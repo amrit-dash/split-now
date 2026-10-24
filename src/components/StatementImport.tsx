@@ -1,17 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { usePickableGroups } from '@/hooks/useVault'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Loader2, Sparkles, X } from 'lucide-react'
-import { AddIcon, ImageAddIcon, InboxIcon, PhoneIcon } from '@/components/icons'
+import { ChevronDown, Loader2, X } from 'lucide-react'
+import { AddIcon, ImageAddIcon, InboxIcon } from '@/components/icons'
 import { repo } from '@/data'
 import type { StatementTxn } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
-import { memberOrder, myMemberId, useAiState, useExpenses } from '@/hooks/data'
-import { useAiStatus } from '@/hooks/useAiStatus'
+import { memberOrder, myMemberId, useExpenses } from '@/hooks/data'
 import { useFlag } from '@/hooks/useAppConfig'
 import { useOnline } from '@/hooks/useOnline'
 import type { Category, Group, MemberId } from '@/types'
-import { aiAvailability } from '@/lib/ai-copy'
 import { CATEGORIES, guessCategory } from '@/lib/categories'
 import { abortable, isAbortError } from '@/lib/abortable'
 import { aiScanPossible, unavailableText } from '@/lib/ai'
@@ -20,7 +18,7 @@ import { blobToDataUrl, downscale } from '@/lib/image'
 import { todayISO, uid } from '@/lib/id'
 import { formatDate } from '@/lib/locale'
 import { formatMoney, fromHundredths } from '@/lib/money'
-import { DEFAULT_ALL_PREFS, watchPrefs, type AllPrefs } from '@/lib/push'
+import { STATEMENT_MAX_FILES } from '@/lib/scan-ai'
 import { bestGroup, buildExpense, flagsFor, preselect, readingLabel, tidyName, type Flag } from '@/lib/statement'
 import { parseStatementText } from '@/lib/statement-ocr'
 import { GroupIcon } from './GroupIcon'
@@ -31,7 +29,8 @@ import { DuplicatePrompt, RecentScans, useScanHistory } from './ScanHistory'
 import type { ScanEntry, ScanMatch, ScanPrint } from '@/lib/scanHistory'
 import { labelOf } from '@/lib/shortNames'
 import { type Hint, HintText, InfoTip } from './Hint'
-import { ScanCard, ScanIntro } from './ScanCard'
+import { ScanCard, ScanFoot, ScanIntro } from './ScanCard'
+import { useScanAi } from './AiScanToggle'
 
 interface Row {
   id: string
@@ -55,23 +54,12 @@ const FLAG: Record<Flag, { text: string; cls: string }> = {
   refund: { text: 'Refund', cls: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300' },
 }
 
-const MAX_FILES = 6
+const MAX_FILES = STATEMENT_MAX_FILES
 
 const INTRO_HINT: Hint = {
   full: 'Screenshots from Google Pay, PhonePe, Paytm or your bank, or a photo of a statement. We list each payment, mark those in your trip dates, and you pick.',
   short: 'We list the payments, you pick what to add',
   tier: 'help',
-}
-// Key: it says where the screenshots go.
-const READER_HINT: Hint = {
-  full: `Up to ${MAX_FILES} screenshots. Read by Google Gemini, usually in under a minute.`,
-  short: 'Read by Google Gemini',
-  tier: 'key',
-}
-const PHONE_HINT: Hint = {
-  full: `Up to ${MAX_FILES} screenshots, read on this phone: nothing leaves it. Less exact than AI, so check each payment before adding.`,
-  short: 'Read on this phone, check each payment',
-  tier: 'key',
 }
 const SPLIT_ALL_HINT: Hint = { full: 'For every ticked payment. Open one to change only that one.', short: 'For every ticked payment', tier: 'help' }
 // Key: a repayment recorded as an expense would skew the balances.
@@ -95,11 +83,10 @@ export function StatementImport() {
   const toast = useToast()
   const nav = useNavigate()
   const online = useOnline()
-  const status = useAiStatus()
   const statementImport = useFlag('statementImport')
   const fileRef = useRef<HTMLInputElement>(null)
-  const [prefs, setPrefs] = useState<AllPrefs>(DEFAULT_ALL_PREFS)
-  const aiState = useAiState(aiScanPossible())
+  // The card's Read with AI: one instance for the corner button, the reader line and the read itself.
+  const ai = useScanAi('statement')
   const [stage, setStage] = useState<'prep' | 'ai' | 'phone' | null>(null)
   const [progress, setProgress] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -117,7 +104,6 @@ export function StatementImport() {
   const [dup, setDup] = useState<{ match: ScanMatch; files: File[]; prints: ScanPrint[] } | null>(null)
   /** the history entry behind the rows on screen */
   const [scanIds, setScanIds] = useState<string[]>([])
-  useEffect(() => (aiScanPossible() ? watchPrefs(user.uid, setPrefs) : undefined), [user.uid])
 
   const group = groups?.find((g) => g.id === groupId)
   const expenses = useExpenses(group?.id)
@@ -128,16 +114,9 @@ export function StatementImport() {
   const split = personal && me ? [me] : (members?.filter((m) => order.includes(m)) ?? order)
   const busy = stage !== null
 
-  // Can AI read for this account right now? Demo mode shows a sample; an unknown status doesn't block.
-  const avail = aiAvailability({
-    status,
-    hasOwnKey: !!aiState?.hint,
-    ownKeyBroken: !!aiState?.lastError,
-    enabled: prefs.aiEnabled && prefs.aiImages,
-    freeOk: prefs.aiFreeOk,
-  })
-  // AI off, or not available to this account: the phone reads the screenshots instead.
-  const onPhone = aiScanPossible() && status !== undefined && !avail.images
+  // AI off, or not available to this account: the phone reads the screenshots instead. The same
+  // answer as Bill's (scanReader): demo mode shows a sample, an unknown status doesn't block.
+  const onPhone = ai.reader === 'phone'
 
   const flags = useMemo(() => {
     const out: Record<string, Flag[]> = {}
@@ -357,23 +336,15 @@ export function StatementImport() {
     return (
       <>
         <ScanCard
-          kind="statement"
+          ai={ai}
           testId="statement-start"
           photosTestId="statement-pick"
+          readerTestId="statement-reader"
           multiple
           onFiles={(f) => void onFiles(f)}
           disabled={busy || !groups}
           aiHidden={busy}
           top={<ScanIntro icon="file" title="Add expenses from a statement" hint={INTRO_HINT} infoLabel="About statements" />}
-          below={
-            !busy ? (
-              <p className="text-muted -mt-1 flex items-center justify-center gap-1.5 px-3 pb-3 text-xs" data-testid="statement-reader">
-                {onPhone ? <PhoneIcon size={13} className="text-brand-500" aria-hidden /> : <Sparkles size={12} className="text-brand-500" aria-hidden />}
-                {aiScanPossible() ? <HintText hint={onPhone ? PHONE_HINT : READER_HINT} as="span" /> : 'Demo: shows a sample statement.'}
-                {aiScanPossible() && <InfoTip hint={onPhone ? PHONE_HINT : READER_HINT} label="About reading statements" />}
-              </p>
-            ) : undefined
-          }
         >
           {busy ? (
             <div className="p-3 pt-0">
@@ -388,6 +359,7 @@ export function StatementImport() {
         </ScanCard>
         {dupPrompt}
         {!busy && !dup && <RecentScans entries={hist.entries} currency="INR" onOpen={openEntry} onDelete={(e) => hist.remove(e.id)} onClear={hist.clear} />}
+        <ScanFoot kind="statement" />
       </>
     )
   }
@@ -594,6 +566,7 @@ export function StatementImport() {
         )}
       </div>
       {dupPrompt}
+      <ScanFoot kind="statement" />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/70 bg-white/90 backdrop-blur-xl safe-bottom dark:border-white/5 dark:bg-ink-900/90">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-3">

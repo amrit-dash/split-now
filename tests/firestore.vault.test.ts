@@ -150,6 +150,27 @@ describe('private groups', () => {
     )
     await assertFails(setDoc(doc(db('alice'), 'invites/ABCD2345'), { groupId: 'g1', groupName: 'A private group', vault: 'yes' }))
   })
+  it('someone’s profile copy in a private group is sealed, never in the clear; plain groups as before', async () => {
+    const token = (n: number) => `v1:${'A'.repeat(n - 3)}`
+    const plain = { displayName: 'Alice Rao', payment: { upi: 'alice@okaxis' }, photoURL: 'https://x.test/a.jpg', currency: 'AUD' }
+    // the leak this closes: an older app copying name, UPI ID and photo link into a private group
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), plain))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: 'Alice Rao' }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: token(40), payment: { upi: 'alice@okaxis' } }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: token(40), photoURL: 'https://x.test/a.jpg' }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: token(201) }))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: token(40), payment: token(1001) }))
+    // sealed on her phone: name, photo link and payment details as tokens; badges and currency readable
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: token(200), photoURL: token(300), payment: token(1000), currency: 'AUD', pro: true }),
+    )
+    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g1/profiles/alice'), { displayName: '' }))
+    // nobody writes someone else's copy
+    await assertFails(setDoc(doc(db('bob'), 'groups/g1/profiles/alice'), { displayName: token(40) }))
+    // a plain group: unchanged
+    await assertSucceeds(setDoc(doc(db('alice'), 'groups/g2/profiles/alice'), plain))
+    await assertFails(setDoc(doc(db('alice'), 'groups/g2/profiles/alice'), { ...plain, payment: token(40) }))
+  })
   it('its sealed key is out of reach, even for its members', async () => {
     await assertFails(getDoc(doc(db('alice'), 'vaultKeys/g1')))
     await assertFails(setDoc(doc(db('alice'), 'vaultKeys/g1'), { pattern: { salt: 'a', hash: 'b' } }))

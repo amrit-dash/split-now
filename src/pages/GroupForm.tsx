@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { watchEdgeFade } from '@/hooks/useEdgeFade'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Loader2, Stamp } from 'lucide-react'
-import { GroupsIcon, LockIcon, MemberRemoveIcon } from '@/components/icons'
+import { GroupsIcon, HandshakeIcon, KindGroupIcon, KindPersonalIcon, LockIcon, MemberRemoveIcon } from '@/components/icons'
+import type { AppIcon } from '@/components/Icon'
 import { repo } from '@/data'
 import { useMe } from '@/hooks/auth'
 import { createGroup, useAllExpenses, useCaptureTokens, useGroup, useGroups, useJoinRequests } from '@/hooks/data'
@@ -38,7 +39,7 @@ import { useTodayRates } from '@/hooks/useFx'
 import { GROUP_TYPES, SHARED_TYPES, groupTypeInfo, groupTypeOf, guessGroup, iconsFor, isSharedType, parseGroupType } from '@/lib/groupTypes'
 import { useIconAi } from '@/hooks/useIconAi'
 import { Avatar } from '@/components/Avatar'
-import { HandshakeArt } from '@/components/GroupIcon'
+import { KindArt } from '@/components/GroupIcon'
 import { IconPickerField, SuggestionPill, SuggestionRow, TypeSuggestion } from '@/components/IconPicker'
 import { useAutoIconPick } from '@/hooks/useAutoIconPick'
 import { groupPickRequest } from '@/lib/icon-pick'
@@ -99,10 +100,11 @@ const SWIPE_HINT: Hint = { full: 'Swipe left or press and hold to remove someone
 const maxOthersFor = (t: GroupType) => (t === 'personal' ? 0 : t === 'direct' ? 1 : Infinity)
 
 type Kind = 'group' | 'direct' | 'personal'
-const KINDS: Array<{ kind: Kind; emoji: string; label: string; hint: string }> = [
-  { kind: 'group', emoji: '👥', label: 'Group', hint: 'Trips & more' },
-  { kind: 'direct', emoji: '🤝', label: '1:1 friend', hint: 'You + 1 friend' },
-  { kind: 'personal', emoji: '👛', label: 'Personal', hint: 'Just you' },
+// One icon set across the row (owner, 23 Oct 2026): Fluent's team, handshake and wallet, drawn alike (KindArt).
+const KINDS: Array<{ kind: Kind; icon: AppIcon; label: string; hint: string }> = [
+  { kind: 'group', icon: KindGroupIcon, label: 'Group', hint: 'Trips & more' },
+  { kind: 'direct', icon: HandshakeIcon, label: '1:1 friend', hint: 'You + 1 friend' },
+  { kind: 'personal', icon: KindPersonalIcon, label: 'Personal', hint: 'Just you' },
 ]
 
 type Field = 'name' | 'budget' | 'dates' | 'threshold' | 'editAuto'
@@ -128,6 +130,7 @@ export default function GroupForm() {
   const extras = useShows(2)
   const showApprovals = useFeature('approvals')
   const showWallets = useFeature('wallets')
+  const kinds = KINDS.filter((k) => k.kind !== 'personal' || showWallets)
   // A 'help' line is drawn only in Full and When needed; aria-describedby must not point at nothing.
   const look = useLook()
   const helpLines = look === 'full' || look === 'needed'
@@ -972,8 +975,14 @@ export default function GroupForm() {
         noValidate
       >
         {!existing && (
-          <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800" role="radiogroup" aria-label="What are you creating?">
-            {KINDS.filter((k) => k.kind !== 'personal' || showWallets).map((k) => (
+          <div
+            className="grid gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-ink-800"
+            // As many equal columns as tiles: Simple hides Personal, and two tiles then split the row in half.
+            style={{ gridTemplateColumns: `repeat(${kinds.length}, minmax(0, 1fr))` }}
+            role="radiogroup"
+            aria-label="What are you creating?"
+          >
+            {kinds.map((k) => (
               <button
                 key={k.kind}
                 type="button"
@@ -982,9 +991,8 @@ export default function GroupForm() {
                 onClick={() => chooseKind(k.kind)}
                 className={`min-w-0 rounded-xl px-2.5 py-2.5 text-left transition active:scale-[.98] ${kind === k.kind ? 'accent-live bg-gradient-to-br from-fill to-fill-to text-on-fill shadow-md shadow-fill/25' : 'text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-ink-700'}`}
               >
-                <div className="flex h-5 items-center text-xl leading-none" aria-hidden>
-                  {/* The 1:1 is the handshake icon, as on its tiles (GroupIcon); the others keep their emoji. */}
-                  {k.kind === 'direct' ? <HandshakeArt size={22} onAccent={kind === k.kind} /> : k.emoji}
+                <div className="flex h-5 items-center leading-none" aria-hidden>
+                  <KindArt icon={k.icon} size={22} onAccent={kind === k.kind} />
                 </div>
                 <div className="mt-1.5 truncate text-sm font-bold">{k.label}</div>
                 <div className={`truncate text-xs ${kind === k.kind ? 'text-on-fill/90' : 'text-muted'}`}>{k.hint}</div>

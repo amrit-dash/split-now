@@ -1,18 +1,20 @@
 import { type ReactNode, useRef } from 'react'
-import type { ScanCardKind } from '@/lib/scan-ai'
+import { Sparkles } from 'lucide-react'
+import { type ScanCardKind, scanFootHint, scanReaderLine } from '@/lib/scan-ai'
 import type { UiIconName } from '@/lib/ui-icons'
-import { ScanAiCorner } from './AiScanToggle'
+import { type ScanAi, ScanAiCorner } from './AiScanToggle'
 import { type Hint, HintText, InfoTip } from './Hint'
 import { FeatureIcon } from './Icon'
-import { CameraIcon, ImageAddIcon } from './icons'
+import { CameraIcon, ImageAddIcon, PhoneIcon } from './icons'
 
 /**
  * One layout for every kind of Scan (Bill, Payment, Statement): the picture or intro on top, Read
- * with AI in the top-right corner, then Camera and Photos side by side. `children` replaces the two
- * buttons (a statement being read shows its progress there).
+ * with AI in the top-right corner, then Camera and Photos side by side, then who reads the picture.
+ * `children` replaces the two buttons (a statement being read shows its progress there). `ai` comes
+ * from the page's one `useScanAi` so the corner button and the reader line can't disagree.
  */
 export function ScanCard({
-  kind,
+  ai,
   top,
   onFiles,
   multiple,
@@ -22,20 +24,22 @@ export function ScanCard({
   below,
   testId,
   photosTestId = 'scan-photos',
+  readerTestId = 'scan-reader',
 }: {
-  kind: ScanCardKind
+  ai: ScanAi
   top: ReactNode
   onFiles: (files: File[]) => void
   /** Photos may pick several at once (statements); Camera always takes one */
   multiple?: boolean
   disabled?: boolean
-  /** while a read is in flight the corner button steps aside */
+  /** while a read is in flight the corner button and the reader line step aside */
   aiHidden?: boolean
   children?: ReactNode
-  /** a line under the buttons */
+  /** anything else under the reader line */
   below?: ReactNode
   testId?: string
   photosTestId?: string
+  readerTestId?: string
 }) {
   const camRef = useRef<HTMLInputElement>(null)
   const libRef = useRef<HTMLInputElement>(null)
@@ -46,7 +50,7 @@ export function ScanCard({
   }
   return (
     <div className="card relative mt-4 overflow-hidden" data-testid={testId}>
-      {!aiHidden && <ScanAiCorner kind={kind} disabled={disabled} />}
+      {!aiHidden && <ScanAiCorner ai={ai} disabled={disabled} />}
       {top}
       {children ?? (
         <div className="grid grid-cols-2 gap-2 p-3">
@@ -58,10 +62,41 @@ export function ScanCard({
           </button>
         </div>
       )}
+      {!aiHidden && <ScanReaderLine kind={ai.kind} reader={ai.reader} testId={readerTestId} />}
       {below}
       <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={take} />
       <input ref={libRef} type="file" accept="image/*" multiple={multiple} hidden onChange={take} />
     </div>
+  )
+}
+
+/**
+ * Who reads the picture, under the buttons of every Scan card: a sparkle for Google Gemini, a phone
+ * for this phone. The words come from src/lib/scan-ai.ts so the three tabs read the same.
+ */
+function ScanReaderLine({ kind, reader, testId }: { kind: ScanCardKind; reader: ScanAi['reader']; testId: string }) {
+  const { icon, hint } = scanReaderLine(kind, reader)
+  return (
+    <p className="text-muted -mt-1 flex items-center justify-center gap-1.5 px-3 pb-3 text-xs" data-testid={testId} data-reader={reader}>
+      {icon === 'phone' ? (
+        <PhoneIcon size={13} className="shrink-0 text-brand-500" aria-hidden />
+      ) : (
+        <Sparkles size={12} className="shrink-0 text-brand-500" aria-hidden />
+      )}
+      <HintText hint={hint} as="span" />
+      <InfoTip hint={hint} label="About who reads it" />
+    </p>
+  )
+}
+
+/** The line at the foot of every Scan tab: nothing is added by itself, and scans stay here. */
+export function ScanFoot({ kind }: { kind: ScanCardKind }) {
+  const hint = scanFootHint(kind)
+  return (
+    <p className="text-muted mt-6 text-balance text-center text-xs" data-testid="scan-foot">
+      <HintText hint={hint} as="span" />
+      <InfoTip hint={hint} label="About scans" />
+    </p>
   )
 }
 

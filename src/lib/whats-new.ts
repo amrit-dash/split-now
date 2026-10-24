@@ -24,6 +24,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.5.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Quick add reads “they paid”, uneven parts and payments back on your phone, and asks when it isn’t sure', section: 'quick-add' },
+      { text: 'Private groups keep your payment details encrypted too', section: 'private-groups' },
+      { text: 'A new name or photo reaches all your groups at once', section: 'profile-account' },
+      { text: 'Scan says who reads each picture, with its AI switch in Simple too', section: 'scan-receipt' },
+      { text: 'Add expense: Money spent or Money received', section: 'money-received' },
+    ],
+  },
+  {
     version: '9.4.0',
     date: 'October 2026',
     items: [

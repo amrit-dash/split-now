@@ -145,6 +145,12 @@ On the phone, with the group's data key (`src/lib/vault-fields.ts`): expense des
 item names and flag reasons; payment notes and flag reasons; comments and their authors' names;
 chat messages, their authors' names and the snippet a reply quotes; open items' titles, chosen icons and notes (an open item, like an expense, has no drawn icon or picture there).
 In the group document (`src/data/vault-repo.ts`): its name, its emoji and every person's name in it.
+Each person's copy of their profile in the group (`groups/{gid}/profiles/{uid}`: their name, photo link and
+payment details, the UPI ID Settle up pays): sealed on their own phone (`sealProfileCopy`) and written only
+once they've opened the group there (`src/hooks/auth.tsx`), so until then the others see no payment details
+for them; never in the clear (the rules' `sealedProfileCopy`), and the server's profile copying leaves private
+groups out (it sets only the Pro and Dev marks). A new private group starts with no copy and no photo link
+in the clear; `create` and `convert` seal any that an older app wrote.
 Activity lines and history quote those as tokens, so they're encrypted too. The fields and their
 caps are one list, `shared/vault-convert.ts`, which the phones and the server share.
 

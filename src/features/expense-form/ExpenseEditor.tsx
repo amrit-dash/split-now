@@ -585,7 +585,7 @@ export function ExpenseEditor({
             value={draft.received ? 'received' : 'expense'}
             onChange={(v) => dispatch({ type: 'received', on: v === 'received' })}
             options={[
-              { value: 'expense', label: 'Expense' },
+              { value: 'expense', label: 'Money spent' },
               { value: 'received', label: 'Money received' },
             ]}
             testId="expense-kind"

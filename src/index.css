@@ -619,6 +619,9 @@ html[data-nav] .toast-stack { bottom: var(--lane); }
 /* A full-screen form's pinned action (Settle up): toasts rise above it instead of covering it. */
 html:not([data-nav]):has(.pinned-action) .toast-stack { bottom: calc(env(safe-area-inset-bottom) + 5.5rem); }
 html[data-nav]:has(.install-banner, .whats-new-banner, [data-testid='update-banner'], [data-testid='unsaved-bar'], [data-testid='capture-alert']) .toast-stack { bottom: calc(var(--lane) + 5rem); }
+/* A short sheet open (half the screen or less): toasts float just above it (Sheet.tsx, src/lib/toast-place.ts). */
+html[data-toast-lift] .toast-stack { bottom: var(--toast-lift) !important; }
+.toast-stack { transition: bottom 200ms cubic-bezier(0.32, 0.72, 0, 1); }
 @keyframes toast-in { from { transform: translateY(1rem) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @utility animate-toast { animation: toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 

@@ -6,6 +6,28 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.5.0 — October 2026
+
+- Admin → AI: removing the project or transcription key is a small bin at the right of the section's heading, and asks first, instead of a third button beside Test; “Use another key” is now “Replace key”, on one line; with no transcription key, the line says just that.
+- The launch screen's logo is in your accent colour from the first frame, like the app icon (it was always violet).
+- The Turn on notifications banner and a reminder's card keep their buttons on one row under the text, instead of wrapping onto two lines on a phone; a reminder's notifications button now says Get notified.
+- Quick add reads much more on your phone, free and without AI: “they paid” or “he got the bill” (the person named paid), uneven parts (“Rahul owes 400”, “60/40 with Meera”, “Rahul 2 shares”, “Rahul 30%”, “hotel 6000 Priya 4000”), “everyone except Rohan”, payments back, and full names (“Rahul Verma” is never the group’s other Rahul). When it isn’t sure it asks instead of guessing: which group, which Rahul, who paid, or whether to add someone the group doesn’t have (or leave them out). Only what your phone can’t read goes to Quick add with AI. A line from Home naming someone in none of your groups starts a 1:1 with them.
+- Quick add with AI keeps a line in the group you’re in (it sometimes moved “paid Rahul 500 back” into your 1:1 with Rahul), and a full name or “lunch for Rohan” is read the way it was meant.
+- Add expense: the switch at the top reads **Money spent** / **Money received** (it said Expense / Money received), so the two read as a pair.
+- Scan: the AI switch in the Bill and Statement cards shows in Simple mode too, so you can choose AI reading there without going to Settings.
+- Quick add: one spinner while it works, beside the status words at the top of the card; the box and the send button no longer spin as well.
+- Private groups: your name, photo link and payment details (like your UPI ID) are now encrypted in the copy each private group keeps of your profile, and reach it once you open the group on your phone. Before, saving your profile put a readable copy into private groups too. Nothing readable is accepted there any more, even from an older version of the app.
+- Profile photo: the actions are icons only (camera, picture, Google, bin), set apart from your photo by a thin line, with more room above them and above the centred line under them.
+- Messages (like “Photo updated”) now float just above a sheet that takes half the screen or less, instead of covering its buttons; over a taller sheet they stay at the bottom as before.
+- Sign in: the Install Split Now banner sits at the bottom of the screen, clear of the home bar, instead of right under the last button; the sign-in buttons and Join a live table have more room around them.
+- New group: the Group and Personal choices at the top have icons in the same style as 1:1 friend's handshake (a team and a wallet), and in Simple mode the two choices share the row equally. Before, Group and Personal were emoji beside the drawn handshake, and in Simple the two tiles took two thirds of the row with an empty gap.
+- Scan: Bill, Statement and Payment now end the same way. Each card says under its buttons who reads the picture (“Read by Google Gemini” or “Read on this phone”), and changes as soon as you switch AI in the corner; each tab ends with what happens next (“Nothing is added until you pick a group”, or for a statement, until you tick payments and tap Add), in Simple too. Before, only Statement said who reads it, only Bill and Payment had the closing line, and a bill could still go to AI after AI was switched off on another device.
+- Quick add with AI understands more: “they paid” or “he got the bill” makes the person named the payer (before, “lunch with Rahul 1762, they paid” became an open item or was paid by you); “with Rahul” splits it between you and Rahul only, not the whole group; “Rahul owes 400”, “Rahul 700, rest me”, “60/40”, percentages and shares come out as exact amounts (before, uneven parts were dropped for an equal split); “everyone except Rohan” leaves Rohan out and keeps you in.
+- Quick add: “paid Rahul 500 back” or “Priya paid me 300” opens Settle up filled in, instead of a new expense.
+- Quick add outside a group (Home, holding + elsewhere): the people you name choose the group, the smallest one that has them all (a 1:1 for one person); when two fit equally it asks “Which group?”; when none has them, it offers a new group, a 1:1 for one person. Inside a group, or after picking one in the chip, the line stays there.
+- Quick add sends a line to AI only when your phone can’t read it for certain; before, a line with an amount and known names was always read on the phone, and someone else paying, uneven parts or a payment back came out wrong.
+- Profile: a new name, photo or badge reaches all your groups straight away, and a new member's photo shows as soon as they join. Before, each group only caught up when that person next opened the app, so friends could see an old name or no photo in a new group.
+
 ## 9.4.0 — October 2026
 
 - Profile: in Simple, the New version ready row is its title alone, like the rows around it (it showed a line of subtext).

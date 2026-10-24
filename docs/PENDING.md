@@ -3,14 +3,15 @@
 What the owner asked for that isn't shipped yet, newest first. Read this at the start of a session;
 remove an item when its release merges, and add anything left half-done.
 
-## Next batch (owner, 23 Oct 2026)
+## Next batch
 
-- [ ] Quick add revamp: who paid ("they paid", "Rahul paid"), who's in it, split (60/40, percent, shares, "Rahul 700 rest me"), date, category, notes; off-group: a group of exactly me + the named people, else ask which, else offer a new group (1:1 for one person), unknown names offered as new people; actions: record a payment, an open item, create a group, remind. All Simple. Rule-based first; the AI side needs a working GEMINI_API_KEY in the environment (the one in the cloud environment is rejected by Google, 401).
-- [ ] New group: Group and Personal wallet tiles use the same illustration style as 1:1's handshake; in Simple (no wallet) the two tiles split 50/50.
-- [ ] Server-side profile copying (a trigger on users/{uid}): name, photo and badge reach all a person's groups at once, and a new member's photo fills in on joining.
+- [ ] Quick add: "remind Rahul" (opens Remind for that person).
 - [ ] Voice in Opera / Brave without AI: an in-page recogniser (Vosk, ~45 MB once, only where the browser's own fails) if Admin → Logs → Voice shows Opera's recogniser failing. Owner to say yes.
 
-## Left from 9.2.0 / 9.3.0 / 9.4.0 (check by hand)
+## Left from 9.2.0 – 9.5.0 (check by hand)
+
+- [ ] 9.5.0 private groups: in a real private group, save your profile, then open the group on the phone: Settle up there shows your UPI ID to the others (sealed copy), and Firestore shows only `v1:` tokens in groups/{gid}/profiles/{uid}.
+- [ ] 9.5.0 Quick add with AI: `scripts/quick-eval.ts` gave 62–64 of 67 on gemini-3.5-flash-lite (24 Oct); the misses are lines the phone settles first (Which group?, a hotel refund). Re-run after prompt changes.
 
 - [ ] 9.4.0 voice on Android (installed app and Chrome): the mic shows, the first hold asks, words come once (no repeats), no "refused" after allowing. Read Admin → Logs → Voice afterwards.
 
