@@ -3,13 +3,15 @@
 What the owner asked for that isn't shipped yet, newest first. Read this at the start of a session;
 remove an item when its release merges, and add anything left half-done.
 
-## Next batch (owner, 23 Oct 2026)
+## Next batch
 
-- [ ] Quick add phone reader (built, on the batch branch): two voice e2e tests fail since "Rahul" isn't in the demo's Goa Trip and the line now asks about him: check the question sheet shows from the + hold, then update the tests; the real-model eval script (scripts/quick-eval.ts) over src/lib/quick-cases.ts; Help steps and the CHANGELOG line for its questions; "remind Rahul".
-- [ ] Release 9.5.0: `npm run help:media -- --only money-received,scan-receipt,profile-account` (the switch now says Money spent; Scan shows its AI switch in Simple; the photo sheet is icons only).
+- [ ] Quick add: "remind Rahul" (opens Remind for that person).
 - [ ] Voice in Opera / Brave without AI: an in-page recogniser (Vosk, ~45 MB once, only where the browser's own fails) if Admin → Logs → Voice shows Opera's recogniser failing. Owner to say yes.
 
-## Left from 9.2.0 / 9.3.0 / 9.4.0 (check by hand)
+## Left from 9.2.0 – 9.5.0 (check by hand)
+
+- [ ] 9.5.0 private groups: in a real private group, save your profile, then open the group on the phone: Settle up there shows your UPI ID to the others (sealed copy), and Firestore shows only `v1:` tokens in groups/{gid}/profiles/{uid}.
+- [ ] 9.5.0 Quick add with AI: `scripts/quick-eval.ts` gave 62–64 of 67 on gemini-3.5-flash-lite (24 Oct); the misses are lines the phone settles first (Which group?, a hotel refund). Re-run after prompt changes.
 
 - [ ] 9.4.0 voice on Android (installed app and Chrome): the mic shows, the first hold asks, words come once (no repeats), no "refused" after allowing. Read Admin → Logs → Voice afterwards.
 

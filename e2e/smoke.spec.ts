@@ -2614,17 +2614,18 @@ test.describe('Simple mode', () => {
     await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible()
   })
 
-  test('Scan has no AI corner button on any card, and Statement still shows', async ({ page }) => {
+  test('Scan keeps its AI corner button on Bill and Statement (none on Payment), and Statement still shows', async ({ page }) => {
     await page.goto('/scan')
     const kinds = page.getByTestId('scan-mode')
     await expect(page.getByTestId('scan-camera')).toBeVisible()
-    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    // Shown in Simple too (owner, 24 Oct 2026): whether AI reads a bill is everyone's choice.
+    await expect(page.getByTestId('scan-ai')).toHaveCount(1)
     // Who reads it and the closing line stay in Simple, on all three tabs (demo bills are read on the phone).
     await expect(page.getByTestId('scan-reader')).toHaveAttribute('data-reader', 'phone')
     await expect(page.getByTestId('scan-foot')).toContainText('Nothing is added until you pick a group')
     await kinds.getByRole('radio', { name: 'Statement' }).click()
     await expect(page.getByTestId('statement-start')).toBeVisible()
-    await expect(page.getByTestId('scan-ai')).toHaveCount(0)
+    await expect(page.getByTestId('scan-ai')).toHaveCount(1)
     await expect(page.getByTestId('statement-reader')).toHaveAttribute('data-reader', 'demo')
     await expect(page.getByTestId('scan-foot')).toContainText('tick payments')
     await kinds.getByRole('radio', { name: 'Payment' }).click()
