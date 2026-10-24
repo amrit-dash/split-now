@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  browserName,
+  speechRefusedText,
   liveWordsBesideRecording,
   micFailure,
   micPreflight,
@@ -113,6 +115,60 @@ describe('micFailure and micProblemText', () => {
     expect(micProblemText('refused', 'denied', { ...phone, standalone: false })).toMatch(/Site settings/)
     expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: false })).toMatch(/Safari/)
     expect(micProblemText('busy', 'granted', phone)).toMatch(/Another app/)
+  })
+  it('a computer that keeps the microphone from the browser names that switch, not the site', () => {
+    // Chromium's message when macOS or Windows blocks the browser (owner's Mac, Opera GX)
+    expect(micFailure('NotAllowedError', 'Permission denied by system')).toBe('system')
+    expect(micFailure('NotAllowedError', 'Permission denied')).toBe('refused')
+    const mac = { android: false, ios: false, standalone: false, mac: true, browser: 'Opera' }
+    expect(micProblemText('system', 'denied', mac)).toBe(
+      'Your Mac is keeping the microphone from Opera. Turn it on in System Settings → Privacy & Security → Microphone → Opera, reopen Opera, then try again.',
+    )
+    expect(micProblemText('system', 'denied', { ...mac, mac: false, windows: true })).toMatch(/Windows Settings|Settings → Privacy & security/)
+    expect(micProblemText('system', 'denied', { ...phone, browser: 'Chrome' })).toMatch(/Android Settings → Apps → Chrome/)
+    // a desktop "denied" without the browser's reason names both switches
+    expect(micProblemText('refused', 'denied', mac)).toMatch(/Site settings.*System Settings → Privacy & Security → Microphone/)
+    expect(micProblemText('refused', 'denied', { android: false, ios: false, standalone: false })).toMatch(/blocked for this site/)
+  })
+  it('every browser and device gets its own switch', () => {
+    const desk = { android: false, ios: false, standalone: false }
+    expect(micProblemText('refused', 'denied', { ...desk, windows: true, browser: 'Firefox' })).toMatch(/crossed-out microphone.*Windows Settings/)
+    expect(micProblemText('refused', 'denied', { ...desk, mac: true, browser: 'Safari', host: 'split-now.web.app' })).toMatch(
+      /Safari → Settings for split-now.web.app → Microphone.*System Settings/,
+    )
+    expect(micProblemText('refused', 'denied', { ...desk, windows: true, browser: 'Microsoft Edge' })).toMatch(
+      /Site settings.*Microsoft Edge in Windows Settings/,
+    )
+    expect(micProblemText('refused', 'denied', { android: true, ios: false, standalone: false, browser: 'Samsung Internet' })).toMatch(
+      /Sites and downloads.*Android Settings → Apps → Samsung Internet/,
+    )
+    expect(micProblemText('refused', 'denied', { android: true, ios: false, standalone: false, browser: 'Firefox' })).toMatch(/lock left of the address/)
+    expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: true, browser: 'Safari' })).toMatch(
+      /Settings → Apps → Safari → Microphone, then reopen/,
+    )
+    expect(micProblemText('refused', 'denied', { android: false, ios: true, standalone: false, browser: 'Chrome' })).toMatch(
+      /Settings → Apps → Chrome → Microphone/,
+    )
+    expect(micProblemText('system', 'denied', { android: false, ios: true, standalone: false, browser: 'Chrome' })).toMatch(/phone.*Settings → Apps → Chrome/)
+    expect(micProblemText('refused', 'prompt', desk)).toMatch(/when your browser asks/)
+    // Windows reports its own block as a busy microphone in some browsers
+    expect(micProblemText('busy', 'granted', { ...desk, windows: true, browser: 'Chrome' })).toMatch(/If nothing is, allow Chrome in Windows Settings/)
+    expect(micProblemText('missing', 'granted', { ...desk, mac: true, browser: 'Firefox' })).toMatch(/allow Firefox in System Settings/)
+  })
+  it('a refused recogniser with a working microphone is Apple’s Speech Recognition switch', () => {
+    expect(speechRefusedText({ android: false, ios: true, standalone: true })).toMatch(/Settings → Privacy & Security → Speech Recognition/)
+    expect(speechRefusedText({ android: false, ios: false, standalone: false, mac: true, browser: 'Safari' })).toMatch(
+      /System Settings → Privacy & Security → Speech Recognition/,
+    )
+    expect(speechRefusedText({ android: true, ios: false, standalone: false })).toMatch(/Transcribe with AI/)
+  })
+  it('browserName: the name Settings lists the browser by', () => {
+    const opera = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 OPR/136.0.0.0'
+    expect(browserName(opera)).toBe('Opera')
+    expect(browserName('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/150.0 Safari/537.36 Edg/150.0')).toBe('Microsoft Edge')
+    expect(browserName('Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/155.0.0.0 Mobile Safari/537.36')).toBe('Chrome')
+    expect(browserName('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe('Safari')
+    expect(browserName('')).toBe('')
   })
 })
 

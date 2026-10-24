@@ -164,6 +164,7 @@ export default function Logs() {
                 { value: 'unhandled', label: 'Unhandled errors' },
                 { value: 'save', label: 'Refused saves' },
                 { value: 'voice', label: 'Voice' },
+                { value: 'layout', label: 'Layout' },
               ]}
             />
           )}
@@ -247,7 +248,7 @@ export default function Logs() {
                   key={r.id}
                   testId="app-error-row"
                   badge={r.kind.toUpperCase()}
-                  tone={TONE[r.kind === 'save' || r.kind === 'voice' ? 'warn' : 'error']}
+                  tone={TONE[r.kind === 'save' || r.kind === 'voice' || r.kind === 'layout' ? 'warn' : 'error']}
                   head={r.message}
                   sub={`${formatDateTime(r.at)} · ${r.route ?? ''} · ${r.version ?? ''} · ${r.mode ?? ''}`}
                   full={r}

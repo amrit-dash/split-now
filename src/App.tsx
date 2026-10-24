@@ -46,7 +46,10 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 const reportGateOnce = reportGate()
 // Voice has its own few per session, so a run of voice problems can't crowd out a crash report.
 const voiceGateOnce = reportGate(6)
+// Layout measurements (hooks/useLayoutCheck.ts) too: a few per session, each distinct line once.
+const layoutGateOnce = reportGate(4)
 import { useViewportStats } from './hooks/useViewportStats'
+import { useLayoutCheck } from './hooks/useLayoutCheck'
 import { IDLE_PREFETCH, IDLE_PREFETCH_LATER, load, prefetch, prefetchAfter, prefetchHelp, type RouteKey, routeChunks } from './routes'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
@@ -122,7 +125,7 @@ export default function App() {
         standalone: isStandalone(),
         now: Date.now(),
       })
-      if ((kind === 'voice' ? voiceGateOnce : reportGateOnce)(r)) repo.reportError(r)
+      if ((kind === 'voice' ? voiceGateOnce : kind === 'layout' ? layoutGateOnce : reportGateOnce)(r)) repo.reportError(r)
     },
     [uidForReports],
   )
@@ -130,6 +133,7 @@ export default function App() {
     setAppErrorSink(report)
     return () => setAppErrorSink(null)
   }, [report])
+  useLayoutCheck(loc.pathname)
   useEffect(() => {
     const onError = (ev: ErrorEvent) => report(ev.error ?? ev.message, 'unhandled')
     const onRejection = (ev: PromiseRejectionEvent) => report(ev.reason, 'unhandled')

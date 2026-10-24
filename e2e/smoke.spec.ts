@@ -647,19 +647,20 @@ async function leaveRahulOutIfAsked(page: Page) {
   if (await ask.isVisible()) await ask.click()
 }
 
-async function fakeMicPermission(page: Page, state: 'prompt' | 'denied' | 'deniedThenAllowed', delay = 0) {
+async function fakeMicPermission(page: Page, state: 'prompt' | 'denied' | 'deniedThenAllowed' | 'deniedBySystem', delay = 0) {
   await page.addInitScript(
     ([st, ms]) => {
       // 'deniedThenAllowed': reported blocked, but asking again works (Chrome's own prompt for Android's switch, allowed)
-      const perm = { state: st === 'deniedThenAllowed' ? 'denied' : (st as string), onchange: null }
+      // 'deniedBySystem': the device keeps the microphone from the browser (Chromium's own words)
+      const perm = { state: st === 'deniedThenAllowed' || st === 'deniedBySystem' ? 'denied' : (st as string), onchange: null }
       const w = window as unknown as Record<string, unknown>
       w.__perm = perm
       if (st === 'prompt') w.__promptMs = ms
       Object.defineProperty(navigator, 'permissions', { value: { query: () => Promise.resolve(perm) }, configurable: true })
       if (!navigator.mediaDevices) return
       navigator.mediaDevices.getUserMedia = () =>
-        st === 'denied'
-          ? Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+        st === 'denied' || st === 'deniedBySystem'
+          ? Promise.reject(new DOMException(st === 'denied' ? 'blocked' : 'Permission denied by system', 'NotAllowedError'))
           : new Promise((resolve) =>
               setTimeout(() => {
                 perm.state = 'granted'
@@ -703,9 +704,21 @@ test('Voice: a blocked microphone keeps the mic and says where to allow it; an o
   await expect(plus).toHaveAttribute('aria-label', /press and hold to talk/)
   await plus.hover()
   await page.mouse.down()
-  await expect(page.getByTestId('toasts')).toContainText(/blocked for this site|microphone is off/)
+  await expect(page.getByTestId('toasts')).toContainText(/microphone is blocked|microphone is off/)
   await page.mouse.up()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
+test('Voice: a device that keeps the microphone from the browser is named, not the site', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'deniedBySystem')
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('toasts')).toContainText(/is keeping the microphone from/)
+  await expect(page.getByTestId('toasts')).not.toContainText(/for this site/)
+  await page.mouse.up()
 })
 
 test('Voice: reported blocked, it still asks once, so Chrome can offer Android’s switch; allowed, it listens', async ({ page }) => {

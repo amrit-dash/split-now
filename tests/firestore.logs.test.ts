@@ -50,6 +50,8 @@ describe('app error reports', () => {
     await assertSucceeds(
       setDoc(doc(as('alice'), 'appErrors/b6'), report('alice', { kind: 'voice', message: 'voice mic: NotReadableError | engine=ai perm=granted' })),
     )
+    // a layout measurement (src/hooks/useLayoutCheck.ts): its own kind
+    await assertSucceeds(setDoc(doc(as('alice'), 'appErrors/b7'), report('alice', { kind: 'layout', message: 'layout wide: /live/x → / @500 | win=360x740' })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b3'), report('alice', { at: 5 })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b4'), report('alice', { extra: 1 })))
     await assertFails(setDoc(doc(as('alice'), 'appErrors/b5'), report('alice', { stack: 'x'.repeat(3001) })))

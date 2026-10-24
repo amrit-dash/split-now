@@ -29,7 +29,9 @@ import {
   meterBesideSpeech,
   micFailure,
   micPreflight,
+  browserName,
   micProblemText,
+  speechRefusedText,
   transcribeFailText,
   transcribeOffer,
   voiceEngine,
@@ -128,6 +130,9 @@ const where = () => {
     ios: /iPhone|iPad|iPod/.test(ua),
     standalone: isStandalone(),
     host: typeof location === 'undefined' ? undefined : location.host,
+    mac: /Macintosh|Mac OS X/.test(ua) && !/iPhone|iPad|iPod/.test(ua),
+    windows: /Windows/.test(ua),
+    browser: browserName(ua),
   }
 }
 
@@ -227,6 +232,19 @@ export function useVoice(opts: {
     if (message) o.current.onError?.(message)
   }
 
+  /** Why the browser's recognition was refused, found by opening the microphone once. */
+  const explainRefusal = async (): Promise<string> => {
+    try {
+      const s = await openMic()
+      for (const t of s.getTracks()) t.stop()
+      return speechRefusedText(where())
+    } catch (e) {
+      const { name, message } = (e ?? {}) as { name?: string; message?: string }
+      log('mic', `${name ?? ''} ${message ?? ''}`.trim().slice(0, 80))
+      return micProblemText(micFailure(name, message), await micPermissionNow(), where())
+    }
+  }
+
   /** The phone's own recognition for this session. */
   const listenNative = (l: Live): boolean => {
     let done: () => void = () => {}
@@ -247,6 +265,13 @@ export function useVoice(opts: {
         if (code === 'not-allowed' && !micAllowedBefore() && micPermission() !== 'denied') {
           l.firstPrompt = true
           err = undefined
+        }
+        // A refusal (or no microphone) after voice was allowed: open the microphone to see which
+        // switch it is (the site, the device, or Apple's Speech Recognition) and name that one.
+        if ((code === 'not-allowed' || code === 'audio-capture') && !l.firstPrompt && !l.stopping && live.current === l) {
+          done()
+          void explainRefusal().then((t) => fail(l, t))
+          return
         }
         // No speech service in this browser: the next press goes to AI when AI can serve them.
         l.error = err
@@ -295,14 +320,16 @@ export function useVoice(opts: {
       const back = await openMic().then(
         (s) => {
           for (const t of s.getTracks()) t.stop()
-          return true
+          return null
         },
-        () => false,
+        (e: unknown) => e as { name?: string; message?: string },
       )
       if (live.current !== l) return false
-      if (!back) {
-        log('mic', 'blocked')
-        fail(l, micProblemText('refused', 'denied', where()))
+      if (back) {
+        // The browser's own words go to Logs: "by system" means the computer, not the site.
+        log('mic', `blocked ${back.name ?? ''} ${back.message ?? ''}`.trim().slice(0, 80))
+        const f = micFailure(back.name, back.message)
+        fail(l, micProblemText(f === 'system' ? 'system' : 'refused', 'denied', where()))
         return false
       }
       pre = 'go'
@@ -318,9 +345,9 @@ export function useVoice(opts: {
       try {
         stream = await openMic()
       } catch (e) {
-        const name = (e as { name?: string })?.name
-        log('mic', name)
-        const f = micFailure(name)
+        const { name, message } = (e ?? {}) as { name?: string; message?: string }
+        log('mic', `${name ?? ''} ${message ?? ''}`.trim().slice(0, 80))
+        const f = micFailure(name, message)
         // A refusal asks again only while the browser will; else where the switch is.
         const perm = await micPermissionNow()
         fail(l, micProblemText(f, perm, where()))
