@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.6.0 — October 2026
+
 - Settle up in your own currency for a group in another one (Pay in ₹ instead) now offers the trip’s exchange rate as well as today’s: **Trip** uses the rate on the day the trip ended (its end date, or its last expense), **Today** today’s. A Trip group starts on the trip’s rate, so a fall in the dollar after you’re back no longer shrinks what friends pay you back; the line under it says how much the other rate would differ, Balances, settling with someone across all your groups, and Remind’s Pay me links use each trip’s own rate too (settling across groups has the same Trip rates / Today choice), so one debt never shows two amounts; the payment says which day’s rate it used (“paid ₹5,280 at the 6 Oct rate”). Before, it always used today’s rate.
 - New group and Edit group: a group in another currency than yours (before its first expense) suggests keeping it in yours, with a Use ₹ button. Costs added in the other currency then keep their own day’s rate, so what people owe never drifts with the exchange rate.
 
