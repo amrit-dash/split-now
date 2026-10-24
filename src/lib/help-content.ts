@@ -394,6 +394,7 @@ export const SECTIONS: HelpSection[] = [
       'Spoken stories work too: “Priya wasn’t part of that lunch”, “I wasn’t there”, “only Rohan and Priya ate”, “500 each”, “the share was 2:3”, “twelve hundred”.',
       'When it isn’t sure, it asks: which Rahul, who paid, or whether to add someone the group doesn’t have.',
       'With Quick add with AI on, only lines your phone can’t read fully go to AI, like “Rahul pays double” or a tip added on top. With it off, the form opens with what your phone read, for you to check.',
+      'Settings → AI features → Quick add says which key reads your lines. Split Now’s free AI misreads some long or uneven lines; your own Gemini key reads them best.',
     ],
     open: { label: 'Home', to: '/' },
     related: ['voice', 'add-expense', 'money-received'],

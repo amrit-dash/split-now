@@ -21,7 +21,7 @@ import type { AiModel, AiState, AppAiStatusValue } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
 import { useAiStatus } from '@/hooks/useAiStatus'
 import { useFlag } from '@/hooks/useAppConfig'
-import { aiAvailability, aiDataNote, aiReaderName, FREE_AI_NOTE, isFreeAi } from '@/lib/ai-copy'
+import { aiAvailability, aiDataNote, aiReaderName, FREE_AI_NOTE, isFreeAi, quickAddKeyLine } from '@/lib/ai-copy'
 import { errText } from '@/lib/errors'
 import { setAiScan } from '@/lib/ai'
 import { autoSourceHint, DEFAULT_MODEL, type AiSource } from '@/lib/ai-config'
@@ -185,6 +185,14 @@ export function AiSettings() {
     hasOwnKey: hasKey && !state?.lastError,
     appAvailable: !!status && (status.app.images === 'available' || status.app.sms === 'available'),
   })
+  // Which key reads Quick add's lines, with a note when it's the free AI (src/lib/ai-copy.ts).
+  const quickKey = quickAddKeyLine({
+    free,
+    freeOk: prefs.aiFreeOk,
+    source: prefs.aiSource,
+    hasOwnKey: hasKey && !state?.lastError,
+    appAvailable: !!status && (status.app.images === 'available' || status.app.sms === 'available'),
+  })
   // The shared key can't serve this person: their own key is the only route, so show it.
   const byokOnly = !!status && status.app.images !== 'available' && status.app.sms !== 'available'
   const advancedOpen = advanced ?? (prefs.aiEnabled && byokOnly && !hasKey)
@@ -329,17 +337,32 @@ export function AiSettings() {
               </SettingsSection>
               <SettingsSection icon={<RowKeyboardIcon size={18} aria-hidden />} title="Quick add" testId="ai-section-quick-add">
                 {aiQuickAdd ? (
-                  <Row
-                    title="Quick add with AI"
-                    testId="ai-quick-add"
-                    checked={prefs.aiQuickAdd}
-                    onChange={(v) => set({ aiQuickAdd: v })}
-                    text={{
-                      full: 'AI works out lines too complex for the app. Uses your AI quota.',
-                      short: 'For lines too complex for the app',
-                      tier: 'help',
-                    }}
-                  />
+                  <>
+                    <Row
+                      title="Quick add with AI"
+                      testId="ai-quick-add"
+                      checked={prefs.aiQuickAdd}
+                      onChange={(v) => set({ aiQuickAdd: v })}
+                      text={{
+                        full: 'AI works out lines too complex for the app. Uses your AI quota.',
+                        short: 'For lines too complex for the app',
+                        tier: 'help',
+                      }}
+                    />
+                    {prefs.aiQuickAdd && quickKey && (
+                      <div className="text-sm" data-testid="ai-quick-add-key">
+                        <div className="text-muted">{quickKey.uses}</div>
+                        {quickKey.note && (
+                          <p
+                            className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
+                            data-testid="ai-quick-add-free-note"
+                          >
+                            {quickKey.note}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div data-testid="ai-quick-add-off">
                     <div className="font-semibold">Quick add with AI</div>

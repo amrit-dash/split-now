@@ -6,7 +6,6 @@ remove an item when its release merges, and add anything left half-done.
 ## Next batch
 
 - [ ] Quick add: "remind Rahul" (opens Remind for that person).
-- [ ] Voice in Opera / Brave without AI: an in-page recogniser (Vosk, ~45 MB once, only where the browser's own fails) if Admin → Logs → Voice shows Opera's recogniser failing. Owner to say yes.
 
 ## Left from 9.2.0 – 9.5.0 (check by hand)
 
@@ -18,7 +17,7 @@ remove an item when its release merges, and add anything left half-done.
 - [ ] Voice with AI on a real iPhone: do the live words show while AI records (the phone's recognition and the recording share the microphone)?
 - [ ] Draw a picture with the new prompt and backdrop rule: a few real pictures (scenes too) come out see-through.
 
-- [ ] Opera GX / Brave: hold + and check the on-device recogniser installs and the words show (only tested with a fake browser).
+- [ ] Opera GX / Brave: “Use AI for voice” on the can’t-turn-speech-into-text message turns AI transcription on, and the mic then records (no Vosk: owner, 24 Oct 2026, AI voice instead).
 - [ ] Scan → Statement with AI off: try real GPay / PhonePe / bank screenshots (the parser is tested on typed text only).
 - [ ] The production outage of 22 Oct (every callable 500 before reaching the code, ~21:00–02:40 IST): cause not found; it cleared by itself. Read the Cloud Run logs for that window if it happens again.
 - [ ] Multi-group Balances card (someone in several groups) screenshot: the demo has no such person.
