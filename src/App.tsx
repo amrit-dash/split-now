@@ -699,7 +699,19 @@ function Splash({ leaving = false }: { leaving?: boolean }) {
       style={{ '--t': `${Math.round(t)}ms` } as React.CSSProperties}
     >
       <div className="boot-stack">
-        <img className="boot-logo" src="/favicon.svg" alt="" />
+        {/* Inline, in the accent index.html's first script set (--boot-from / --boot-to), like the splash before it. */}
+        <svg className="boot-logo" viewBox="0 0 512 512" aria-hidden>
+          <defs>
+            <linearGradient id="boot-g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" style={{ stopColor: 'var(--boot-from, #7c3aed)' }} />
+              <stop offset="1" style={{ stopColor: 'var(--boot-to, #db2777)' }} />
+            </linearGradient>
+          </defs>
+          <rect width="512" height="512" rx="112" fill="url(#boot-g)" />
+          <circle cx="256" cy="256" r="166" fill="none" stroke="#fff" strokeWidth="46" />
+          <path d="M256 90 V422" stroke="#fff" strokeWidth="46" strokeLinecap="round" />
+          <path d="M256 256 L373 373" stroke="#fff" strokeWidth="46" strokeLinecap="round" opacity=".85" />
+        </svg>
         <p className="boot-tag" aria-hidden>
           <span className="boot-l1">Spending is wise, splitting is free.</span>
           <span className="boot-l2">Split Now!</span>

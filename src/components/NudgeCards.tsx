@@ -27,61 +27,64 @@ export function NudgeCards({ cards, className = '' }: { cards: NudgeCard[]; clas
       {cards.map((c) => {
         const t = nudgeCardText(c)
         return (
-          <section key={c.key} className="card flex items-start gap-3 p-4" data-testid="nudge-card" aria-label={t.title}>
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300"
-              aria-hidden
-            >
-              <BellRingingIcon size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h2 className="font-semibold">{t.title}</h2>
-              <p className="text-muted text-sm">{t.line}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Link to={c.href} className="btn-primary !min-h-10 !rounded-full !px-4 !py-0 text-sm" data-testid="nudge-settle">
-                  Settle up
-                </Link>
-                {offer === 'enable' && (
-                  <button
-                    type="button"
-                    onClick={push.turnOn}
-                    disabled={push.busy}
-                    className="btn-secondary !min-h-10 !rounded-full !px-4 !py-0 text-sm"
-                    data-testid="nudge-push-on"
-                  >
-                    <BellIcon size={16} aria-hidden /> Turn on notifications
-                  </button>
-                )}
+          <section key={c.key} className="card p-4" data-testid="nudge-card" aria-label={t.title}>
+            <div className="flex items-start gap-3">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-300"
+                aria-hidden
+              >
+                <BellRingingIcon size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold">{t.title}</h2>
+                <p className="text-muted text-sm">{t.line}</p>
               </div>
-              {offer === 'install' && (
-                <HintText
-                  className="text-muted mt-2 flex items-start gap-1.5 text-xs"
-                  hint={{
-                    full: (
-                      <>
-                        <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
-                        {IOS_INSTALL_FOR_PUSH}, so reminders reach you as notifications.
-                      </>
-                    ),
-                    short: (
-                      <>
-                        <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
-                        Share → Add to Home Screen to get reminders.
-                      </>
-                    ),
-                  }}
-                />
+              <button
+                type="button"
+                onClick={() => dismiss(c, t.name)}
+                aria-label={`Dismiss the reminder from ${t.name}`}
+                className="text-muted -mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800"
+                data-testid="nudge-dismiss"
+              >
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+            {/* One row across the whole card, like the notifications banner (PushPrompt). */}
+            <div className="mt-3 flex items-center gap-2">
+              <Link to={c.href} className="btn-primary !min-h-10 whitespace-nowrap !rounded-full !px-4 !py-0 text-sm" data-testid="nudge-settle">
+                Settle up
+              </Link>
+              {offer === 'enable' && (
+                <button
+                  type="button"
+                  onClick={push.turnOn}
+                  disabled={push.busy}
+                  className="btn-secondary !min-h-10 whitespace-nowrap !rounded-full !px-4 !py-0 text-sm"
+                  data-testid="nudge-push-on"
+                >
+                  <BellIcon size={16} aria-hidden /> Get notified
+                </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => dismiss(c, t.name)}
-              aria-label={`Dismiss the reminder from ${t.name}`}
-              className="text-muted -mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-ink-800"
-              data-testid="nudge-dismiss"
-            >
-              <X size={18} aria-hidden />
-            </button>
+            {offer === 'install' && (
+              <HintText
+                className="text-muted mt-2 flex items-start gap-1.5 text-xs"
+                hint={{
+                  full: (
+                    <>
+                      <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
+                      {IOS_INSTALL_FOR_PUSH}, so reminders reach you as notifications.
+                    </>
+                  ),
+                  short: (
+                    <>
+                      <Share size={14} className="mt-0.5 shrink-0" aria-hidden />
+                      Share → Add to Home Screen to get reminders.
+                    </>
+                  ),
+                }}
+              />
+            )}
           </section>
         )
       })}
