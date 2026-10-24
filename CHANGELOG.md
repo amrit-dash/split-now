@@ -8,6 +8,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## 9.5.0 — October 2026
 
+- Admin → AI: removing the project or transcription key is a small bin at the right of the section's heading, and asks first, instead of a third button beside Test; “Use another key” is now “Replace key”, on one line; with no transcription key, the line says just that.
 - The launch screen's logo is in your accent colour from the first frame, like the app icon (it was always violet).
 - The Turn on notifications banner and a reminder's card keep their buttons on one row under the text, instead of wrapping onto two lines on a phone; a reminder's notifications button now says Get notified.
 - Quick add reads much more on your phone, free and without AI: “they paid” or “he got the bill” (the person named paid), uneven parts (“Rahul owes 400”, “60/40 with Meera”, “Rahul 2 shares”, “Rahul 30%”, “hotel 6000 Priya 4000”), “everyone except Rohan”, payments back, and full names (“Rahul Verma” is never the group’s other Rahul). When it isn’t sure it asks instead of guessing: which group, which Rahul, who paid, or whether to add someone the group doesn’t have (or leave them out). Only what your phone can’t read goes to Quick add with AI. A line from Home naming someone in none of your groups starts a 1:1 with them.

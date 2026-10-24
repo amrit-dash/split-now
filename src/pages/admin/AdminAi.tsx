@@ -1,21 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  BarChart3,
-  Cpu,
-  ImageIcon,
-  KeyRound,
-  Loader2,
-  Mic,
-  RefreshCw,
-  RotateCcw,
-  Save,
-  ShieldCheck,
-  ToggleRight,
-  Trash2,
-  UsersRound,
-  Wallet,
-} from 'lucide-react'
+import { BarChart3, Cpu, ImageIcon, KeyRound, Loader2, RefreshCw, RotateCcw, Save, ShieldCheck, ToggleRight, UsersRound, Wallet } from 'lucide-react'
 import { repo } from '@/data'
 import type { AiModel, AiStatusResult } from '@/data/repo'
 import { refreshAiStatus } from '@/hooks/useAiStatus'
@@ -32,7 +17,8 @@ import { SettingsSection } from '@/components/SettingsSection'
 import { Select } from '@/components/Select'
 import { Switch } from '@/components/Switch'
 import { useToast } from '@/components/Toast'
-import { TranscribeKey } from './TranscribeKey'
+import { RemoveKeyButton, TranscribeKey } from './TranscribeKey'
+import { useConfirm } from '@/components/ConfirmSheet'
 
 const MODES: Array<{ value: AppAiMode; label: string; hint: string }> = [
   { value: 'off', label: 'Off', hint: 'Only people’s own keys work' },
@@ -55,6 +41,7 @@ const AI_FLAGS = FLAG_SECTIONS.find((s) => s.id === 'ai')?.keys ?? []
  */
 export function AdminAi({ status }: { status: AiStatusResult }) {
   const toast = useToast()
+  const confirm = useConfirm()
   const { flags } = useAppConfig()
   const [saved, setSaved] = useState<AppAiConfig | null>(null)
   const [cfg, setCfg] = useState<AppAiConfig | null>(null)
@@ -191,7 +178,30 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           <span className="shrink-0 text-xs font-semibold text-brand-600 dark:text-brand-300">{onCount(flags, AI_FLAGS)}</span>
         </Link>
       </SettingsSection>
-      <SettingsSection icon={<KeyRound size={16} aria-hidden />} title="Project key" testId="admin-ai-section-key">
+      <SettingsSection
+        icon={<KeyRound size={16} aria-hidden />}
+        title="Project key"
+        testId="admin-ai-section-key"
+        // Only a key pasted here can go: removing it falls back to the GEMINI_API_KEY secret, which lives on the server.
+        action={
+          configured && source === 'admin' && !editingKey ? (
+            <RemoveKeyButton
+              busy={keyBusy === 'remove'}
+              disabled={!!keyBusy}
+              label="Remove this key and go back to GEMINI_API_KEY"
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Remove this project key?',
+                  message: 'Split Now goes back to the GEMINI_API_KEY secret. This key can’t be shown again.',
+                  confirmLabel: 'Remove',
+                  tone: 'danger',
+                })
+                if (ok) void keyAction('remove')
+              }}
+            />
+          ) : null
+        }
+      >
         {/* The project key: where it comes from, and a way to use a different one. */}
         <div>
           {editingKey || !configured ? (
@@ -235,24 +245,22 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
             </form>
           ) : (
             <div className="flex gap-2">
-              <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => keyAction('test')}>
+              <button
+                type="button"
+                className="btn-secondary !min-h-0 flex-1 whitespace-nowrap !px-3 !py-2 text-sm"
+                disabled={!!keyBusy}
+                onClick={() => keyAction('test')}
+              >
                 {keyBusy === 'test' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Test
               </button>
-              <button type="button" className="btn-secondary !min-h-0 flex-1 !py-2 text-sm" disabled={!!keyBusy} onClick={() => setEditingKey(true)}>
-                <KeyRound size={16} /> Use another key
+              <button
+                type="button"
+                className="btn-secondary !min-h-0 flex-1 whitespace-nowrap !px-3 !py-2 text-sm"
+                disabled={!!keyBusy}
+                onClick={() => setEditingKey(true)}
+              >
+                <KeyRound size={16} /> Replace key
               </button>
-              {source === 'admin' && (
-                <button
-                  type="button"
-                  className="btn-secondary !min-h-0 !px-3 !py-2 text-sm text-rose-700 dark:text-rose-400"
-                  disabled={!!keyBusy}
-                  onClick={() => keyAction('remove')}
-                  aria-label="Remove this key and go back to GEMINI_API_KEY"
-                  title="Back to GEMINI_API_KEY"
-                >
-                  {keyBusy === 'remove' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                </button>
-              )}
             </div>
           )}
           <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" data-testid="admin-ai-key-status">
@@ -265,10 +273,8 @@ export function AdminAi({ status }: { status: AiStatusResult }) {
           </p>
         </div>
       </SettingsSection>
-      {/* A third key, for voice only: separate from the project key, always billed (TranscribeKey). */}
-      <SettingsSection icon={<Mic size={16} aria-hidden />} title="Transcription key" testId="admin-ai-section-transcribe">
-        <TranscribeKey status={status} model={cfg.transcribeModel} onModel={(m) => set({ transcribeModel: m })} usedToday={usage?.transcribe_app ?? 0} />
-      </SettingsSection>
+      {/* A third key, for voice only: separate from the project key, always billed (TranscribeKey, its own section). */}
+      <TranscribeKey status={status} model={cfg.transcribeModel} onModel={(m) => set({ transcribeModel: m })} usedToday={usage?.transcribe_app ?? 0} />
       <SettingsSection icon={<Cpu size={16} aria-hidden />} title="Engine and model" testId="admin-ai-section-engine">
         <div>
           <div className="label">Split Now’s AI runs on</div>
