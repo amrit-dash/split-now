@@ -364,3 +364,20 @@ describe('names', () => {
     expect(toQuickPrefill(parse('cab 600 I paid, Rahul owes 400'), 'x').exact).toEqual({ rahul: 40000, me: 20000 })
   })
 })
+
+describe('spoken stories (owner’s lines, 24 Oct 2026)', () => {
+  it('someone left out in plain words: everyone else shares it, and “the rest” is nobody’s name', () => {
+    const p = parse(
+      'I just remembered I paid for lunch on 3rd October for 1262 rupees. It was split by all but I remember Priya was not a part of that lunch. Split it equally amongst the rest.',
+    )
+    expect(p).toMatchObject({ description: 'Lunch', amount: 126200, payer: 'me', date: '2026-10-03', participants: ['me', 'rahul', 'sam2'], unmatched: [] })
+  })
+  it('shares as a ratio with one other person: yours first, unless the line says who had more', () => {
+    expect(parse('lunch with Rahul, I paid 2300, the share was 2x3').exact).toEqual({ me: 92000, rahul: 138000 })
+    expect(parse('lunch with Rahul, I paid 2300, shares 3:2 where he had less').exact).toEqual({ me: 138000, rahul: 92000 })
+    expect(parse('Me and Rahul went for lunch where I paid 2300 rupees but the share was 3x2, where they had more shares.').exact).toEqual({
+      me: 92000,
+      rahul: 138000,
+    })
+  })
+})

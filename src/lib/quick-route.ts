@@ -5,7 +5,16 @@
  */
 import type { GroupInText } from './quick-group'
 
-export type QuickRouteWhy = 'asks_for_group' | 'several_steps' | 'no_amount' | 'unknown_people' | 'who_paid' | 'uneven_split' | 'payment' | 'choose_group'
+export type QuickRouteWhy =
+  | 'long_line'
+  | 'asks_for_group'
+  | 'several_steps'
+  | 'no_amount'
+  | 'unknown_people'
+  | 'who_paid'
+  | 'uneven_split'
+  | 'payment'
+  | 'choose_group'
 export type QuickRoute = { route: 'local' } | { route: 'ai'; why: QuickRouteWhy }
 
 /** "create a group …", "start a new trip …", "set up a group …": asks for a group the grammar can't make from a sentence. */
@@ -16,12 +25,30 @@ const SEVERAL_STEPS = /\b(?:and|then|&)\s+(?:then\s+)?(?:add|record|log|put|ente
 /** "they paid", "he got the bill", "she covered it": a payer the grammar can't point at. */
 const PRONOUN_PAYER = /\b(?:they|he|she|them|him|her)\s+(?:paid|got|covered|picked|took|settled)\b/i
 /** Parts that aren't equal: "Rahul owes 400", "60/40", "30%", "2 shares", "rest me", "Rahul's share". */
-const UNEVEN = /%|\bpercent\b|\bshares?\b|\bowes?\b|\brest\b|\bremaining\b|\b\d{1,2}\s*[/-]\s*\d{1,2}\b|'s (?:share|ticket|order)\b|\bon behalf\b/i
+const UNEVEN =
+  /%|\bpercent\b|\bshares?\b|\b(?:double|twice|thrice|triple|half)\b|\bowes?\b|\brest\b|\bremaining\b|\b\d{1,2}\s*[/-]\s*\d{1,2}\b|'s (?:share|ticket|order)\b|\bon behalf\b/i
 /** People left out: "everyone except Rohan", "all but Priya". */
 const EXCEPT = /\bexcept\b|\bbut not\b|\bminus\b|\bother than\b|\bexcluding\b/i
 /** Money back to settle up, not a cost: "paid Rahul 500 back", "sent Priya 300", "settled up with Rahul". */
 const PAYMENT =
   /\b(?:paid|sent|gave|returned|transferred|repaid)\b[^.]*\bback\b|\bpaid\s+me\b|\bsent\s+(?:me|him|her|\p{Lu}\p{L}*)\s+(?:₹|rs\.?\s*)?\d|\bsettled?\s+up\b|\bpaid\s+(?:him|her|\p{Lu}\p{L}*)\s+(?:₹|rs\.?\s*)?\d/iu
+
+/** Words that change who pays what: a number, a part, someone in or out, money back, later. */
+const COST_WORDS =
+  /\d|\b(?:split|share|shares|each|except|only|owe|owes|owed|half|double|twice|thrice|extra|plus|minus|without|percent|ratio|tip|tax|discount|refund|back|later|paid|pay|pays|covered|treat|treated|instead|excluding|including|not|didn'?t|wasn'?t)\b/i
+
+/** Left-over words of a long line that could still change the cost (src/lib/nl-expense.ts `leftover`). */
+export function unexplained(leftover: string | undefined): boolean {
+  return !!leftover && COST_WORDS.test(leftover)
+}
+
+/** More than one sentence, or more than 20 words: what a spoken line usually is. */
+export function isLongLine(line: string): boolean {
+  // A sentence has 3+ words: "Rs. 450 auto" is one line, not two.
+  const sentences = line.split(/[.!?]+(?:\s|$)/).filter((x) => (x.match(/[\p{L}\p{N}]+/gu)?.length ?? 0) >= 3).length
+  const words = line.match(/[\p{L}\p{N}]+/gu)?.length ?? 0
+  return sentences > 1 || words > 20
+}
 
 /**
  * Simple enough for the phone when the line has an amount, every name in it matched someone in
@@ -42,6 +69,7 @@ export function quickRoute(
     payment?: unknown
     payerUnclear?: boolean
     payerChoices?: string[]
+    leftover?: string
   },
   named: GroupInText,
   /** the person is in the group the line goes to (its page, or picked it); else the people named choose the group */
@@ -49,10 +77,14 @@ export function quickRoute(
 ): QuickRoute {
   if (ASKS_FOR_GROUP.test(line)) return { route: 'ai', why: 'asks_for_group' }
   if (SEVERAL_STEPS.test(line)) return { route: 'ai', why: 'several_steps' }
+  // A story rather than a line: the phone reads what it can, and AI only gets it when words that
+  // could change the cost are left over ("the share was 2x3" read on the phone stays on the phone;
+  // "and add 200 for the tip" doesn't). Owner, 24 Oct 2026: deterministic first, AI for the rest.
+  if (unexplained(parse.leftover)) return { route: 'ai', why: isLongLine(line) ? 'long_line' : 'several_steps' }
   // The phone settles what it can read for certain (src/lib/nl-expense.ts); AI only gets what it couldn't.
   if (PAYMENT.test(line) && !parse.payment) return { route: 'ai', why: 'payment' }
   if (PRONOUN_PAYER.test(line) && parse.payerUnclear) return { route: 'ai', why: 'who_paid' }
-  if (UNEVEN.test(line) && !parse.exact) return { route: 'ai', why: 'uneven_split' }
+  if (UNEVEN.test(line.replace(/\b(?:among(?:st)?|between)\s+the\s+rest\b/gi, ' ')) && !parse.exact) return { route: 'ai', why: 'uneven_split' }
   if (EXCEPT.test(line) && !parse.participants?.length) return { route: 'ai', why: 'uneven_split' }
   // Outside a group, and the phone found no group with everyone named (src/lib/quick-people.ts): AI tries.
   if (!sure && named.kind === 'none' && parse.unmatched.length) return { route: 'ai', why: 'choose_group' }

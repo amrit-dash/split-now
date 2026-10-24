@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PURGE_HOLD_DAYS, TRASH_DAYS, daysLeft, isDeletedGroup, purgeAt, purgeDue, purgeHeld, purgeOpensAt } from './group-trash'
+import { PURGE_HOLD_DAYS, TRASH_DAYS, daysLeft, groupPurgeHeld, isDeletedGroup, purgeAt, purgeDue, purgeHeld, purgeOpensAt } from './group-trash'
 
 const DAY = 86_400_000
 
@@ -31,5 +31,11 @@ describe('purge hold', () => {
     expect(purgeHeld(0, 7 * DAY)).toBe(false)
     expect(purgeOpensAt(DAY)).toBe(8 * DAY)
     expect(purgeHeld(undefined, 0)).toBe(false) // not deleted: nothing to hold
+  })
+  it('a group where only its creator has an account is never held: nobody else could restore it', () => {
+    const now = 10 * DAY
+    expect(groupPurgeHeld({ deletedAt: now - DAY, createdBy: 'a', memberUids: ['a', 'b'] }, now)).toBe(true)
+    expect(groupPurgeHeld({ deletedAt: now - DAY, createdBy: 'a', memberUids: ['a'] }, now)).toBe(false)
+    expect(groupPurgeHeld({ deletedAt: now - 8 * DAY, createdBy: 'a', memberUids: ['a', 'b'] }, now)).toBe(false)
   })
 })

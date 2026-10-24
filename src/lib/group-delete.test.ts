@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deleteMessage, groupDeleteState } from './group-delete'
+import { deleteMessage, groupDeleteState, purgeChoice } from './group-delete'
 
 const g = (over: object = {}) => ({
   name: 'Goa',
@@ -40,5 +40,14 @@ describe('deleteMessage', () => {
       { from: 'b', to: 'c', amount: 2 },
     ]
     expect(deleteMessage(debts, name, money)).toMatch(/Still open: Bob owes Alice ₹5; Cat owes Alice ₹4; Cat owes Bob ₹3, and 1 more\.$/)
+  })
+})
+
+describe('purgeChoice', () => {
+  it('its creator once allowed, any admin always; a member sees no Delete forever at all', () => {
+    expect(purgeChoice({ blocker: null, admin: false, creator: true })).toBe('')
+    expect(purgeChoice({ blocker: 'From 31 Oct.', admin: false, creator: true })).toBe('From 31 Oct.')
+    expect(purgeChoice({ blocker: 'Only Meera can delete it.', admin: false, creator: false })).toBeNull()
+    expect(purgeChoice({ blocker: 'Only Meera can delete it.', admin: true, creator: false })).toBe('')
   })
 })

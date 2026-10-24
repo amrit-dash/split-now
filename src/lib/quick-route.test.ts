@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quickAiAllowed, quickRoute, quickRouteNoGroups } from './quick-route'
+import { isLongLine, quickAiAllowed, quickRoute, quickRouteNoGroups } from './quick-route'
 
 const none = { kind: 'none' } as const
 const fresh = { kind: 'new', name: 'Bali trip', text: 'Cab 300', phrase: 'in a new group bali trip' } as const
@@ -90,5 +90,13 @@ describe('lines that need understanding: the phone settles what it can, AI the r
   it('outside a group, names no group has go to AI; inside one, the usual rule', () => {
     expect(quickRoute('lunch 800 with Kabir', { ...p, unmatched: ['Kabir'] }, none, false)).toEqual({ route: 'ai', why: 'choose_group' })
     expect(quickRoute('lunch 800 with Rahul', { ...p, participants: ['me', 'p_rahul'] }, none, false)).toEqual({ route: 'local' })
+  })
+})
+
+describe('isLongLine: a spoken story goes to AI when it may', () => {
+  it('more than one sentence, or more than 20 words', () => {
+    expect(isLongLine('dinner 1200 with Rahul, I paid')).toBe(false)
+    expect(isLongLine('I paid for lunch. Priya was not part of it.')).toBe(true)
+    expect(isLongLine('me and Akash went for lunch where I paid 2300 rupees but the share was 2x3 where they had more shares split it accordingly')).toBe(true)
   })
 })

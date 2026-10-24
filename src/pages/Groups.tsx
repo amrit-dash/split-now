@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronRight, RotateCcw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AddIcon, EyeIcon, EyeSlashIcon, FileUploadIcon, LockIcon, LockOpenIcon, TrashIcon } from '@/components/icons'
 import { useAllGroupData, useDeletedGroups } from '@/hooks/data'
@@ -10,6 +11,9 @@ import { PatternLock } from '@/features/vault/PatternLock'
 import { LockedTile } from '@/features/vault/Scrambled'
 import { lockedText } from '@/lib/vault-scramble'
 import { GroupRow } from '@/components/GroupRow'
+import { SwipeRow } from '@/components/SwipeRow'
+import { useGroupTrash } from '@/components/DeleteGroup'
+import { useToast } from '@/components/Toast'
 import { PageHeader } from '@/components/Misc'
 import { Collapsible } from '@/components/Collapsible'
 import { ListSkeleton } from '@/components/Skeleton'
@@ -192,7 +196,6 @@ export default function Groups() {
  * left. Opening one shows Restore (any member) and, for its creator, Delete forever.
  */
 function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
-  const { user } = useMe()
   const now = Date.now()
   useVaultVersion()
   // A locked private group keeps its look here too (src/lib/vault-scramble.ts).
@@ -205,31 +208,80 @@ function RecentlyDeletedGroups({ groups }: { groups: Group[] }) {
       testId="deleted-groups"
     >
       <ul className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-white/5">
-        {groups.map((g) => {
-          const by = g.deletedBy === user.uid ? 'you' : (labelForUid(g.members, g.deletedBy, memberIdOfUid(g.members, user.uid)) ?? 'someone')
-          const left = daysLeft(g.deletedAt ?? now, now)
-          return (
-            <li key={g.id}>
-              <Link to={`/groups/${g.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3" data-testid="deleted-group-row">
-                {hide(g) ? (
-                  <LockedTile size={40} />
-                ) : (
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
-                    {g.emoji}
-                  </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{hide(g) ? lockedText(g.name, g.id) : g.name}</span>
-                  <span className="text-muted block truncate text-xs">
-                    Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
-                  </span>
-                </span>
-                <TrashIcon size={16} className="text-muted shrink-0" aria-hidden />
-              </Link>
-            </li>
-          )
-        })}
+        {groups.map((g) => (
+          <DeletedGroupRow key={g.id} g={g} hidden={hide(g)} now={now} />
+        ))}
       </ul>
     </Collapsible>
+  )
+}
+
+/**
+ * One group in Recently deleted. Tapping opens it (read-only, with Restore); swiping left, a long
+ * press or right-click shows Restore and Delete forever. Delete forever is for its creator after
+ * the week others get to restore it (no wait where nobody else has an account); otherwise the
+ * action says why it can't yet.
+ */
+function DeletedGroupRow({ g, hidden, now }: { g: Group; hidden: boolean; now: number }) {
+  const { user } = useMe()
+  const toast = useToast()
+  const { restore, purge, purgeState } = useGroupTrash(g)
+  const by = g.deletedBy === user.uid ? 'you' : (labelForUid(g.members, g.deletedBy, memberIdOfUid(g.members, user.uid)) ?? 'someone')
+  const left = daysLeft(g.deletedAt ?? now, now)
+  const name = hidden ? lockedText(g.name, g.id) : g.name
+  return (
+    <SwipeRow
+      contentClassName="flex"
+      testId="deleted-group-row"
+      menuTitle={name}
+      actions={[
+        {
+          label: 'Restore',
+          ariaLabel: `Restore “${name}”`,
+          icon: <RotateCcw size={20} />,
+          tone: 'accent',
+          onClick: () => void restore(),
+          testId: 'deleted-group-restore',
+        },
+        // Its creator (or an admin) only; a member sees Restore alone (owner, 24 Oct 2026).
+        ...(purgeState === null
+          ? []
+          : [
+              purgeState
+                ? {
+                    label: 'Delete forever',
+                    ariaLabel: `Why “${name}” can’t be deleted forever yet`,
+                    icon: <TrashIcon size={20} />,
+                    tone: 'muted' as const,
+                    onClick: () => toast(purgeState, 'err'),
+                    testId: 'deleted-group-purge',
+                  }
+                : {
+                    label: 'Delete forever',
+                    ariaLabel: `Delete “${name}” forever`,
+                    icon: <TrashIcon size={20} />,
+                    onClick: () => void purge(),
+                    testId: 'deleted-group-purge',
+                  },
+            ]),
+      ]}
+    >
+      <Link to={`/groups/${g.id}`} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-3" data-testid="deleted-group-open">
+        {hidden ? (
+          <LockedTile size={40} />
+        ) : (
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-ink-800" aria-hidden>
+            {g.emoji}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold">{name}</span>
+          <span className="text-muted block truncate text-xs">
+            Deleted by {by} · {left <= 1 ? 'last day to restore' : `${left} days left to restore`}
+          </span>
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
+      </Link>
+    </SwipeRow>
   )
 }

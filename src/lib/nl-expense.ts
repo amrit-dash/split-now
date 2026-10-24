@@ -4,6 +4,8 @@ import { todayISO } from './id'
 import { fromHundredths, minorDigits } from './money'
 import { MONTH_WORD_RE, parseNlDate } from './nl-date'
 import { allocate } from './splits'
+import { excludedPeople, WRITER_OUT } from '../../shared/quick-exclude'
+import { spokenNumbers } from './spoken-numbers'
 
 /*
  * Quick add: "dinner 1200 with Rahul and Priya, I paid" → a prefilled expense form. A small
@@ -62,6 +64,8 @@ export interface NlParse {
   /** "he paid" with two people named: one of these paid, the person picks */
   payerChoices?: MemberId[]
   confidence: NlConfidence
+  /** a long line's words the reading didn't use (the description is a short name made from them) */
+  leftover?: string
 }
 
 // ---- Words ------------------------------------------------------------------------
@@ -170,6 +174,29 @@ export function resolveName(token: string, ctx: Pick<NlContext, 'members' | 'me'
   return ME_RE.test(token.trim()) ? ctx.me : matchName(token, ctx.members)
 }
 
+/**
+ * The people named one after another from `from` on: "me Rahul and Priya", "Rohan, Priya", "Rahul
+ * & me". Stops at the first word that isn't a member, "me" or "I" (spaces, commas, "and" and "&"
+ * between them). The ids in order and where the run ends; nothing when the first word isn't one.
+ */
+function nameRun(text: string, from: number, ctx: Pick<NlContext, 'members' | 'me'>): { ids: MemberId[]; end: number; tokens: string[] } {
+  const ids: MemberId[] = []
+  const tokens: string[] = []
+  let end = from
+  const step = new RegExp(String.raw`^(?:\s*(?:,|&|\+|\band\b)\s*|\s+)?(${NAME})`, 'iu')
+  for (;;) {
+    const m = text.slice(end).match(step)
+    if (!m) break
+    const id = resolveName(m[1], ctx)
+    if (!id) break
+    ids.push(id)
+    tokens.push(m[1])
+    end += m[0].length
+    if (ids.length >= 30) break
+  }
+  return { ids, end, tokens }
+}
+
 interface AmountHit {
   index: number
   length: number
@@ -214,7 +241,8 @@ const tidy = (s: string) => s.replace(/\s+/g, ' ').trim()
 
 export function parseNlExpense(input: string, ctx: NlContext): NlParse {
   const today = ctx.today ?? todayISO()
-  let text = joinFullNames(tidy(input), ctx.knownNames ?? ctx.members.map((m) => m.name))
+  // "twelve hundred" → 1200: speech-to-text often writes the amount in words (src/lib/spoken-numbers.ts).
+  let text = joinFullNames(tidy(spokenNumbers(input)), ctx.knownNames ?? ctx.members.map((m) => m.name))
   const unmatched: string[] = []
   const out: NlParse = { description: '', currency: ctx.currency, payer: ctx.me, payerExplicit: false, unmatched, confidence: 'low' }
   // A name two members share ("Rahul" in a group with two): read as the first, and noted so the person is asked.
@@ -271,21 +299,58 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     },
   )
   let only: MemberId[] | undefined
-  text = text.replace(/\b(?:only|just)\s+(?:for\s+)?(me|myself|i|[\p{L}][\p{L}'’.-]*)(?:\s+only)?\b/iu, (whole, who: string) => {
-    const id = resolveName(who, ctx)
-    if (!id) return whole
-    only = [id]
-    return ' '
-  })
+  // "only Rohan and Priya (ate)", "just me": the people named right after "only" / "just".
+  {
+    const m = text.match(/\b(?:only|just)\s+(?:for\s+)?/iu)
+    if (m) {
+      const run = nameRun(text, m.index! + m[0].length, ctx)
+      if (run.ids.length) {
+        only = [...new Set(run.ids)]
+        const tail = text.slice(run.end).match(/^\s+only\b/i)
+        text = cut(text, m.index!, run.end - m.index! + (tail ? tail[0].length : 0))
+      }
+    }
+  }
+  // "me and Rohan only": the people named right before "only".
+  if (!only) {
+    const m = text.match(new RegExp(String.raw`((?:${NAME}(?:\s*(?:,|&|\band\b)\s*|\s+)){0,6}${NAME})\s+only\b`, 'iu'))
+    if (m) {
+      const words = m[1].split(/\s*(?:,|&|\band\b)\s*|\s+/i).filter(Boolean)
+      // the names at the end of the run, back to the first word that isn't one
+      const ids: MemberId[] = []
+      let k = words.length - 1
+      for (; k >= 0; k--) {
+        const id = resolveName(words[k], ctx)
+        if (!id) break
+        ids.unshift(id)
+      }
+      if (ids.length) {
+        only = [...new Set(ids)]
+        text = text.replace(
+          new RegExp(
+            String.raw`${words
+              .slice(k + 1)
+              .map(escapeRe)
+              .join(String.raw`(?:\s*(?:,|&|\band\b)\s*|\s+)`)}\s+only\b`,
+            'iu',
+          ),
+          ' ',
+        )
+      }
+    }
+  }
   text = text.replace(/\bfor\s+(?:me|myself)\s+only\b/i, () => {
     only = [ctx.me]
     return ' '
   })
   let everyone = false
-  text = text.replace(/\b(?:split\s+)?(?:with\s+|between\s+|among\s+)?(?:everyone|everybody|all of us|sab(?:ko)?)\b/i, () => {
-    everyone = true
-    return ' '
-  })
+  text = text.replace(
+    /\b(?:split\s+)?(?:with\s+|between\s+|among\s+)?(?:everyone|everybody|all of us|sab(?:ko)?)\b(?!\s+(?:but|except|minus|other\s+than|excluding))/i,
+    () => {
+      everyone = true
+      return ' '
+    },
+  )
   text = text.replace(/\bsplit\s+(?:it\s+)?(?:equally|evenly|equal)\b|\bsplit\s+equal(?:ly)?\b|\bequally\b/i, ' ')
 
   // Money received ("I got 1000 back", "Rahul received the refund", "refund 500"): who got it is the payer slot.
@@ -345,15 +410,23 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
   }
 
   // Who took part: the first "with / for / between …" that names people ("For lunch with Rahul" skips "for lunch").
+  // "for drinks, Rahul …" is the thing, not a list: "for" names people only when a name comes first.
   const w = [...text.matchAll(new RegExp(WITH_RE.source, 'giu'))].find(
-    (m) => /^(with|w\/|between|among|amongst|incl|including)/i.test(m[1]) || m[2].split(new RegExp(SEP, 'iu')).some((n) => resolveName(n, ctx)),
+    (m) => /^(with|w\/|between|among|amongst|incl|including)/i.test(m[1]) || !!resolveName(m[2].split(new RegExp(SEP, 'iu'))[0] ?? '', ctx),
   )
   if (w) {
     const keyword = w[1].toLowerCase()
-    const names = w[2].split(new RegExp(SEP, 'iu')).filter(Boolean)
+    // Names with only spaces between ("between me Rahul and Priya") run on past the list the pattern saw.
+    const start = w.index! + w[0].length - w[2].length
+    const run = nameRun(text, start, ctx)
+    const listEnd = run.ids.length && run.end > w.index! + w[0].length ? run.end : w.index! + w[0].length
+    const names = run.ids.length && run.end > w.index! + w[0].length ? run.tokens : w[2].split(new RegExp(SEP, 'iu')).filter(Boolean)
+    w[0] = text.slice(w.index!, listEnd)
     const ids: MemberId[] = []
     const misses: string[] = []
     for (const n of names) {
+      // "amongst the rest", "between all of us": the group's own words, not someone's name.
+      if (NOT_A_NAME.test(n.trim())) continue
       const id = resolveName(n, ctx)
       if (id) ids.push(id)
       else misses.push(n)
@@ -365,8 +438,24 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     if (accept) {
       if (/^(with|w\/|incl)/.test(keyword)) ids.unshift(ctx.me)
       unmatched.push(...misses)
-      if (ids.length) out.participants = [...new Set(ids)]
+      // "she was with me": nobody but you named, so it says nothing about who shares it.
+      const set = [...new Set(ids)]
+      if (set.length && !(set.length === 1 && set[0] === ctx.me && !misses.length)) out.participants = set
       text = cut(text, w.index!, w[0].length)
+    }
+  }
+  // "Neha and I had pizza", "me and Rahul went for lunch", "Rahul, Priya and I": the people around "and I".
+  if (!w && !out.participants) {
+    const before = text.match(new RegExp(String.raw`((?:${NAME}(?:\s*(?:,|&)\s*|\s+)){0,5}${NAME})\s+(?:and|&)\s+(?:i|me)\b`, 'iu'))
+    const after = text.match(/\b(?:i|me)\s+(?:and|&)\s+/iu)
+    if (before) {
+      const ids = before[1].split(/\s*(?:,|&)\s*|\s+/).map((n) => resolveName(n, ctx))
+      const tailIds: MemberId[] = []
+      for (let k = ids.length - 1; k >= 0 && ids[k]; k--) tailIds.unshift(ids[k] as MemberId)
+      if (tailIds.length) out.participants = [...new Set([ctx.me, ...tailIds])]
+    } else if (after) {
+      const run = nameRun(text, after.index! + after[0].length, ctx)
+      if (run.ids.length) out.participants = [...new Set([ctx.me, ...run.ids])]
     }
   }
   if (only) out.participants = only
@@ -382,6 +471,36 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     if (out_.length) {
       out.participants = ctx.members.map((m) => m.id).filter((id) => !out_.includes(id))
       text = cut(text, except.index!, except[0].length)
+    }
+  }
+
+  // Left out in plain words ("Aradhana was not a part of that lunch", "Rohan didn't come"): the
+  // whole group (or the people named) but them (shared/quick-exclude.ts, as the check on AI's answer).
+  const leftOut = excludedPeople(
+    input,
+    ctx.members.filter((m) => m.id !== ctx.me),
+    ctx.me,
+  )
+  if (leftOut.length) {
+    const base = out.participants ?? ctx.members.map((m) => m.id)
+    const kept = base.filter((id) => !leftOut.includes(id))
+    if (kept.length) out.participants = kept
+    for (let i = unmatched.length - 1; i >= 0; i--) if (leftOut.includes(resolveName(unmatched[i], ctx) ?? '')) unmatched.splice(i, 1)
+    // The clause that left them out is read: it isn't part of what the money was for.
+    if (leftOut.includes(ctx.me)) text = text.replace(new RegExp(String.raw`[^.;,!?]*(?:${WRITER_OUT.source.replace(/'/g, "['’]")})[^.;,!?]*`, 'iu'), ' ')
+    for (const id of leftOut) {
+      const first = ctx.members.find((m) => m.id === id)?.name.split(' ')[0]
+      if (first) text = text.replace(new RegExp(String.raw`[^.;,!?]*\b${escapeRe(first)}\b[^.;,!?]*`, 'iu'), ' ')
+    }
+  }
+
+  // "500 each for me, Rahul and Priya": the amount is per person, so the cost is that times the people.
+  {
+    const each = text.match(/\beach\b|\bper\s+(?:head|person)\b|\b(?:a|per)\s+head\b/i)
+    const n = out.participants?.length ?? out.ways
+    if (each && n && n >= 2 && out.amount !== undefined) {
+      out.amount *= n
+      text = cut(text, each.index!, each[0].length)
     }
   }
 
@@ -403,6 +522,10 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     } else out.unmatched.push('the parts')
   }
 
+  // How it was split, said in words the reading above already covers ("split it equally amongst the
+  // rest", "split it accordingly", "where they had more shares"): read, so not left over.
+  text = text.replace(SPLIT_SAID, ' ')
+
   // What's left is the description, without the filler around a spoken amount ("the bill was", "it came to").
   text = text.replace(
     /\b(?:(?:the|our)\s+)?(?:bill|total|cost|amount|price)\s+(?:was|is|came\s+to|of|=)\b|\b(?:it|that)\s+(?:was|cost|came\s+to)\b|\bcame\s+to\b/gi,
@@ -412,7 +535,10 @@ export function parseNlExpense(input: string, ctx: NlContext): NlParse {
     .replace(/^(?:(?:for|on|at|to|the|a|an|of|dated|-|–|—)\s+)+/i, '')
     .replace(/(?:\s+(?:for|on|at|to|with|the|a|an|and|of|dated|split|paid|-|–|—))+$/i, '')
     .trim()
-  out.description = rest ? titleCase(unjoin(rest)) : ''
+  // What it was for; the words the reading didn't use are kept for Quick add to judge whether AI should read it.
+  const told = rest ? storyDescription(rest, input, ctx.members) : { description: '' }
+  out.description = told.description ? titleCase(unjoin(told.description)) : ''
+  if (told.leftover) out.leftover = told.leftover
   for (let i = 0; i < unmatched.length; i++) unmatched[i] = unjoin(unmatched[i])
   for (const a of out.ambiguous ?? []) a.token = unjoin(a.token)
 
@@ -442,7 +568,7 @@ const PAYMENT_PATTERNS: Array<[RegExp, 'to' | 'from']> = [
 /** "they paid", "he got the bill", "she covered it". */
 const PRONOUN_PAID = /\b(?:they|he|she)\s+(?:paid|payed|covered(?:\s+it)?|got\s+(?:it|the\s+(?:bill|tab|check))|picked\s+up\s+the\s+(?:bill|tab))\b/i
 const EXCEPT_RE = new RegExp(
-  String.raw`\b(?:everyone|everybody|all(?:\s+of\s+us)?|the\s+group)?\s*(?:except|but\s+not|minus|other\s+than|excluding)\s+(${NAME}(?:${SEP}${NAME})*)`,
+  String.raw`\b(?:everyone|everybody|all(?:\s+of\s+us)?|the\s+group)?\s*(?:except(?:\s+for)?|but\s+not|minus|other\s+than|excluding|(?<=(?:everyone|everybody|all)\s*)but(?!\s+(?:i|we)\b))\s+(${NAME}(?:${SEP}${NAME})*)`,
   'iu',
 )
 
@@ -505,6 +631,39 @@ function readParts(input: string, ctx: NlContext): { text: string; items: Part[]
       text = cut(text, ratio.index!, ratio[0].length)
     }
   }
+  // "Rahul had 3 and I had 1": what each had, as shares (two or more people).
+  {
+    const had = [
+      ...text.matchAll(new RegExp(String.raw`\b(${NAME})\s+(?:had|has|ate|drank|took|got)\s+(\d{1,2})\b(?!\s*(?:%|percent|rs|rupees|₹|\.\d|,\d|\d))`, 'giu')),
+    ].filter((m) => resolveName(m[1], ctx))
+    if (had.length >= 2 && !items.length) {
+      for (const m of had.reverse()) if (add(m[1], 'shares', num(m[2]))) text = cut(text, m.index!, m[0].length)
+    }
+  }
+  // Shares as a ratio with one other person: "the share was 2x3", "shares 2:3", "ratio 1 to 2".
+  // Yours first, then theirs, unless the line says who had more ("they had more shares").
+  const shareRatio = /\b(?:shares?|ratio|split(?:\s+it)?\s+\d{1,2}\s*(?:to|x|:|by)\s*\d{1,2})\b/i.test(text)
+    ? text.match(/\b(?:(?:shares?|ratio)\s+(?:was|is|of|were|in\s+the\s+ratio)?\s*)?(\d{1,2})\s*(?:x|:|by|to|is\s+to|\/)\s*(\d{1,2})\b(?!\s*(?:%|percent|\d))/i)
+    : null
+  if (shareRatio && !items.length) {
+    const a = num(shareRatio[1])
+    const b = num(shareRatio[2])
+    const others = namedPeople(cut(text, shareRatio.index!, shareRatio[0].length), ctx).filter((id) => id !== ctx.me)
+    if (others.length === 1 && a > 0 && b > 0 && a + b !== 100) {
+      const more = text.match(
+        /\b(i|me|we|they|he|she|[\p{L}]+)\s+(?:had|has|have|get|gets|got|took|takes|ate|owe|owes)\s+(?:a\s+)?(more|bigger|larger|less|fewer|smaller)\b/iu,
+      )
+      let mine = a
+      let theirs = b
+      if (more) {
+        const meMore = /^(?:i|me)$/i.test(more[1]) === /^(?:more|bigger|larger)$/i.test(more[2])
+        mine = meMore ? Math.max(a, b) : Math.min(a, b)
+        theirs = meMore ? Math.min(a, b) : Math.max(a, b)
+      }
+      items.push({ id: ctx.me, kind: 'shares', value: mine }, { id: others[0], kind: 'shares', value: theirs })
+      text = cut(text, shareRatio.index!, shareRatio[0].length)
+    }
+  }
   // two or more bare pairs ("Rahul 700, Priya 300"), or one with a rest ("Rahul 700, rest me")
   const PAIR = new RegExp(String.raw`\b(${NAME})\s+(?:₹|rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)\b(?!\s*(?:%|percent|shares?|ways?|people))`, 'giu')
   const pairs = [...text.matchAll(PAIR)].filter((m) => resolveName(m[1], ctx))
@@ -535,6 +694,43 @@ function namedPeople(text: string, ctx: NlContext): MemberId[] {
   }
   return [...new Set(out)]
 }
+/** What a spoken story was for, when the words left over are a sentence rather than a name for it. */
+const THINGS =
+  /\b(breakfast|brunch|lunch|dinner|supper|coffee|tea|drinks|beers?|snacks|dessert|pizza|biryani|groceries|grocery|rent|electricity|wifi|internet|cab|taxi|uber|ola|auto|rickshaw|fuel|petrol|diesel|parking|tolls?|flights?|train|bus|tickets?|movie|hotel|stay|airbnb|room|villa|resort|homestay|hostel|cottage|camp|shopping|gift|party|cake|trek|boat|ferry|entry|museum|massage|laundry|medicine)\b/i
+/** Words that are the telling, not the thing: people, pronouns, filler verbs. */
+const TELLING = new Set(
+  'i me my we us our you he she they them his her their it its this that there then so and but also just only really actually remember remembered forgot was were is are be been had has have went go going ate eat drank ordered order got get came come took take did do done which who where when what'.split(
+    ' ',
+  ),
+)
+
+/**
+ * What it was for, from the words the reading left: a story's people, pronouns and filler verbs
+ * dropped ("Neha and I had pizza" → Pizza, "lunch ate" → Lunch), else the thing it names (lunch,
+ * cab, hotel …). `leftover` is what was left when any of it was dropped, for Quick add's routing.
+ */
+function storyDescription(rest: string, line: string, members: ReadonlyArray<{ name: string }>): { description: string; leftover?: string } {
+  const words = rest.split(/\s+/).filter(Boolean)
+  const names = new Set(members.flatMap((m) => fold(m.name).split(' ')))
+  const keep = words.filter((w) => {
+    const f = fold(w).replace(/[^\p{L}\p{N}']/gu, '')
+    return f && !TELLING.has(f) && !names.has(f) && !/^(?:for|on|at|to|of|with|a|an|the|split|paid|pay)$/.test(f)
+  })
+  if (keep.length === words.length && words.length <= 5) return { description: rest }
+  const thing = rest.match(THINGS) ?? line.match(THINGS)
+  // A short one with no thing named ("Nobody paid for chai"): as it was, rather than a stub.
+  if (!thing && words.length <= 5) return { description: rest, leftover: rest }
+  const description = thing ? thing[1] : keep.slice(0, 4).join(' ')
+  return { description, leftover: rest }
+}
+
+/** How it was split, in words: equally among the rest / everyone, accordingly, by all, who had more shares. */
+const SPLIT_SAID =
+  /\b(?:so\s+)?split\s+(?:it\s+)?\d{1,2}\s*(?:to|x|:|by)\s*\d{1,2}\b|\b(?:it\s+was\s+)?split\s+(?:it\s+)?(?:(?:equally|evenly)\s+)?(?:(?:among(?:st)?|between|by)\s+(?:the\s+rest(?:\s+of\s+us)?|the\s+others|everyone(?:\s+else)?|all(?:\s+of\s+us)?|us(?:\s+all)?))?(?:\s+accordingly)?\b|\b(?:where|and)?\s*(?:they|he|she|i|we|[\p{L}]+)\s+(?:had|has|have|got|get|took)\s+(?:a\s+)?(?:more|bigger|larger|less|fewer|smaller)(?:\s+shares?)?\b/giu
+
+/** Words after "among" / "between" that mean the group, never a person. */
+const NOT_A_NAME =
+  /^(?:the\s+)?(?:rest|others?|lot|group|gang|team)(?:\s+of\s+(?:us|them))?$|^(?:the|us|them|all|all\s+of\s+us|everyone(?:\s+else)?|everybody(?:\s+else)?)$/i
 const STOP_WORDS = new Set(['with', 'and', 'split', 'for', 'the', 'paid', 'rest', 'me', 'i', 'my', 'dinner', 'lunch'])
 
 /**

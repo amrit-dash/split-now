@@ -1058,11 +1058,20 @@ export function createFirebaseRepo(config: FirebaseOptions, useEmulators: boolea
       batch.update(groupRef(group.id), { deletedAt: deleteField(), deletedBy: deleteField() })
       fire(batch, 'Restoring group')
     },
-    async purgeGroup(id) {
+    async purgeGroup(id, opts) {
       // Needs the server: it lists every sub-collection first, and a half-applied offline delete
       // would come back (rolled back) later with no explanation. onGroupDeleted (Cloud Functions)
       // sweeps up anything left behind (activity beyond one batch, a receipt that timed out).
       if (!online()) throw new Error('You’re offline. Connect to the internet to delete a group.')
+      // An app admin: the server deletes it (the rules give admins nothing in others' groups).
+      if (opts?.asAdmin) {
+        try {
+          await (await callable<{ groupId: string }, { ok: true }>('adminPurgeGroup', 30_000))({ groupId: id })
+          return
+        } catch (e) {
+          throw new Error(`Couldn’t delete it: ${errText(e)}`)
+        }
+      }
       const s = await getDoc(groupRef(id))
       if (!s.exists()) return // already gone
       const g = { ...(s.data() as Group), id }

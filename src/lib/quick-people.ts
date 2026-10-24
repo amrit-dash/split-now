@@ -7,6 +7,7 @@
 import type { Group, MemberId } from '@/types'
 import { activeMembers } from './members'
 import { type NlParse, parseNlExpense } from './nl-expense'
+import { oneOff } from './quick-group'
 
 export type PeopleGroup =
   /** the line names nobody: the default group stands */
@@ -56,4 +57,19 @@ export function peopleGroup(line: string, groups: Group[], uid: string, today?: 
 /** Every member name across the person's groups, so a full name from one group never reads as a namesake in another. */
 export function allNames(groups: Group[]): string[] {
   return [...new Set(groups.flatMap((g) => Object.values(activeMembers(g.members)).map((m) => m.name)))]
+}
+
+/**
+ * The groups to offer when the phone can't tell where a line goes ("Which group?"): any whose name
+ * the line seems to say first (a word of it, cut short or one letter off, as speech mishears it),
+ * then the most recently active. At most `n`.
+ */
+export function quickGroupChoices<G extends Pick<Group, 'id' | 'name' | 'updatedAt'>>(groups: G[], line: string, n: number): G[] {
+  const fold = (x: string) => x.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+  const said = fold(line).match(/\p{L}{3,}/gu) ?? []
+  const hits = (g: G) =>
+    fold(g.name)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length >= 3 && said.some((t) => t === w || (t.length >= 4 && w.startsWith(t)) || oneOff(t, w))).length
+  return [...groups].sort((a, b) => hits(b) - hits(a) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, n)
 }

@@ -21,6 +21,7 @@ import { knownPeople } from '@/lib/people'
 import { quickAnswerFor } from '@/lib/quick-answer'
 import { buildQuickRequest, listNames, newGroupPrefill, noGroupsPrefill, planQuickAi, replanFor, settleUrl } from '@/lib/quick-ai'
 import type { GroupInText } from '@/lib/quick-group'
+import { quickGroupChoices } from '@/lib/quick-people'
 import { quickAiAllowed, quickRoute, quickRouteNoGroups } from '@/lib/quick-route'
 import { useChoose, useConfirm } from '@/components/ConfirmSheet'
 import { Avatar } from '@/components/Avatar'
@@ -369,8 +370,30 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
             if (q.stopped?.()) return stayed
             if (r && r !== 'unknown') return r
           }
-          // Named after the people, not the group it was typed in: a 1:1 for one person (noGroupsPrefill).
-          return createGroup('', { ...q, picked: undefined })
+          // The phone can't tell where it goes: ask, with a new group for them as one of the answers
+          // (owner, 24 Oct 2026: it used to start a new group without asking, from a misheard word).
+          {
+            const NEW = '__new__'
+            const names = step.names
+            const picked = await choose({
+              title: 'Which group?',
+              message: names.length ? `None of your groups has ${listNames(names)}.` : 'Pick where this goes.',
+              options: [
+                ...(names.length ? [{ value: NEW, label: `New group with ${listNames(names)}`, sub: 'Start one for them' }] : []),
+                ...quickGroupChoices(all, q.line, 6).map((g) => ({
+                  value: g.id,
+                  label: g.name,
+                  sub: groupPeopleLine(g, user.uid),
+                  icon: <GroupIcon emoji={g.emoji} group={g} size={28} />,
+                })),
+              ],
+            })
+            if (!picked) return stayed
+            // Named after the people, not the group it was typed in: a 1:1 for one person (noGroupsPrefill).
+            if (picked === NEW) return createGroup('', { ...q, picked: undefined })
+            step = local(picked, true)
+            continue
+          }
         case 'askWho': {
           const g = groupOf(step.groupId)
           if (!g) return stayed

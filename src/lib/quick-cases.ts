@@ -178,5 +178,70 @@ export const QUICK_CASES: QuickCase[] = [
   { line: 'dinner with Priya', from: 'g_goa', expect: { kind: 'ai' } },
   { line: 'create a group Bali with Rohan and add dinner 2000', from: 'g_goa', expect: { kind: 'ai' } },
   // ---- not sure who paid ----
-  { line: 'lunch at Cafe Blue 800, not sure who paid', from: 'g_goa', expect: { kind: 'openItem', group: 'g_goa' } },
+  { line: 'lunch at Cafe Blue 800, not sure who paid', from: 'g_goa', expect: { kind: 'openItem', group: 'g_goa' } }, // ---- spoken lines (owner, 24 Oct 2026): the phone reads all of these itself ----
+  {
+    line: 'I just remembered I paid for lunch on 3rd October for 1262 rupees. It was split by all but I remember Priya was not a part of that lunch. Split it equally amongst the rest.',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', amount: 126200, description: 'Lunch', payer: 'me', date: '2026-10-03', sharers: ['me', 'p_rahul', 'p_rohan'] },
+  },
+  {
+    line: 'Me and Rahul went for lunch where I paid 2300 rupees but the share was 2x3, where they had more shares. Split it accordingly.',
+    from: 'g_rahul',
+    expect: { kind: 'expense', group: 'g_rahul', amount: 230000, payer: 'me', exact: { me: 92000, p_r: 138000 } },
+  },
+  {
+    line: 'Priya paid 1500 for the cab, I wasn’t there',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', description: 'Cab', payer: 'p_priya', sharers: ['p_rahul', 'p_priya', 'p_rohan'] },
+  },
+  { line: 'dinner 2400 split between me Rahul and Priya', from: 'g_goa', expect: { kind: 'expense', group: 'g_goa', sharers: ['me', 'p_rahul', 'p_priya'] } },
+  {
+    line: 'lunch 900, Rohan paid, only Rohan and Priya ate',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', description: 'Lunch', payer: 'p_rohan', sharers: ['p_rohan', 'p_priya'] },
+  },
+  {
+    line: 'twelve hundred for dinner with Rahul, I paid',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', amount: 120000, description: 'Dinner', sharers: ['me', 'p_rahul'] },
+  },
+  {
+    line: '500 each for the concert tickets for me Rahul and Priya, I paid',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', amount: 150000, sharers: ['me', 'p_rahul', 'p_priya'] },
+  },
+  {
+    line: 'beer 900 everyone but Priya',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', description: 'Beer', sharers: ['me', 'p_rahul', 'p_rohan'] },
+  },
+  { line: '1200 dinner, Priya and Rohan didn’t come', from: 'g_goa', expect: { kind: 'expense', group: 'g_goa', sharers: ['me', 'p_rahul'] } },
+  { line: 'taxi 700 Rohan paid, me and Rohan only', from: 'g_goa', expect: { kind: 'expense', group: 'g_goa', payer: 'p_rohan', sharers: ['me', 'p_rohan'] } },
+  {
+    line: 'Neha and I had pizza for 800, she paid',
+    from: 'home',
+    expect: { kind: 'expense', group: 'g_col', description: 'Pizza', payer: 'p_neha', sharers: ['me', 'p_neha'] },
+  },
+  {
+    line: 'So yesterday me Meera and Arjun ordered biryani for 1500 rupees and I paid for it, but Arjun didn’t eat so split it between me and Meera',
+    from: 'home',
+    expect: { kind: 'expense', group: 'g_flat', amount: 150000, description: 'Biryani', payer: 'me', sharers: ['me', 'p_meera'] },
+  },
+  {
+    line: 'I paid 2000 for drinks, Rahul had 3 and I had 1 so split it 3 to 1',
+    from: 'g_rahul',
+    expect: { kind: 'expense', group: 'g_rahul', exact: { me: 50000, p_r: 150000 } },
+  },
+  {
+    line: 'the cab was 450 and Priya paid it, she was with me',
+    from: 'g_goa',
+    expect: { kind: 'expense', group: 'g_goa', description: 'Cab', payer: 'p_priya', sharers: 'all' },
+  },
+  // ---- words left over that change the cost: AI ----
+  { line: 'I paid 3000 for the villa, Rahul pays double', from: 'g_goa', expect: { kind: 'ai' } },
+  {
+    line: 'We went for dinner at the beach shack and I paid 3000, and then Rohan added a 300 tip on top which he paid himself',
+    from: 'g_goa',
+    expect: { kind: 'ai' },
+  },
 ]

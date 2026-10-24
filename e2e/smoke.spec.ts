@@ -63,6 +63,8 @@ async function fakeSpeech(page: Page, said = 'Dinner 1200 with Rahul, I paid') {
   await page.addInitScript((line) => {
     const w = window as unknown as Record<string, unknown>
     w.__said = line
+    // Google's Chrome (its speech service is there); Playwright's Chromium brands itself Chromium.
+    Object.defineProperty(navigator, 'userAgentData', { value: { brands: [{ brand: 'Google Chrome', version: '150' }], mobile: true }, configurable: true })
     class FakeRecognition {
       lang = ''
       continuous = false
@@ -550,7 +552,11 @@ test('Voice: Quick add’s mic is a toggle; the words land in the box and wait f
   await expect(field).toHaveValue('Dinner 1200 with Rahul, I paid')
   await expect(page).toHaveURL(/\/$/)
   await quick.getByTestId('create-quick-add-go').click()
-  // From Home, and none of the demo's groups has a Rahul: a 1:1 with him to check first, the line waiting for the form.
+  // From Home, and none of the demo's groups has a Rahul: it asks where it goes, a new group with him first.
+  await page
+    .getByRole('dialog')
+    .getByRole('radio', { name: /New group with Rahul/ })
+    .click()
   await expect(page).toHaveURL(/\/groups\/new\?.*type=direct/)
   await expect(page).toHaveURL(/people=Rahul/)
   await expect(page).toHaveURL(/quick=1/)
@@ -577,6 +583,8 @@ test('Voice: hold + inside a group to talk; letting go runs Quick add and opens 
 })
 
 test('Voice: a browser without a speech service (Opera) moves to its on-device recogniser and the words still come', async ({ page }) => {
+  // Opera's recogniser may never ask for the microphone: the app opens it first (allowed here).
+  await fakeMicPermission(page, 'prompt')
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>
     w.__installed = false
@@ -622,7 +630,6 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
     }
     w.SpeechRecognition = NoService
     w.webkitSpeechRecognition = NoService
-    if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('no microphone here', 'NotFoundError'))
   })
   await page.goto('/groups/g_goa')
   const plus = page.getByTestId('nav-create')
@@ -1544,6 +1551,66 @@ test('deleting a group moves it to Recently deleted, where anyone in it can rest
   await expect(page.getByTestId('group-menu')).toBeVisible()
   await page.goto('/groups')
   await expect(page.getByTestId('deleted-groups')).toHaveCount(0)
+})
+
+test('Recently deleted: a row’s actions restore it or delete it for good (no wait where nobody else has an account)', async ({ page }) => {
+  await page.goto('/groups/new')
+  await page
+    .getByRole('radiogroup', { name: 'What are you creating?' })
+    .getByRole('radio', { name: /^Group/ })
+    .click()
+  await page.getByLabel('Name', { exact: true }).fill('Gone Trip')
+  const member = page.getByPlaceholder('Name', { exact: true })
+  await member.fill('Dev')
+  await member.press('Enter')
+  await page.getByRole('button', { name: 'Create group' }).click()
+  await expect(page).toHaveURL(/\/groups\/[^/?]+$/)
+  await page.getByTestId('group-menu').click()
+  await page.getByTestId('group-delete').click()
+  await page.getByRole('button', { name: 'Delete group' }).click()
+  await expect(page).toHaveURL(/\/groups$/)
+
+  const deleted = page.getByTestId('deleted-groups')
+  await deleted.getByRole('button').first().click()
+  const row = deleted.getByTestId('deleted-group-row').filter({ hasText: 'Gone Trip' })
+  // Right-click (as a long press) lists the row's actions with their full names.
+  await row.getByTestId('deleted-group-open').click({ button: 'right' })
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete “Gone Trip” forever' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete forever' }).click()
+  await expect(page.getByTestId('toasts')).toContainText('Deleted “Gone Trip” for good')
+  await expect(page.getByTestId('deleted-groups')).toHaveCount(0)
+})
+
+test('swiping a message away over an open sheet leaves the sheet open', async ({ page }) => {
+  // A message (a blocked microphone's, which stays 5 s), then the Create sheet opened under it
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'denied')
+  await page.goto('/')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  const toast = page.getByTestId('toasts').getByText(/microphone is blocked/)
+  await expect(toast).toBeVisible()
+  await page.mouse.up()
+  await plus.click()
+  const sheet = page.getByRole('dialog')
+  await expect(sheet).toBeVisible()
+  await expect(toast).toBeVisible()
+  // The message is what a finger on it touches (inside an inert #root it wasn't: the touch went to the sheet behind it)
+  const box = await toast.boundingBox()
+  if (!box) throw new Error('no toast')
+  const hit = await page.evaluate(
+    ([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-testid="toasts"]'),
+    [box.x + box.width / 2, box.y + box.height / 2],
+  )
+  expect(hit).toBe(true)
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2, { steps: 4 })
+  await page.mouse.move(box.x + box.width / 2 + 220, box.y + box.height / 2, { steps: 4 })
+  await page.mouse.up()
+  await expect(page.getByTestId('toasts').getByText(/microphone is blocked/)).toHaveCount(0)
+  await expect(sheet).toBeVisible()
 })
 
 test('only the creator may delete a group while they are in it', async ({ page }) => {

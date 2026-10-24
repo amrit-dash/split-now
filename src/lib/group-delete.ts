@@ -34,3 +34,13 @@ export function deleteMessage(
   const more = debts.length > 3 ? `, and ${debts.length - 3} more` : ''
   return `${base} Still open: ${shown.join('; ')}${more}.`
 }
+
+/**
+ * Delete forever on a group in Recently deleted, for this person: '' they may now; a reason when
+ * it's theirs but not yet (its creator, in the week the others get to restore it); null when it
+ * isn't theirs at all, so they see Restore only (owner, 24 Oct 2026). An app admin may always.
+ */
+export function purgeChoice(o: { blocker: string | null; admin: boolean; creator: boolean }): string | null {
+  if (!o.blocker || o.admin) return ''
+  return o.creator ? o.blocker : null
+}

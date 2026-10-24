@@ -6,7 +6,7 @@ import { blobToDataUrl } from '@/lib/image'
 import { archiveWrite, balanceEditMembers, expenseMemberIds, uidsOfMembers, unarchiveInvolved } from '../../shared/archive'
 import { personalView } from './personalView'
 import { inviteNameFor } from '../../shared/names'
-import { DELETED_GROUP_WRITE, purgeDue } from '../../shared/group-trash'
+import { DELETED_GROUP_WRITE, isDeletedGroup, purgeDue } from '../../shared/group-trash'
 import { EMPTY_INBOX_STATE, type InboxState } from '@/lib/inbox'
 import { shownCapture } from '@/lib/capture'
 import type { ActivityEntry, Capture, ChatMessage, Expense, ExpenseComment, Group, MergeRequest, OpenItem, Settlement, UserProfile, JoinRequest } from '@/types'
@@ -753,10 +753,11 @@ export function createLocalRepo(): Repo {
       holdLinks(group.id, false)
       commit()
     },
-    async purgeGroup(id) {
+    async purgeGroup(id, opts) {
       const g = state.groups[id]
       if (!g) return
-      const blocker = groupPurgeBlocker(g, me().uid)
+      // An admin may delete any group in Recently deleted at once (as adminPurgeGroup does).
+      const blocker = opts?.asAdmin ? (isDeletedGroup(g) ? null : 'Delete the group first.') : groupPurgeBlocker(g, me().uid)
       if (blocker) throw new Error(blocker)
       removeGroup(id)
       commit()

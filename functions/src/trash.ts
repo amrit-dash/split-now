@@ -13,10 +13,11 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions/logger'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { purgeAt } from '../../shared/group-trash'
 import { getTuning } from './lib/limits'
-import { db } from './admin'
-import { REGION, TIME_ZONE } from './config'
+import { db, requireAdmin } from './admin'
+import { ENFORCE_APP_CHECK, REGION, TIME_ZONE } from './config'
 import { groupDeletedNote } from './lib/notify-text'
 import { memberNameForUid, type MemberLite } from './lib/recipients'
 import { sendToUser } from './push'
@@ -78,6 +79,45 @@ export const onGroupTrashed = onDocumentUpdated({ document: 'groups/{groupId}', 
   logger.info('group deleted push', { groupId, held, sent: sent.reduce((a, b) => a + b, 0) })
 })
 
+/**
+ * One group gone for good: its invite (only if it still points here: a code is never reused, but
+ * be safe), the group, and its Pay me links cancelled. onGroupDeleted sweeps up what was inside.
+ */
+async function removeGroupForGood(d: FirebaseFirestore.DocumentSnapshot): Promise<void> {
+  const g = d.data() as GroupLite
+  const batch = db().batch()
+  if (g.inviteCode) {
+    const inv = await db().doc(`invites/${g.inviteCode}`).get()
+    if (inv.exists && inv.get('groupId') === d.id) batch.delete(inv.ref)
+  }
+  batch.delete(d.ref)
+  await batch.commit()
+  await setLinksFor(d.id, 'cancelled')
+}
+
+/**
+ * Callable, admins only: delete a group in Recently deleted for good now, whoever created it and
+ * however recently it was deleted (owner, 24 Oct 2026: "admin gets everything"). Only a group that
+ * is in Recently deleted: a live group is never removed this way. Logged in adminLog.
+ *  { groupId } → { ok: true }
+ */
+export const adminPurgeGroup = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 60, memory: '256MiB', maxInstances: 2 },
+  async (req) => {
+    const me = await requireAdmin(req)
+    const groupId = (req.data as { groupId?: unknown } | undefined)?.groupId
+    if (typeof groupId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(groupId)) throw new HttpsError('invalid-argument', 'Which group?')
+    const d = await db().doc(`groups/${groupId}`).get()
+    if (!d.exists) return { ok: true }
+    if (typeof d.get('deletedAt') !== 'number')
+      throw new HttpsError('failed-precondition', 'Delete the group first; it can be deleted for good from Recently deleted.')
+    await removeGroupForGood(d)
+    await db().collection('adminLog').add({ purgedGroup: groupId, by: me, at: Date.now() })
+    logger.info('admin purged group', { groupId, by: me })
+    return { ok: true }
+  },
+)
+
 /** Groups due for the purge at `now`, a page at a time (single-field index on deletedAt). */
 export async function purgeExpiredGroups(now: number, days: number, pageSize = 50): Promise<number> {
   // Deleted at or before this moment means its days are up (purgeAt(0, days) is the whole span).
@@ -87,16 +127,7 @@ export async function purgeExpiredGroups(now: number, days: number, pageSize = 5
     const page = await db().collection('groups').where('deletedAt', '<=', cutoff).limit(pageSize).get()
     if (page.empty) break
     for (const d of page.docs) {
-      const g = d.data() as GroupLite
-      const batch = db().batch()
-      // The invite only if it still points here (a code is never reused, but be safe).
-      if (g.inviteCode) {
-        const inv = await db().doc(`invites/${g.inviteCode}`).get()
-        if (inv.exists && inv.get('groupId') === d.id) batch.delete(inv.ref)
-      }
-      batch.delete(d.ref)
-      await batch.commit()
-      await setLinksFor(d.id, 'cancelled')
+      await removeGroupForGood(d)
       removed++
     }
     if (page.size < pageSize) break
