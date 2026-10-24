@@ -179,6 +179,11 @@ describe('liveWordsBesideRecording', () => {
     expect(liveWordsBesideRecording('Mozilla/5.0 (Linux; Android 15; Pixel 8) Chrome/141.0 Mobile')).toBe(false)
     expect(liveWordsBesideRecording('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/141.0')).toBe(true)
   })
+  it('not on iPhone or iPad (an iPad says Macintosh, with touch points)', () => {
+    expect(liveWordsBesideRecording('Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) Version/27.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/27.0 Safari/605.1.15', 5)).toBe(false)
+    expect(liveWordsBesideRecording('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/27.0 Safari/605.1.15', 0)).toBe(true)
+  })
 })
 
 describe('mic presses', () => {

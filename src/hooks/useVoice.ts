@@ -409,8 +409,8 @@ export function useVoice(opts: {
     l.rec = record(l.stream, TRANSCRIBE_MAX_SECONDS * 1000, () => l.autoStop?.())
     // The words live while AI records (owner, 23 Oct 2026): the phone's own recognition, where it can
     // share the microphone, only shows them; AI's text replaces them on letting go (finalVoiceText).
-    // Not on Android, where it is a second app on the microphone (liveWordsBesideRecording).
-    if (speechSupported() && liveWordsBesideRecording(navigator.userAgent))
+    // Not on Android or iOS, where it is a second listener on the microphone (liveWordsBesideRecording).
+    if (speechSupported() && liveWordsBesideRecording(navigator.userAgent, navigator.maxTouchPoints))
       l.live = listen({
         lang: LANG,
         side: true,
