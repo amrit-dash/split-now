@@ -115,14 +115,15 @@ export function micFailure(name: string | undefined): MicFailure {
  * remembers ('denied': only the site settings can undo it) from one it will ask about again.
  * `android` / `ios` name where the switch is; `host` is the site's address, as Chrome lists it.
  * An app added to an Android home screen has no Microphone of its own in App info: Chrome holds the
- * permission for the site (and keeps it when the app is removed), so the steps go through Chrome.
+ * permission for the site (and keeps it when the app is removed), and Android holds Chrome's own;
+ * the browser reports either as blocked, so the steps name both (owner's phone, 24 Oct 2026: Chrome's).
  */
 export function micProblemText(f: MicFailure, perm: MicPermission, where: { android: boolean; ios: boolean; standalone: boolean; host?: string }): string {
   if (f === 'refused' || perm === 'denied') {
     if (perm !== 'denied') return 'Allow the microphone when your phone asks, then try again.'
     if (where.ios) return 'The microphone is off for Split Now. Turn it on in Settings → Apps → Safari → Microphone (or the site’s aA menu), then try again.'
     if (where.android && where.standalone)
-      return `Chrome has the microphone blocked for ${where.host || 'Split Now'}. Open Chrome → ⋮ → Settings → Site settings → Microphone → ${where.host || 'this site'} → Allow, then try again.`
+      return `The microphone is blocked. Allow it in Android Settings → Apps → Chrome → Permissions → Microphone, and in Chrome → ⋮ → Settings → Site settings → Microphone → ${where.host || 'this site'}. Then try again.`
     return 'The microphone is blocked for this site. Tap the icon left of the address (or ⋮ → Site settings) → Microphone → Allow, then try again.'
   }
   if (f === 'busy') return 'Another app is using the microphone. Close it (a call, a recorder, an assistant) and try again.'

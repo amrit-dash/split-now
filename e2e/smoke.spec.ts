@@ -630,10 +630,7 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
-  await page
-    .getByTestId('choose-sheet')
-    .getByRole('radio', { name: /Leave Rahul out/ })
-    .click()
+  await leaveRahulOutIfAsked(page)
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
   // Remembered: the next time goes straight to the device's recogniser.
   expect(await page.evaluate(() => localStorage.getItem('splitnow-speech-local'))).toBe('en-IN')
@@ -643,10 +640,18 @@ test('Voice: a browser without a speech service (Opera) moves to its on-device r
  * The browser's microphone permission, faked: the Permissions API answers `state`, and getUserMedia
  * waits `delay` ms (a prompt being answered) before giving a silent stream, or refuses when blocked.
  */
-async function fakeMicPermission(page: Page, state: 'prompt' | 'denied', delay = 0) {
+/** Quick add asks about Rahul (no Rahul in the demo's Goa Trip) only when the words reached "with Rahul" before letting go. */
+async function leaveRahulOutIfAsked(page: Page) {
+  const ask = page.getByTestId('choose-sheet').getByRole('radio', { name: /Leave Rahul out/ })
+  await expect(ask.or(page.getByRole('textbox', { name: 'Description', exact: true }))).toBeVisible()
+  if (await ask.isVisible()) await ask.click()
+}
+
+async function fakeMicPermission(page: Page, state: 'prompt' | 'denied' | 'deniedThenAllowed', delay = 0) {
   await page.addInitScript(
     ([st, ms]) => {
-      const perm = { state: st as string, onchange: null }
+      // 'deniedThenAllowed': reported blocked, but asking again works (Chrome's own prompt for Android's switch, allowed)
+      const perm = { state: st === 'deniedThenAllowed' ? 'denied' : (st as string), onchange: null }
       const w = window as unknown as Record<string, unknown>
       w.__perm = perm
       if (st === 'prompt') w.__promptMs = ms
@@ -684,10 +689,7 @@ test('Voice: the first hold asks for the microphone; letting go to answer it is 
   await page.mouse.down()
   await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
   await page.mouse.up()
-  await page
-    .getByTestId('choose-sheet')
-    .getByRole('radio', { name: /Leave Rahul out/ })
-    .click()
+  await leaveRahulOutIfAsked(page)
   await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
 })
 
@@ -704,6 +706,21 @@ test('Voice: a blocked microphone keeps the mic and says where to allow it; an o
   await expect(page.getByTestId('toasts')).toContainText(/blocked for this site|microphone is off/)
   await page.mouse.up()
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
+})
+
+test('Voice: reported blocked, it still asks once, so Chrome can offer Android’s switch; allowed, it listens', async ({ page }) => {
+  await fakeSpeech(page)
+  await fakeMicPermission(page, 'deniedThenAllowed')
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(plus).toHaveAttribute('data-voice', 'listening')
+  await expect(page.getByTestId('voice-bars')).toContainText('Dinner 1200')
+  await expect(page.getByTestId('toasts')).not.toContainText(/blocked/)
+  await page.mouse.up()
+  await leaveRahulOutIfAsked(page)
+  await expect(page).toHaveURL(/\/add\?group=g_goa&quick=1/)
 })
 
 test('Voice: the pill shows the words as they come, and sliding away before letting go cancels', async ({ page }) => {

@@ -229,11 +229,14 @@ function ByGroup({ rows, chase }: { rows: SettleRow[]; chase: Chase }) {
   )
 }
 
+/** One size for people's pictures in both views (By person and By group showed 44px and 40px). */
+const ROW_AVATAR = 44
+
 function GroupItem({ r, chase }: { r: SettleRow; chase: Chase }) {
   return (
     <ItemRow
       testId="settle-row"
-      avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={40} />}
+      avatar={<Avatar name={r.name} photoURL={r.photoURL} color={r.color} size={ROW_AVATAR} />}
       name={r.label}
       sub={
         <span className="mt-1.5 flex min-w-0">
@@ -429,7 +432,7 @@ function PersonCard({ p, chase }: { p: PersonBalance | HomeBalance; chase: Chase
   const multi = n > 1
   const mixed = multi && p.parts.some((r) => r.dir === 'owe') && p.parts.some((r) => r.dir === 'owed')
   const dir = p.net < 0 ? 'owe' : p.net > 0 ? 'owed' : 'even'
-  const avatar = <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={44} />
+  const avatar = <Avatar name={p.name} photoURL={p.photoURL} color={p.color} size={ROW_AVATAR} />
   // Folded into your currency (Collect in my currency): approximate, at today's rate.
   const approx = 'approx' in p && p.approx
   const amount = `${approx ? '≈ ' : ''}${formatMoney(Math.abs(p.net), p.currency)}`

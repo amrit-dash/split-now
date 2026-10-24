@@ -287,11 +287,25 @@ export function useVoice(opts: {
     buzz(12)
 
     // A blocked microphone says where to allow it, before anything else.
-    const pre = micPreflight({ perm: micPermission(), okBefore: micAllowedBefore() })
+    let pre = micPreflight({ perm: micPermission(), okBefore: micAllowedBefore() })
     if (pre === 'blocked') {
-      log('mic', 'blocked')
-      fail(l, micProblemText('refused', 'denied', where()))
-      return false
+      // Ask anyway, once per press: when it's Android that keeps the microphone from Chrome, Chrome
+      // shows its own prompt that leads to the switch; a site the person blocked just refuses again.
+      // The stream closes at once, so the browser's recognition still has the microphone to itself.
+      const back = await openMic().then(
+        (s) => {
+          for (const t of s.getTracks()) t.stop()
+          return true
+        },
+        () => false,
+      )
+      if (live.current !== l) return false
+      if (!back) {
+        log('mic', 'blocked')
+        fail(l, micProblemText('refused', 'denied', where()))
+        return false
+      }
+      pre = 'go'
     }
     // The browser's own recognition asks for the microphone itself and must have it to itself: no
     // stream is opened here (on Android a second one took it from Google's recogniser).

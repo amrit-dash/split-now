@@ -107,7 +107,7 @@ describe('micFailure and micProblemText', () => {
     expect(micProblemText('refused', 'prompt', phone)).toMatch(/when your phone asks/)
     // An installed app on Android: Chrome holds the permission for the site, App info has none.
     expect(micProblemText('refused', 'denied', { ...phone, host: 'split-now.web.app' })).toBe(
-      'Chrome has the microphone blocked for split-now.web.app. Open Chrome → ⋮ → Settings → Site settings → Microphone → split-now.web.app → Allow, then try again.',
+      'The microphone is blocked. Allow it in Android Settings → Apps → Chrome → Permissions → Microphone, and in Chrome → ⋮ → Settings → Site settings → Microphone → split-now.web.app. Then try again.',
     )
     expect(micProblemText('refused', 'denied', phone)).not.toMatch(/App info/)
     expect(micProblemText('refused', 'denied', { ...phone, standalone: false })).toMatch(/Site settings/)
