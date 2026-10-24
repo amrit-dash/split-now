@@ -29,4 +29,15 @@ describe('hosting sites', () => {
       ).toBe(true)
     }
   })
+  it('the Permissions-Policy lets the app itself use the camera (Scan) and the microphone (voice)', () => {
+    // 9.0–9.6.0 sent microphone=(): browsers then refused voice at once and said "denied", whatever the person allowed.
+    for (const site of config.hosting) {
+      const pp = site.headers.flatMap((h) => h.headers).filter((x) => x.key === 'Permissions-Policy')
+      expect(pp.length, site.target).toBeGreaterThan(0)
+      for (const h of pp) {
+        expect(h.value, site.target).toMatch(/(^|, )microphone=\(self\)/)
+        expect(h.value, site.target).toMatch(/(^|, )camera=\(self\)/)
+      }
+    }
+  })
 })

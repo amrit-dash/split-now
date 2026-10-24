@@ -6,6 +6,11 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.6.1 — October 2026
+
+- Voice: the microphone works again on every browser and device. The site itself told browsers not to allow the microphone (a security setting that predates voice), so they refused at once and called it blocked, without ever asking, whatever you set in the browser. Your browser now asks the first time; if voice is ever switched off on the site again, the message says so instead of sending you to your settings.
+- The app no longer zooms out a little or scrolls sideways on Android after some screens (the tab bar sat higher, slid down and back, and Home moved left and right): nothing on a page can make it wider than the screen any more.
+
 ## 9.6.0 — October 2026
 
 - Voice on any computer or phone: when the microphone can't be used, the message now names the switch that's actually off, for your browser and device. A Mac or Windows that keeps the microphone from the browser (System Settings or Windows Settings → Privacy → Microphone) is told apart from a site block, Safari's separate Speech Recognition switch is named on iPhone and Mac, and Firefox, Safari, Edge, Opera and Samsung Internet get their own steps. Before, every desktop browser was told to allow the site, even when the site wasn't blocked (Opera GX on a Mac).

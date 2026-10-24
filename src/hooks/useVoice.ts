@@ -16,6 +16,7 @@ import {
   micAllowedBefore,
   micPermission,
   micPermissionNow,
+  micPolicyAllows,
   openMic,
   record,
   recorderSupported,
@@ -30,6 +31,7 @@ import {
   micFailure,
   micPreflight,
   browserName,
+  MIC_POLICY_TEXT,
   micProblemText,
   speechRefusedText,
   transcribeFailText,
@@ -173,6 +175,7 @@ export function useVoice(opts: {
         native: speechSupported(),
         recorder: recorderSupported(),
         okBefore: micAllowedBefore(),
+        policy: micPolicyAllows(),
       }),
       'voice',
     )
@@ -312,6 +315,13 @@ export function useVoice(opts: {
     buzz(12)
 
     // A blocked microphone says where to allow it, before anything else.
+    // The site itself doesn't allow the microphone (its Permissions-Policy): no setting of theirs can
+    // fix that, so don't send them looking for one.
+    if (micPolicyAllows() === false) {
+      log('mic', 'policy')
+      fail(l, MIC_POLICY_TEXT)
+      return false
+    }
     let pre = micPreflight({ perm: micPermission(), okBefore: micAllowedBefore() })
     if (pre === 'blocked') {
       // Ask anyway, once per press: when it's Android that keeps the microphone from Chrome, Chrome
