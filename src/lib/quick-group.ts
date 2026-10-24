@@ -52,7 +52,7 @@ const nameWords = (name: string) =>
 const joined = (text: string, a: Token, b: Token) => /^\s+$/.test(text.slice(a.end, b.start))
 
 const STRONG = new Set(['in', 'into'])
-const WEAK = new Set(['for'])
+const WEAK = new Set(['for', 'to'])
 const FILLER = new Set(['the', 'our', 'my', 'group', 'grp'])
 const NOT_A_GROUP = new Set(['me', 'myself', 'i', 'us', 'all', 'everyone', 'everybody', 'it', 'this', 'that', 'a', 'an', 'new'])
 /** Words that end a new group's name ("in a new group Bali trip with Rahul, I paid"). */
@@ -92,8 +92,24 @@ const tidy = (s: string) =>
     .trim()
 const without = (text: string, start: number, end: number) => tidy(`${text.slice(0, start)} ${text.slice(end)}`)
 
-/** A typed word against a word of a group's name: the whole word, or a prefix of 3+ letters. */
-const fits = (typed: string, word: string) => typed === word || (typed.length >= 3 && word.startsWith(typed))
+/**
+ * A typed word against a word of a group's name: the whole word, a prefix of 3+ letters, or (for
+ * words of 4+ letters) one letter off, the way speech-to-text mishears a place ("codai" for Kodai).
+ */
+const fits = (typed: string, word: string) => typed === word || (typed.length >= 3 && word.startsWith(typed)) || oneOff(typed, word)
+
+/** One letter changed, added or dropped, between words of 4+ letters. */
+export function oneOff(a: string, b: string): boolean {
+  if (a.length < 4 || b.length < 4 || Math.abs(a.length - b.length) > 1 || a === b) return false
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
+  const tail = (x: string, y: string) => x === y
+  return a.length === b.length
+    ? tail(a.slice(i + 1), b.slice(i + 1))
+    : a.length > b.length
+      ? tail(a.slice(i + 1), b.slice(i))
+      : tail(a.slice(i), b.slice(i + 1))
+}
 
 /**
  * How well the words from `from` on name `group`: the longest run of them that matches a run of
@@ -175,6 +191,8 @@ export function groupInText(text: string, groups: NamedGroup[], people: string[]
       from = i + 1
       while (from < tokens.length && FILLER.has(tokens[from].word) && joined(text, tokens[from - 1], tokens[from])) from++
       if (from >= tokens.length || !joined(text, tokens[from - 1], tokens[from])) continue
+      // "to" names a group only as "to the / our / my …" ("sent 500 to Rahul" is a person).
+      if (t.word === 'to' && from === i + 1) continue
       if (WEAK.has(t.word) && [...personWords].some((p) => fits(tokens[from].word, p))) continue
     } else continue
     if (NOT_A_GROUP.has(tokens[from].word)) continue

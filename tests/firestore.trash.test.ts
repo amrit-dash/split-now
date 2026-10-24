@@ -184,4 +184,11 @@ describe('a deleted group', () => {
     await assertFails(deleteDoc(g1('bob')))
     await assertSucceeds(deleteDoc(g1('alice')))
   })
+
+  it('a group nobody else has an account in can be removed for good at once: no one to wait for', async () => {
+    await asAdmin({ memberUids: ['alice'] })
+    await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'groups/g1/expenses/e1'), { id: 'e1', groupId: 'g1', createdBy: 'alice', amount: 1 }))
+    await assertSucceeds(deleteDoc(doc(env.authenticatedContext('alice').firestore(), 'groups/g1/expenses/e1')))
+    await assertSucceeds(deleteDoc(g1('alice')))
+  })
 })

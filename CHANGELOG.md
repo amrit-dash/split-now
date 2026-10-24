@@ -6,6 +6,13 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+- Quick add reads a spoken story on your phone, without AI: someone left out in plain words (“Aradhana was not a part of that lunch”, “I wasn’t there”, “Rohan didn’t come”), “only Rohan and Priya ate”, “me and Rohan only”, names without commas (“between me Rahul and Priya”), “Neha and I had pizza”, “500 each”, “the share was 2x3” (and who had more), “Rahul had 3 and I had 1”, and amounts in words (“twelve hundred”). Before, these were split equally among everyone, or the cost came out wrong.
+- Quick add finds a group by its name even when speech mishears it (“to the codai trip” is Kodai Trip), and asks which group when it can’t tell, with a new group for the people you named as one of the answers. Before, it opened a new group straight away, once even for a misheard word (“the”).
+- Quick add with AI: only lines your phone can’t fully read go to AI (words left over that change the cost, like “Rahul pays double” or a tip added on top); the rest stay on your phone. AI’s answer keeps the people a line leaves out (it was put back to everyone), lines up to 600 characters reach it (300 cut long spoken lines short), and it reads share ratios and misheard group names.
+- Voice in Opera, Brave and Vivaldi: the app asks for the microphone itself before listening, and says so when the browser’s own speech recognition does nothing at all, instead of a hold that silently heard nothing.
+- Recently deleted: swipe a group (or press and hold it) to restore it, or, if you created it, delete it forever. Only its creator sees Delete forever (and app admins, at once). In a group where nobody else has an account, it can be deleted forever straight away instead of after 7 days. The row’s bin icon, which only opened the group, is now an arrow.
+- Swiping a message away while a sheet is open no longer closes the sheet too, and the message’s ✕ works over a sheet.
+
 ## 9.6.1 — October 2026
 
 - Voice: the microphone works again on every browser and device. The site itself told browsers not to allow the microphone (a security setting that predates voice), so they refused at once and called it blocked, without ever asking, whatever you set in the browser. Your browser now asks the first time; if voice is ever switched off on the site again, the message says so instead of sending you to your settings.

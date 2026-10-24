@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupInText, lineFor, type NamedGroup } from './quick-group'
+import { oneOff, groupInText, lineFor, type NamedGroup } from './quick-group'
 
 const groups: NamedGroup[] = [
   { id: 'goa', name: 'Goa trip 🏖️' },
@@ -116,5 +116,26 @@ describe('lineFor: where the line goes', () => {
     expect(lineFor({ text: 'lunch 200 in goa', named, groups: two, picked: two[0] }).which).toBe(true)
     const answered = lineFor({ text: 'lunch 200 in goa', named, groups: two, picked: two[1], answered: (named as { phrase: string }).phrase })
     expect(answered).toMatchObject({ which: false, target: two[1], line: 'lunch 200' })
+  })
+})
+
+describe('a group named the way speech hears it', () => {
+  const groups = [
+    { id: 'k', name: 'Kodai Trip - Gandhi Birthday' },
+    { id: 'a', name: 'Akash Agrawal' },
+  ]
+  it('one letter off, and “to the …”', () => {
+    expect(groupInText('To the codai trip, lunch 600', groups)).toMatchObject({ kind: 'match', id: 'k' })
+    expect(groupInText('lunch 600 in kodai', groups)).toMatchObject({ kind: 'match', id: 'k' })
+  })
+  it('“to” before a person is a person, not a group', () => {
+    expect(groupInText('sent 500 to Akash', groups, ['Akash Agrawal'])).toEqual({ kind: 'none' })
+  })
+  it('oneOff: a letter changed, added or dropped, words of 4+ letters', () => {
+    expect(oneOff('codai', 'kodai')).toBe(true)
+    expect(oneOff('kodi', 'kodai')).toBe(true)
+    expect(oneOff('kodaii', 'kodai')).toBe(true)
+    expect(oneOff('goa', 'goo')).toBe(false)
+    expect(oneOff('kerala', 'kodai')).toBe(false)
   })
 })

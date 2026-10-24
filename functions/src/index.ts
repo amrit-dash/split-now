@@ -46,6 +46,7 @@
  *  deleteAccount       Callable {} → what deleting the account would do and what stops it; { confirm: true } (signed in within 5 min) → does it (delete-account.ts)
  *  adminLogs           Callable (admins only) { level?, fn?, hours?, text?, id?, next? } → the functions' own logs from Cloud Logging, newest first (logs.ts)
  *  adminStats, adminUsers, adminBlockUser, adminSetAdmin  Callables (admins/{uid} only): usage counters + totals, account lookup, block / unblock, make or remove an admin
+ *  adminPurgeGroup     Callable (admins only) { groupId } → a group in Recently deleted gone for good now, whoever created it (trash.ts)
  */
 export { capture } from './capture'
 export { linkPreview } from './preview'
@@ -57,7 +58,7 @@ export { aiKey, aiModels, aiStatus, iconPickAi, iconPictureAi, iconsAi, parseRec
 export { nudge } from './nudge'
 export { onPayLinkPaid } from './paylinks'
 export { adminBlockUser, adminSetAdmin, adminStats, adminUsers } from './admin'
-export { onGroupTrashed, purgeDeletedGroups } from './trash'
+export { adminPurgeGroup, onGroupTrashed, purgeDeletedGroups } from './trash'
 export { linkMyInvites, onGroupMembersLink } from './link-members'
 export { onChatMessageCreated, onOpenItemWritten } from './chat'
 export { adoptGuest, claimEmail, claimGuestLinks, mergeAccount, removeEmail } from './accounts'

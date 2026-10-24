@@ -23,7 +23,7 @@ import {
   subscribeMicPermission,
   type Recording,
 } from '@/lib/mic'
-import { listen, speechSupported, subscribeSpeechSupport, type SpeechSession } from '@/lib/speech'
+import { listen, speechNeedsMicFirst, speechSupported, subscribeSpeechSupport, type SpeechSession } from '@/lib/speech'
 import {
   finalVoiceText,
   liveWordsBesideRecording,
@@ -345,7 +345,19 @@ export function useVoice(opts: {
       pre = 'go'
     }
     // The browser's own recognition asks for the microphone itself and must have it to itself: no
-    // stream is opened here (on Android a second one took it from Google's recogniser).
+    // stream is opened here (on Android a second one took it from Google's recogniser). Opera, Brave
+    // and Vivaldi's may never ask, so the microphone is opened (and closed) first: the prompt shows.
+    if (engine === 'native' && speechNeedsMicFirst() && pre !== 'go') {
+      try {
+        closeMic(await openMic())
+      } catch (e) {
+        const { name, message } = (e ?? {}) as { name?: string; message?: string }
+        log('mic', `${name ?? ''} ${message ?? ''}`.trim().slice(0, 80))
+        fail(l, micProblemText(micFailure(name, message), await micPermissionNow(), where()))
+        return false
+      }
+      if (live.current !== l) return false
+    }
     if (engine === 'native') return listenNative(l)
 
     // AI records: the stream first (its prompt shows now, where the browser hasn't been allowed yet).

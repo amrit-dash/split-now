@@ -51,6 +51,16 @@ function ctor(): RecognitionCtor | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 
+/**
+ * Browsers whose recogniser has no Google or Apple service behind it (Opera, Brave, Vivaldi): it
+ * may never ask for the microphone itself, so the app opens it first, which shows the browser's
+ * prompt (owner's Opera GX, 24 Oct 2026: no prompt, no error, nothing heard).
+ */
+export const speechNeedsMicFirst = (): boolean => !googleBuilt()
+
+/** How long such a recogniser may show no sign of life (no audio, words or error) before it counts as missing. */
+export const SPEECH_SILENT_MS = 5000
+
 export const speechSupported = (): boolean => !!ctor() && !speechNoneStill(readNum(NONE_KEY), Date.now())
 /** Told when the browser is found to have no working recogniser, so voice moves to AI (where it can) on the next press. */
 const noneSubs = new Set<() => void>()
@@ -182,6 +192,8 @@ export function listen(opts: {
   let code: string | undefined
   let current: Recognition | null = null
   let restarts = 0
+  /** the recogniser showed a sign of life: audio, words or an error */
+  let alive = false
   /** recognising on the device: set once the cloud service was found missing (or remembered so) */
   let local = readStr(LOCAL_KEY)
   /** the cloud service failed and the on-device one is being tried */
@@ -200,6 +212,7 @@ export function listen(opts: {
     r.maxAlternatives = 1
     r.continuous = true
     r.onresult = (e) => {
+      alive = true
       let done = ''
       let now = ''
       for (let i = 0; i < e.results.length; i++) {
@@ -211,6 +224,7 @@ export function listen(opts: {
       opts.onText(joinHeard(settled, hearing))
     }
     r.onerror = (e) => {
+      alive = true
       // Silence is not an ending: the session restarts below.
       if (e.error === 'no-speech' || e.error === 'aborted') return
       code = e.error
@@ -229,7 +243,10 @@ export function listen(opts: {
       error = speechErrorText(e.error) || undefined
       stopped = true
     }
-    r.onaudiostart = () => opts.onAudio?.()
+    r.onaudiostart = () => {
+      alive = true
+      opts.onAudio?.()
+    }
     r.onend = () => {
       settled = joinHeard(settled, hearing)
       hearing = ''
@@ -273,6 +290,24 @@ export function listen(opts: {
     error = speechErrorText(undefined)
     finish()
     return null
+  }
+  // A recogniser with no service behind it can start and then do nothing at all: no audio, no
+  // words, no error. Then it's missing here, said plainly, instead of a hold that hears nothing.
+  if (!googleBuilt() && !opts.side) {
+    setTimeout(() => {
+      if (alive || ended || stopped || switching) return
+      code = 'no-audio'
+      error = NO_SERVICE_TEXT
+      write(NONE_KEY, String(Date.now()))
+      for (const f of noneSubs) f()
+      stopped = true
+      try {
+        current?.abort()
+      } catch {
+        /* finish below */
+      }
+      finish()
+    }, SPEECH_SILENT_MS)
   }
   return {
     stop() {

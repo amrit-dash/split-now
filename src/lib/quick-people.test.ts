@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseNlExpense } from './nl-expense'
 import { CASE_GROUPS, CASE_UID } from './quick-cases'
-import { allNames, namedIn, peopleGroup } from './quick-people'
+import { allNames, namedIn, peopleGroup, quickGroupChoices } from './quick-people'
 
 const pg = (line: string) => peopleGroup(line, CASE_GROUPS, CASE_UID, '2026-10-23')
 
@@ -50,5 +50,13 @@ describe('allNames', () => {
     const names = allNames(CASE_GROUPS)
     expect(names.filter((n) => n === 'Asha')).toHaveLength(1)
     expect(names).toContain('Rahul Verma')
+  })
+})
+
+describe('quickGroupChoices: Which group? when the phone can’t tell', () => {
+  it('a group the line seems to name first, then the most recently active', () => {
+    const gs = CASE_GROUPS.map((g, i) => ({ ...g, updatedAt: i }))
+    expect(quickGroupChoices(gs, 'lunch 600 at the ofice, I paid', 3).map((g) => g.id)).toEqual(['g_office', 'g_col', 'g_rahul'])
+    expect(quickGroupChoices(gs, 'milk 60', 2).map((g) => g.id)).toEqual(['g_col', 'g_office'])
   })
 })

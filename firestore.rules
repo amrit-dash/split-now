@@ -37,6 +37,11 @@ service cloud.firestore {
       return request.time.toMillis() - deletedAt < 604800000;
     }
 
+    // Nobody but the creator has an account in it: no one to wait for (shared/group-trash.ts groupPurgeHeld).
+    function soloGroup(g) {
+      return g.get('memberUids', []).toSet().difference([g.createdBy].toSet()).size() == 0;
+    }
+
     function groupLive(groupId) {
       return !('deletedAt' in groupDoc(groupId).data) || !('deletedAt' in getAfter(/databases/$(database)/documents/groups/$(groupId)).data);
     }
@@ -723,7 +728,7 @@ service cloud.firestore {
       // For good: only the creator, only from Recently deleted, and not in its first 7 days
       // (shared/group-trash.ts PURGE_HOLD_DAYS), so the others always get a week to restore it.
       allow delete: if isMember() && resource.data.createdBy == uid() && writesOpen()
-        && resource.data.get('deletedAt', null) is int && !purgeHeld(resource.data.deletedAt);
+        && resource.data.get('deletedAt', null) is int && (!purgeHeld(resource.data.deletedAt) || soloGroup(resource.data));
 
       // createdBy is the writer on create and never changes afterwards.
       function validAuthor() {
@@ -753,7 +758,7 @@ service cloud.firestore {
         let g = groupDoc(groupId).data;
         return (resource.data.get('deletedAt', null) is int && !purgeHeld(resource.data.deletedAt)
             && (resource.data.get('deletedBy', '') == uid() || g.createdBy == uid()))
-          || (g.get('deletedAt', null) is int && g.createdBy == uid() && !purgeHeld(g.deletedAt));
+          || (g.get('deletedAt', null) is int && g.createdBy == uid() && (!purgeHeld(g.deletedAt) || soloGroup(g)));
       }
       function noTrustFieldsOnCreate() {
         return !request.resource.data.keys().hasAny(['deletedAt', 'deletedBy', 'dispute', 'approvals']);

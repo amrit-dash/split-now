@@ -5,11 +5,12 @@ import { ExitIcon, TrashIcon } from '@/components/icons'
 import { repo } from '@/data'
 import { groupPurgeBlocker } from '@/data/repo'
 import { useMe } from '@/hooks/auth'
+import { useAiStatus } from '@/hooks/useAiStatus'
 import { computeGroupData, useExpenses, useGroup, useSettlements } from '@/hooks/data'
 import { errText } from '@/lib/errors'
 import { formatDate } from '@/lib/locale'
 import { formatMoney } from '@/lib/money'
-import { deleteMessage, groupDeleteState } from '@/lib/group-delete'
+import { deleteMessage, groupDeleteState, purgeChoice } from '@/lib/group-delete'
 import type { Debt, Group } from '@/types'
 import { daysLeft, purgeOpensAt } from '../../shared/group-trash'
 import { useConfirm } from './ConfirmSheet'
@@ -75,6 +76,49 @@ export function DeleteGroupButton({ group }: { group: Group }) {
 }
 
 /**
+ * Restore and Delete forever for a group in Recently deleted, shared by its card and the swipe
+ * actions on Groups' Recently deleted list. `purge` asks first and resolves true once it's gone.
+ */
+export function useGroupTrash(group: Group) {
+  const toast = useToast()
+  const confirm = useConfirm()
+  const { user } = useMe()
+  // App admins may delete any group here for good, at once (owner, 24 Oct 2026); everyone else
+  // goes by groupPurgeBlocker: its creator, after the week the others get.
+  const admin = !!useAiStatus()?.admin
+  const blocker = groupPurgeBlocker(group, user.uid)
+  const asAdmin = admin && !!blocker
+  /** null: no Delete forever at all (not theirs); a reason: theirs but not yet; '': they may now */
+  const purgeState = purgeChoice({ blocker, admin, creator: group.createdBy === user.uid })
+  const restore = async () => {
+    try {
+      await repo.restoreGroup(group)
+      toast(`“${group.name}” is back`)
+    } catch (e) {
+      toast(errText(e), 'err')
+    }
+  }
+  const purge = async (): Promise<boolean> => {
+    const ok = await confirm({
+      title: `Delete “${group.name}” forever?`,
+      message: 'All its expenses, payments, comments and history go for everyone in the group. This can’t be undone.',
+      confirmLabel: 'Delete forever',
+      tone: 'danger',
+    })
+    if (!ok) return false
+    try {
+      await repo.purgeGroup(group.id, asAdmin ? { asAdmin } : undefined)
+      toast(`Deleted “${group.name}” for good`)
+      return true
+    } catch (e) {
+      toast(errText(e), 'err')
+      return false
+    }
+  }
+  return { restore, purge, purgeState }
+}
+
+/**
  * A deleted group, opened from Recently deleted (or an old link): who deleted it, how long is
  * left, Restore for any member, and Delete forever for the person who created it.
  */
@@ -84,24 +128,17 @@ export function DeletedGroupCard({ group }: { group: Group }) {
   const toast = useToast()
   const confirm = useConfirm()
   const [busy, setBusy] = useState(false)
+  const { restore, purge: purgeNow, purgeState } = useGroupTrash(group)
   const by = group.deletedBy === user.uid ? 'you' : (Object.values(group.members).find((m) => m.uid === group.deletedBy)?.name ?? 'someone')
   const left = daysLeft(group.deletedAt ?? Date.now(), Date.now())
-  const canPurge = !groupPurgeBlocker(group, user.uid)
+  const canPurge = purgeState === ''
   // The creator sees when "Delete forever" opens (the first week is everyone's chance to restore it).
-  const purgeFrom = group.createdBy === user.uid && !canPurge && group.deletedAt ? purgeOpensAt(group.deletedAt) : null
+  const purgeFrom = purgeState && group.deletedAt ? purgeOpensAt(group.deletedAt) : null
   // Anyone else may leave it without restoring it for everyone (owner decision, Oct 2026); it's
   // gone for good once Recently deleted's days are up anyway.
   const myId = Object.entries(group.members).find(([, m]) => m.uid === user.uid && !m.removedAt)?.[0]
   const canLeave = !!myId && group.createdBy !== user.uid
 
-  const restore = async () => {
-    try {
-      await repo.restoreGroup(group)
-      toast(`“${group.name}” is back`)
-    } catch (e) {
-      toast(errText(e), 'err')
-    }
-  }
   const leave = async () => {
     if (!myId) return
     const ok = await confirm({
@@ -121,22 +158,9 @@ export function DeletedGroupCard({ group }: { group: Group }) {
     }
   }
   const purge = async () => {
-    const ok = await confirm({
-      title: `Delete “${group.name}” forever?`,
-      message: 'All its expenses, payments, comments and history go for everyone in the group. This can’t be undone.',
-      confirmLabel: 'Delete forever',
-      tone: 'danger',
-    })
-    if (!ok) return
     setBusy(true)
-    try {
-      await repo.purgeGroup(group.id)
-      toast(`Deleted “${group.name}” for good`)
-      nav('/groups', { replace: true })
-    } catch (e) {
-      toast(errText(e), 'err')
-      setBusy(false)
-    }
+    if (await purgeNow()) nav('/groups', { replace: true })
+    else setBusy(false)
   }
 
   return (

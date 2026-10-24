@@ -30,7 +30,7 @@ describe('cleanQuickRequest', () => {
   it('keeps what the prompt needs and drops anything malformed', () => {
     const r = cleanQuickRequest(
       {
-        text: `  dinner\u0000 2400 ${'x'.repeat(400)}`,
+        text: `  dinner\u0000 2400 ${'x'.repeat(700)}`,
         today: '2020-01-01',
         currency: 'inr',
         me: 'Asha <script>',
@@ -53,7 +53,7 @@ describe('cleanQuickRequest', () => {
       '2026-10-09',
       near,
     )!
-    expect(r.text.length).toBe(300)
+    expect(r.text.length).toBe(600)
     expect(r.text.startsWith('dinner 2400')).toBe(true)
     expect(r.today).toBe('2026-10-09')
     expect(r.currency).toBe('INR')
@@ -338,6 +338,13 @@ describe('sharersFromLine: names', () => {
     expect(sharersFromLine('dinner 900 with Rahul Verma', g, 'me', undefined)).toEqual(['me', 'rv'])
     // even when the model put both Rahuls in
     expect(sharersFromLine('dinner 900 with Rahul Verma', g, 'me', ['me', 'rs', 'rv'])).toEqual(['me', 'rv'])
+  })
+  it('someone the line leaves out in plain words stays out, even though it names them (owner’s line, 24 Oct 2026)', () => {
+    const line = 'I paid for lunch for 1262. It was split by all but I remember Neha was not a part of that lunch. Split it equally amongst the rest.'
+    expect(sharersFromLine(line, g, 'me', ['me', 'rs', 'rv', 'ro'])).toEqual(['me', 'rs', 'rv', 'ro'])
+    // the model said everyone: the words still leave Neha out
+    expect(sharersFromLine(line, g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
+    expect(sharersFromLine('dinner 1200, Rohan didn’t come', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'n'])
   })
   it('“for Rohan” is bought for Rohan; “with” shares it', () => {
     expect(sharersFromLine('lunch for Rohan 500', g, 'me', undefined)).toEqual(['ro'])

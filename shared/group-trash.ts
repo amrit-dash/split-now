@@ -45,3 +45,11 @@ export const purgeOpensAt = (deletedAt: number): number => deletedAt + PURGE_HOL
 
 /** Whether "Delete forever" is still held for something deleted at `deletedAt`. */
 export const purgeHeld = (deletedAt: number | undefined, now: number): boolean => typeof deletedAt === 'number' && now < purgeOpensAt(deletedAt)
+
+/**
+ * The week's hold is for the others: a group where nobody but its creator has an account (everyone
+ * else added by name) has no one to restore it, so its creator may delete it for good straight
+ * away (owner, 24 Oct 2026; firestore.rules `soloGroup` agrees).
+ */
+export const groupPurgeHeld = (g: { deletedAt?: number; createdBy: string; memberUids: readonly string[] }, now: number): boolean =>
+  purgeHeld(g.deletedAt, now) && g.memberUids.some((u) => u !== g.createdBy)

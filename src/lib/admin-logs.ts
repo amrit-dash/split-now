@@ -8,6 +8,7 @@
 export const FUNCTION_NAMES = [
   'adminBlockUser',
   'adminLogs',
+  'adminPurgeGroup',
   'adminSetAdmin',
   'adminStats',
   'adminUsers',

@@ -38,7 +38,7 @@ import type { TranscribeRequest, TranscribeResponse, TranscribeTestResult } from
 import type { IconAiResponse, IconPickRequest, IconPickResponse, IconPictureResponse, IconRequest, PictureTestResult } from '../../shared/icon-ai'
 import type { DeletionBlocker, DeletionStep } from '../../shared/account-delete'
 import { defaultCurrency, formatDate } from '@/lib/locale'
-import { purgeHeld, purgeOpensAt } from '../../shared/group-trash'
+import { groupPurgeHeld, purgeOpensAt } from '../../shared/group-trash'
 import type { OwnMemberPatch } from '@/lib/memberSync'
 import { sharedProfileCopy } from '../../shared/profile-share'
 import { labelForUid, labelOf, memberIdOfUid } from '@/lib/shortNames'
@@ -383,10 +383,11 @@ export interface Repo {
   restoreGroup(group: Group): Promise<void>
   /**
    * Removes a deleted group for good now, with everything under it (expenses, payments,
-   * activity, profiles, receipts). Creator only. Needs the server: rejects with a readable
-   * message offline or on failure.
+   * activity, profiles, receipts). Creator only, after the week others get to restore it (none
+   * where nobody else has an account); `asAdmin`: an app admin, any deleted group at once (the
+   * adminPurgeGroup callable). Needs the server: rejects with a readable message offline or on failure.
    */
-  purgeGroup(id: string): Promise<void>
+  purgeGroup(id: string, opts?: { asAdmin?: boolean }): Promise<void>
 
   getInvite(code: string): Promise<InviteInfo | null>
   joinGroup(code: string, memberId: MemberId, member: Member): Promise<string>
@@ -958,8 +959,9 @@ export function groupPurgeBlocker(g: Pick<Group, 'name' | 'createdBy' | 'members
     return `Only ${by ?? 'the person who created it'} can delete “${g.name}”.`
   }
   if (typeof g.deletedAt !== 'number') return `Delete “${g.name}” first; it can be deleted for good from Recently deleted.`
-  // The first week in Recently deleted is the others' chance to restore it (firestore.rules agrees).
-  if (purgeHeld(g.deletedAt, now))
+  // The first week in Recently deleted is the others' chance to restore it (firestore.rules agrees);
+  // a group where nobody else has an account has no one to wait for.
+  if (groupPurgeHeld({ deletedAt: g.deletedAt as number, createdBy: g.createdBy, memberUids: g.memberUids }, now))
     return `“${g.name}” can be deleted for good from ${formatDate(purgeOpensAt(g.deletedAt as number), { day: 'numeric', month: 'short' })}.`
   return null
 }

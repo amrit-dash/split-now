@@ -6,6 +6,7 @@
  * a split that doesn't add up becomes an equal one. Pure (no Firebase), unit-tested.
  */
 import { minorDigitsOf } from '../../../shared/money-core'
+import { excludedPeople } from '../../../shared/quick-exclude'
 import {
   QUICK_GROUP_TYPES,
   type QuickAiExpense,
@@ -17,7 +18,8 @@ import {
   type QuickGroupType,
 } from '../../../shared/quick-ai'
 
-export const QUICK_MAX_TEXT = 300
+/** A spoken line runs long ("I just remembered I paid for lunch on 3 October …"): 600 keeps a whole story. */
+export const QUICK_MAX_TEXT = 600
 export const QUICK_MAX_GROUPS = 25
 export const QUICK_MAX_MEMBERS = 30
 /** People a new group may get from one line */
@@ -118,7 +120,7 @@ export const quickPrompt = (r: QuickAiRequest) => {
     .join('\n')
   const none = r.groups.length === 0
   return `A user of a bill-splitting app typed or spoke one line. It may record a cost in one of their groups, or ask to create a new group (and maybe record a cost in it). Fill the schema.
-The line is often a rough speech-to-text transcript: no punctuation, words misheard ("for" for "four", a name or a place spelled oddly), numbers spoken as words ("twelve hundred" is 1200, "two thousand five hundred" is 2500, "one fifty" is 150, "a thousand bucks" is 1000). First work out what was meant: the numbers as digits, a misheard name as the listed person it clearly sounds like (never a guess between two). Then fill the schema from that.
+The line is often a rough speech-to-text transcript: no punctuation, words misheard ("for" for "four", a name or a place spelled oddly), numbers spoken as words ("twelve hundred" is 1200, "two thousand five hundred" is 2500, "one fifty" is 150, "a thousand bucks" is 1000). First work out what was meant: the numbers as digits, a misheard name as the listed person it clearly sounds like (never a guess between two), a misheard group name as the listed group it clearly sounds like ("codai trip" is "Kodai Trip"). Then fill the schema from that.
 The writer is "${r.me || 'me'}"; "I", "me", "my" or that name mean the writer: answer "me".
 Their groups (id: name; members as id=name, the writer not listed):
 ${groups || '(none)'}
@@ -138,6 +140,8 @@ ${
 - People: a full name ("Rahul Verma") is exactly that member, never another with the same first name.
 - Who paid: "I paid", "paid by me", "on me" is "me". "Rahul paid", "paid by Rahul", "Rahul got it", "Rahul covered it", "drinks on Rahul" is Rahul. "they paid", "he paid", "she paid", "he got the bill" means the other person the line names (with one other person, that person; with several, the last one named). Never null when the line says who paid.
 - Who shares it: "with Rahul" means the writer and Rahul. The payer shares the cost unless the line says it was only for others ("I paid for Rahul's ticket": only Rahul; "for Rohan only", "lunch for Rohan 500": only Rohan). When the line names people, participants lists exactly them and the writer (and the payer), even when the group has more members. Only "everyone", "all of us", or a line naming nobody gives participants null (the whole group). "everyone except Rohan": every member but Rohan.
+- People left out in plain words are not participants: "Aradhana was not a part of that lunch", "Rohan didn't come", "leave Priya out", "Dev skipped it", "split among the rest" after someone is left out: every other member of the group, the writer included.
+- Shares as a ratio between the writer and one other person ("the share was 2x3", "2:3", "in the ratio 1 to 2"): splitMode shares, the writer's number first unless the line says who had more ("they had more shares": the other person gets the bigger number).
 - Uneven splits: the first number is the total; a number right after a person's name is that person's part ("hotel 6000 Priya 4000": total 6000, Priya 4000, the rest the payer's). "Rahul owes 400", "Rahul 700 rest me": splitMode amounts with those people (whoever isn't given an amount shares the rest). "60/40", "Rahul 30 percent": splitMode percent. "Rahul 2 shares, me 1": splitMode shares. Otherwise splitMode equal.
 - ${r.payments ? 'action payment when money was paid back or sent to settle up, not spent: "paid Rahul 500 back", "sent Priya 300", "Rohan paid me back 200", "settled up with Rahul 1000". paidBy is who sent it, paidTo who got it, amount the money, description null. A refund from a shop, hotel or app ("got 500 back for the hotel", "refund 500") is not a payment between people: action expense.' : 'Money paid back to settle up is an expense from the payer to the other person.'}
 - open_item only when the writer says they are unsure who paid ("not sure who paid", "someone paid", "might have", "sort it out later"). A line that says who paid is never an open item.
@@ -492,6 +496,14 @@ export function sharersFromLine(text: string, g: QuickAiGroupIn, paidBy: string,
   const full = g.members.filter((m) => fold(m.name).includes(' ') && word(fold(m.name)).test(t))
   const named = g.members.filter((m) => full.includes(m) || (word(first(m)).test(t) && !full.some((f) => f !== m && first(f) === first(m)))).map((m) => m.id)
   const all = ['me', ...g.members.map((m) => m.id)]
+  // "Aradhana was not a part of that lunch", "Rohan didn't come": left out, however the rest reads
+  // (shared/quick-exclude.ts). Before, naming them pulled them back in and the model's list was lost.
+  const left = excludedPeople(text, g.members, 'me')
+  if (left.length) {
+    const base = said?.length ? all.filter((p) => said.includes(p) || p === 'me' || p === paidBy) : all
+    const out = base.filter((p) => !left.includes(p))
+    return out.length === all.length ? undefined : out
+  }
   const except = t.match(/\b(?:except|but not|without|minus|other than)\b(.*)$/)
   if (except) {
     // "except Rohan, Priya paid": the exception ends at the comma (or where the payer comes in).

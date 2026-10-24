@@ -43,7 +43,7 @@ export function buildQuickRequest(o: {
   const t = o.target
   const ordered = (t ? [t, ...o.groups.filter((g) => g.id !== t.id)] : o.groups).slice(0, MAX_GROUPS)
   return {
-    text: o.text.trim().slice(0, 300),
+    text: o.text.trim().slice(0, 600),
     today: o.today,
     currency: t?.currency ?? o.currency ?? 'INR',
     me: o.me,
