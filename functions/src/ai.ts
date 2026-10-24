@@ -621,7 +621,8 @@ export const quickAddAi = onCall({ ...base, timeoutSeconds: 60, maxInstances: 10
     const g = await generateJson(key, [{ text: `<line>${input.text}</line>` }], QUICK_SCHEMA, {
       models,
       timeoutMs: budget(gemma, 20_000, 52_000),
-      maxOutputTokens: 1024,
+      // 2048: Gemma ran out at 1024 on a line with several parts (eval, 24 Oct 2026).
+      maxOutputTokens: 2048,
       systemInstruction: quickPrompt(input),
     })
     return { value: normaliseQuickAi(g.json, input), usage: g.usage, model: g.modelVersion ?? g.model }

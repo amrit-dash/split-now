@@ -11,6 +11,7 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 - Opera, Brave and Vivaldi: “This browser can’t turn speech into text” now has a **Use AI for voice** button that switches voice to AI in one tap (or opens AI features to add a key when no key can serve you).
 - Quick add with AI on the free Gemma: it no longer spends its answer allowance thinking (long uneven splits came back empty), and the prompt carries worked examples (amounts, “drinks on Priya”, “Rahul owes 400”, 60/40, shares, money paid back); AI’s answers now keep “only Rohan and Priya ate” and “everyone but Priya”.
 - Quick add with AI checks the AI’s answer against your words: an amount the line doesn’t say gives way to the one it does, and what your phone read for certain (an exact split, who paid, the date, who was left out) wins over the AI’s reading. The free AI used to drop or change plain amounts and turn uneven splits equal.
+- Quick add from Home: a line naming someone none of your groups has (“drinks 2000 with Kabir”) asks which group, with a new group for them first, instead of AI guessing a group. A line that asks for a new group in words still goes to AI. AI’s answers have twice the room (Gemma ran out on lines with several parts).
 - Settings → AI features → Quick add says which key reads your lines, and, on Split Now’s free AI, that it misreads some long or uneven lines and your own key reads them best.
 - App admins aren’t held to the app’s own AI limits (per person, per hour and the daily budget); Google’s limits on the key still apply.
 
