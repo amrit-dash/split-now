@@ -24,6 +24,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.7.0',
+    date: 'October 2026',
+    items: [
+      { text: 'Quick add understands spoken lines: who wasn’t there, “500 each”, shares like 2:3, amounts in words', section: 'quick-add' },
+      { text: 'It asks which group when it can’t tell, and finds a group even when its name is misheard', section: 'quick-add' },
+      { text: 'Swipe a deleted group to restore it or delete it forever', section: 'archive-leave-delete' },
+    ],
+  },
+  {
     version: '9.6.1',
     date: 'October 2026',
     items: [{ text: 'Voice works again: your browser asks for the microphone the first time', section: 'voice' }],

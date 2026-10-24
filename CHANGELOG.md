@@ -6,6 +6,8 @@ Release (`.github/workflows/release.yml`). Fixes are x.y.Z, new features x.Y.0, 
 
 ## Unreleased
 
+## 9.7.0 — October 2026
+
 - Quick add reads a spoken story on your phone, without AI: someone left out in plain words (“Aradhana was not a part of that lunch”, “I wasn’t there”, “Rohan didn’t come”), “only Rohan and Priya ate”, “me and Rohan only”, names without commas (“between me Rahul and Priya”), “Neha and I had pizza”, “500 each”, “the share was 2x3” (and who had more), “Rahul had 3 and I had 1”, and amounts in words (“twelve hundred”). Before, these were split equally among everyone, or the cost came out wrong.
 - Quick add finds a group by its name even when speech mishears it (“to the codai trip” is Kodai Trip), and asks which group when it can’t tell, with a new group for the people you named as one of the answers. Before, it opened a new group straight away, once even for a misheard word (“the”).
 - Quick add with AI: only lines your phone can’t fully read go to AI (words left over that change the cost, like “Rahul pays double” or a tip added on top); the rest stay on your phone. AI’s answer keeps the people a line leaves out (it was put back to everyone), lines up to 600 characters reach it (300 cut long spoken lines short), and it reads share ratios and misheard group names.
