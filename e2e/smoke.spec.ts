@@ -1613,6 +1613,18 @@ test('swiping a message away over an open sheet leaves the sheet open', async ({
   await expect(sheet).toBeVisible()
 })
 
+test('Groups: a row’s actions show only what can be done now: Settle up when you owe or are owed, Archive once square', async ({ page }) => {
+  await page.goto('/groups')
+  // Goa Trip: you're owed, so Settle up and no Archive
+  const goa = page.getByTestId('group-swipe-row').filter({ hasText: 'Goa Trip' })
+  await goa.locator('a').first().click({ button: 'right' })
+  const menu = page.getByRole('dialog')
+  await expect(menu.getByRole('button', { name: 'Settle up in Goa Trip' })).toBeVisible()
+  await expect(menu.getByRole('button', { name: /Archive Goa Trip/ })).toHaveCount(0)
+  await menu.getByRole('button', { name: 'Settle up in Goa Trip' }).click()
+  await expect(page).toHaveURL(/\/groups\/g_goa\/settle$/)
+})
+
 test('only the creator may delete a group while they are in it', async ({ page }) => {
   // Meera created the seeded gig group and is still in it: no Delete in the menu for you.
   await page.goto('/groups/g_gig')

@@ -195,16 +195,17 @@ describe('generateJson', () => {
     }) as unknown as typeof fetch
     const r = await generateJson('k', [{ text: 'bill' }], RECEIPT_SCHEMA, { models: ['gemma-4-26b-a4b-it'], fetchImpl: f, systemInstruction: 'Rules' })
     expect(r).toMatchObject({ json: { isReceipt: true }, model: 'gemma-4-26b-a4b-it' })
-    expect(bodies[0].generationConfig).toMatchObject({ responseSchema: RECEIPT_SCHEMA })
+    // Gemma thinks minimally in both modes: its thinking counts against maxOutputTokens
+    expect(bodies[0].generationConfig).toMatchObject({ responseSchema: RECEIPT_SCHEMA, thinkingConfig: { thinkingLevel: 'minimal' } })
     expect(bodies[1].systemInstruction).toBeUndefined()
-    expect(bodies[1].generationConfig).toEqual({ maxOutputTokens: 8192 })
+    expect(bodies[1].generationConfig).toEqual({ maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: 'minimal' } })
     const parts = (bodies[1].contents as Array<{ parts: Array<{ text?: string }> }>)[0].parts
     expect(parts[0].text).toBe(plainInstruction('Rules', RECEIPT_SCHEMA))
     expect(parts[1]).toEqual({ text: 'bill' })
     // Remembered: the next call goes straight to plain mode.
     await generateJson('k', [{ text: 'bill' }], RECEIPT_SCHEMA, { models: ['gemma-4-26b-a4b-it'], fetchImpl: f })
     expect(bodies).toHaveLength(3)
-    expect(bodies[2].generationConfig).toEqual({ maxOutputTokens: 8192 })
+    expect(bodies[2].generationConfig).toEqual({ maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: 'minimal' } })
   })
   it('Gemma: a bad key is still a bad key, and Gemini models are never switched to plain mode', async () => {
     const bad = (async () => new Response('API key not valid. Please pass a valid API key.', { status: 400 })) as unknown as typeof fetch

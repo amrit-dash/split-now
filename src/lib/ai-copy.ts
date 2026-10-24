@@ -151,6 +151,23 @@ export function aiReaderName(o: { free: boolean; freeOk: boolean; source: string
   return 'the AI'
 }
 
+/**
+ * Quick add with AI: which key reads the lines, and, only when it's Split Now's free AI (Gemma), a
+ * note that it isn't the best reader and their own key gives the best results (owner, 24 Oct 2026:
+ * the free key stays free, so the note points people with harder lines to their own).
+ */
+export function quickAddKeyLine(o: Parameters<typeof aiReaderName>[0]): { uses: string; note?: string } | null {
+  const reader = aiReaderName(o)
+  if (reader === 'the AI') return null
+  const own = o.hasOwnKey && o.source !== 'app' && !(o.source === 'auto' && reader === 'Gemma')
+  if (reader === 'Gemma')
+    return {
+      uses: 'Uses Split Now’s free AI (Gemma)',
+      note: 'The free AI misreads some long or uneven lines. Add your own Gemini key below for the best results.',
+    }
+  return { uses: own ? 'Uses your own key (Gemini)' : 'Uses Split Now’s key (Gemini)' }
+}
+
 /** The "Use free AI" switch: what the free AI reads, and the price of free. */
 export const FREE_AI_NOTE =
   'Reads bills, statements, payment screenshots, bank SMS and Quick add lines, slower than the paid AI. It’s free because Google may use what you send, including names, UPI IDs and amounts, to improve its products, and people at Google may read it. Not allowed for people in the EU, the UK or Switzerland.'

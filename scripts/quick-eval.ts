@@ -7,12 +7,16 @@
  *
  *   GEMINI_API_KEY=… JITI_ALIAS='{"@/":"./src/"}' npx jiti scripts/quick-eval.ts
  *   … -- --model gemini-3.5-flash-lite --only "they paid"               (one model, lines containing the words)
+ *   … -- --delay 4000                                                  (space the calls: a free-tier key's per-minute limit)
  *
  * The key comes from the environment and is never printed. Lines the phone asks the person about
  * (Which Rahul?, someone the group doesn't have) pass when the AI's guess is one of the answers.
  */
 import { CASE_GROUPS, CASE_UID, QUICK_CASES, type QuickExpect } from '../src/lib/quick-cases'
 import { buildQuickRequest, planQuickAi, type QuickAiPlan } from '../src/lib/quick-ai'
+import { quickLocal } from '../src/lib/quick-local'
+import { quickRouteNoGroups } from '../src/lib/quick-route'
+import { firmUpPrefill } from '../src/lib/nl-expense'
 import { cleanQuickRequest, normaliseQuickAi, QUICK_SCHEMA, quickPrompt } from '../functions/src/lib/quick-ai'
 import { generateJson } from '../functions/src/lib/gemini'
 
@@ -22,6 +26,8 @@ const arg = (name: string) => {
 }
 const model = arg('model') ?? 'gemini-3.5-flash-lite'
 const only = arg('only')
+/** ms between calls: free-tier keys allow a few a minute (`-- --delay 4000`) */
+const delay = Number(arg('delay') ?? 0)
 const key = process.env.GEMINI_API_KEY?.trim()
 if (!key) {
   console.error('Set GEMINI_API_KEY (it is never printed).')
@@ -95,6 +101,8 @@ function miss(plan: QuickAiPlan, want: QuickExpect): string | null {
 let pass = 0
 let fail = 0
 let tokens = 0
+let appPass = 0
+let toAi = 0
 for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
   const home = c.from === 'home'
   const target = CASE_GROUPS.find((g) => g.id === (home ? 'g_goa' : c.from))
@@ -105,11 +113,12 @@ for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
     fail++
     continue
   }
+  if (delay) await new Promise((r) => setTimeout(r, delay))
   const t0 = Date.now()
   try {
     const g = await generateJson(key, [{ text: `<line>${req.text}</line>` }], QUICK_SCHEMA, {
       models: [model],
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
       systemInstruction: quickPrompt(req),
     })
     tokens += (g.usage?.promptTokens ?? 0) + (g.usage?.outputTokens ?? 0) + (g.usage?.thoughtTokens ?? 0)
@@ -126,10 +135,66 @@ for (const c of QUICK_CASES.filter((x) => !only || x.line.includes(only))) {
     const why = miss(plan, c.expect)
     if (why) fail++
     else pass++
-    console.log(`${why ? '✗' : '✓'} [${c.from}] ${c.line}${why ? `: ${why}` : ''} (${Date.now() - t0} ms)`)
+    // As the app does it (src/hooks/useQuickRun.tsx): the phone reads first; only what it hands to AI
+    // goes there, in the group the phone chose, and its sure reading firms up AI's (firmUpPrefill).
+    // Lines the phone settles itself are checked by quick-cases.test.ts on every CI run.
+    const local = quickLocal({ line: c.line, groups: CASE_GROUPS, uid: CASE_UID, groupId: target?.id ?? 'g_goa', sure: !home, today: TODAY, openItems: true })
+    let whyApp: string | null = null
+    const asksGroup = quickRouteNoGroups(c.line).route === 'ai'
+    const reaches = local.kind === 'ai' || (local.kind === 'newGroup' && asksGroup)
+    if (local.kind === 'ai') {
+      const same = !home && local.groupId === target?.id
+      const pinned = same
+        ? req
+        : cleanQuickRequest(
+            buildQuickRequest({
+              text: c.line,
+              groups: CASE_GROUPS,
+              uid: CASE_UID,
+              me: 'Asha',
+              target: CASE_GROUPS.find((x) => x.id === local.groupId),
+              today: TODAY,
+              openItems: true,
+              sure: true,
+            }),
+            TODAY,
+            () => true,
+          )
+      if (!pinned) whyApp = 'request refused'
+      else {
+        if (!same && delay) await new Promise((r) => setTimeout(r, delay))
+        const ga = same
+          ? g
+          : await generateJson(key, [{ text: `<line>${pinned.text}</line>` }], QUICK_SCHEMA, {
+              models: [model],
+              maxOutputTokens: 2048,
+              systemInstruction: quickPrompt(pinned),
+            })
+        const p2 = planQuickAi(normaliseQuickAi(ga.json, pinned), {
+          line: c.line,
+          groups: CASE_GROUPS,
+          uid: CASE_UID,
+          me: { name: 'Asha' },
+          currency: 'INR',
+          today: TODAY,
+          known: [],
+          makeId: () => 'p_new',
+        })
+        const firm = p2.kind === 'expense' && p2.groupId === local.groupId ? { ...p2, prefill: firmUpPrefill(p2.prefill, local.parse) } : p2
+        whyApp = miss(firm, c.expect)
+      }
+    } else if (local.kind === 'newGroup') whyApp = asksGroup ? why : null // asked for in words: AI; else the app asks which group, a new one first
+    if (reaches) toAi++
+    if (!whyApp) appPass++
+    console.log(
+      `${why ? '✗' : '✓'}${whyApp ? '✗' : '✓'} [${c.from}] ${c.line}${why ? `: AI ${why}` : ''}${whyApp && whyApp !== why ? `; app ${whyApp}` : ''}${reaches ? ' [to AI]' : ' [phone]'} (${Date.now() - t0} ms)`,
+    )
   } catch (e) {
     fail++
+    // An AI error costs the app nothing on a line the phone settles itself.
+    const local = quickLocal({ line: c.line, groups: CASE_GROUPS, uid: CASE_UID, groupId: target?.id ?? 'g_goa', sure: !home, today: TODAY, openItems: true })
+    if (local.kind !== 'ai' && local.kind !== 'newGroup') appPass++
     console.log(`✗ [${c.from}] ${c.line}: ${(e as Error).message.slice(0, 160)}`)
   }
 }
-console.log(`\n${model}: ${pass} of ${pass + fail} as expected, ${tokens} tokens`)
+console.log(`\n${model}: AI alone ${pass} of ${pass + fail}; as the app does it ${appPass} of ${pass + fail} (${toAi} lines reach AI); ${tokens} tokens`)

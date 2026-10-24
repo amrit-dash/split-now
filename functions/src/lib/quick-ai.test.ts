@@ -4,7 +4,7 @@ import { cleanQuickRequest, normaliseQuickAi, quickPrompt, sharersFromLine, spli
 const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 2 * 86_400_000
 const req = cleanQuickRequest(
   {
-    text: 'create a group Goa trip with Rahul and Priya and add dinner 2400 paid by me split equally',
+    text: 'create a group Goa trip with Rahul and Priya and add dinner paid by me split equally',
     today: '2026-10-09',
     currency: 'INR',
     me: 'Asha',
@@ -345,6 +345,15 @@ describe('sharersFromLine: names', () => {
     // the model said everyone: the words still leave Neha out
     expect(sharersFromLine(line, g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
     expect(sharersFromLine('dinner 1200, Rohan didn’t come', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'n'])
+    // the model kept only the payer: "I wasn't there" is still everyone but the writer (Gemma eval, 24 Oct 2026)
+    expect(sharersFromLine('Neha paid 1500 for the cab, I wasn’t there', g, 'n', ['n'])).toEqual(['rs', 'rv', 'n', 'ro'])
+  })
+  it('“everyone but Neha” and “only Rohan and Neha ate” (eval misses, 24 Oct 2026)', () => {
+    expect(sharersFromLine('beer 900 everyone but Neha', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
+    expect(sharersFromLine('lunch 900, Rohan paid, only Rohan and Neha ate', g, 'ro', ['me', 'n', 'ro'])).toEqual(['n', 'ro'])
+    expect(sharersFromLine('taxi 700 Rohan paid, me and Rohan only', g, 'ro', undefined)).toEqual(['me', 'ro'])
+    // "all but I remember…" is not "everyone but me"
+    expect(sharersFromLine('split by all but I remember Neha was not there', g, 'me', undefined)).toEqual(['me', 'rs', 'rv', 'ro'])
   })
   it('“for Rohan” is bought for Rohan; “with” shares it', () => {
     expect(sharersFromLine('lunch for Rohan 500', g, 'me', undefined)).toEqual(['ro'])

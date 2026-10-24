@@ -335,6 +335,13 @@ const RETRY_STATUS = new Set([429, 500, 503, 504])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
+ * Gemma 4 thinks before it answers, and the thinking counts against maxOutputTokens: Quick add's
+ * 1024 ran out on uneven splits (eval, 24 Oct 2026). "minimal" is its "don't think"; Gemini models
+ * get nothing (each generation takes a different thinking setting, and a wrong one is refused).
+ */
+export const gemmaThinking = (model: string) => (isGemma(model) ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {})
+
+/**
  * Gemma models that refused a request with the schema and system instruction (a 400 that isn't
  * about the key). Google documents system instructions for Gemma 4 but not JSON mode, so the first
  * refusal switches that model to plain mode for the life of the instance: the rules and the schema
@@ -397,14 +404,14 @@ export async function generateJson(
           plain
             ? {
                 contents: [{ role: 'user', parts: [{ text: plainInstruction(opts.systemInstruction, schema) }, ...parts] }],
-                generationConfig: { maxOutputTokens },
+                generationConfig: { maxOutputTokens, ...gemmaThinking(model) },
               }
             : {
                 ...(opts.systemInstruction ? { systemInstruction: { parts: [{ text: opts.systemInstruction }] } } : {}),
                 contents: [{ role: 'user', parts }],
                 // Only settings every Gemini generation accepts: no temperature or thinking config (2.5 uses
                 // thinkingBudget, 3.x thinkingLevel; sending the wrong one is rejected). The schema does the constraining.
-                generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens },
+                generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens, ...gemmaThinking(model) },
               },
         ),
         signal: AbortSignal.timeout(Math.max(1000, budgetLeft())),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiAvailability, aiDataNote, aiReaderName, aiSummaryText, FREE_AI_NOTE, isQuietReason, unavailableText } from './ai-copy'
+import { quickAddKeyLine, aiAvailability, aiDataNote, aiReaderName, aiSummaryText, FREE_AI_NOTE, isQuietReason, unavailableText } from './ai-copy'
 
 describe('aiAvailability', () => {
   const app = (images: 'available' | 'off' | 'not_listed' | 'feature_off', sms = images) => ({ admin: false, app: { images, sms, model: 'm' } })
@@ -162,5 +162,23 @@ describe('aiReaderName', () => {
   it('Split Now’s paid key is Gemini', () => {
     expect(aiReaderName({ ...o, free: false })).toBe('Gemini')
     expect(aiReaderName({ ...o, free: false, appAvailable: false })).toBe('the AI')
+  })
+})
+
+describe('quickAddKeyLine', () => {
+  const base = { free: true, freeOk: true, source: 'auto', hasOwnKey: false, appAvailable: true }
+  it('the free AI: says so, with the note about your own key', () => {
+    expect(quickAddKeyLine(base)).toEqual({
+      uses: 'Uses Split Now’s free AI (Gemma)',
+      note: 'The free AI misreads some long or uneven lines. Add your own Gemini key below for the best results.',
+    })
+  })
+  it('your own key, or Split Now’s paid one: no note', () => {
+    expect(quickAddKeyLine({ ...base, source: 'own', hasOwnKey: true })).toEqual({ uses: 'Uses your own key (Gemini)' })
+    expect(quickAddKeyLine({ ...base, freeOk: false, hasOwnKey: true })).toEqual({ uses: 'Uses your own key (Gemini)' })
+    expect(quickAddKeyLine({ ...base, free: false })).toEqual({ uses: 'Uses Split Now’s key (Gemini)' })
+  })
+  it('nothing can read for them: no line', () => {
+    expect(quickAddKeyLine({ ...base, freeOk: false })).toBeNull()
   })
 })

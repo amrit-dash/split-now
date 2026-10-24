@@ -46,6 +46,8 @@ export interface QuickLine {
   named: GroupInText
   /** The person is in `picked` (its page, or picked it): the line goes there unless it names another. */
   sure?: boolean
+  /** the phone's own reading of the line in a group, for AI's answer to be firmed up with */
+  local?: { groupId: string; parse: NlParse }
   /** The person stopped it while it worked (double tap on + after talking): nothing opens. */
   stopped?: () => boolean
 }
@@ -243,7 +245,10 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
       }
       if (plan.kind === 'payment') return leave(settleUrl(plan.groupId, plan.payment))
       if (plan.kind === 'expense') {
-        pending.quick = { groupId: plan.groupId, prefill: plan.prefill }
+        // What the phone read for certain in the same group wins over AI's answer (src/lib/nl-expense.ts).
+        const local = q.local?.groupId === plan.groupId ? q.local.parse : undefined
+        const prefill = local ? (await loadParser()).firmUpPrefill(plan.prefill, local) : plan.prefill
+        pending.quick = { groupId: plan.groupId, prefill }
         return leave(`/add?group=${encodeURIComponent(plan.groupId)}&quick=1`)
       }
       if (plan.kind === 'openItem') return openOpenItem(plan.groupId, plan.input)
@@ -363,37 +368,38 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
           step = local(picked, true)
           continue
         }
-        case 'newGroup':
-          // Nobody in your groups has them: AI can name the group and set up the cost; else New group opens with them.
-          if (aiAllowed) {
+        // Nobody in your groups has them, so the phone can't tell where it goes: ask, with a new group
+        // for them as the first answer, before any AI guess (owner, 24 Oct 2026: it used to start a new
+        // group without asking, from a misheard word, and AI put an unknown name into another group).
+        case 'newGroup': {
+          // A line that asks for a group in words ("create a group Manali trip with Kiran … and add …"):
+          // AI names it and sets up the cost, as before.
+          if (aiAllowed && quickRouteNoGroups(q.text).route === 'ai') {
             const r = await askAi(q)
             if (q.stopped?.()) return stayed
             if (r && r !== 'unknown') return r
           }
-          // The phone can't tell where it goes: ask, with a new group for them as one of the answers
-          // (owner, 24 Oct 2026: it used to start a new group without asking, from a misheard word).
-          {
-            const NEW = '__new__'
-            const names = step.names
-            const picked = await choose({
-              title: 'Which group?',
-              message: names.length ? `None of your groups has ${listNames(names)}.` : 'Pick where this goes.',
-              options: [
-                ...(names.length ? [{ value: NEW, label: `New group with ${listNames(names)}`, sub: 'Start one for them' }] : []),
-                ...quickGroupChoices(all, q.line, 6).map((g) => ({
-                  value: g.id,
-                  label: g.name,
-                  sub: groupPeopleLine(g, user.uid),
-                  icon: <GroupIcon emoji={g.emoji} group={g} size={28} />,
-                })),
-              ],
-            })
-            if (!picked) return stayed
-            // Named after the people, not the group it was typed in: a 1:1 for one person (noGroupsPrefill).
-            if (picked === NEW) return createGroup('', { ...q, picked: undefined })
-            step = local(picked, true)
-            continue
-          }
+          const NEW = '__new__'
+          const names = step.names
+          const picked = await choose({
+            title: 'Which group?',
+            message: names.length ? `None of your groups has ${listNames(names)}.` : 'Pick where this goes.',
+            options: [
+              ...(names.length ? [{ value: NEW, label: `New group with ${listNames(names)}`, sub: 'Start one for them' }] : []),
+              ...quickGroupChoices(all, q.line, 6).map((g) => ({
+                value: g.id,
+                label: g.name,
+                sub: groupPeopleLine(g, user.uid),
+                icon: <GroupIcon emoji={g.emoji} group={g} size={28} />,
+              })),
+            ],
+          })
+          if (!picked) return stayed
+          // Named after the people, not the group it was typed in: a 1:1 for one person (noGroupsPrefill).
+          if (picked === NEW) return createGroup('', { ...q, picked: undefined })
+          step = local(picked, true)
+          continue
+        }
         case 'askWho': {
           const g = groupOf(step.groupId)
           if (!g) return stayed
@@ -447,7 +453,7 @@ export function useQuickRun({ groups, onLeave, onBusy }: { groups: Group[]; onLe
         case 'ai': {
           const g = groupOf(step.groupId) ?? target
           if (aiAllowed) {
-            const r = await askAi({ ...q, target: g, picked: g, sure: true })
+            const r = await askAi({ ...q, target: g, picked: g, sure: true, local: { groupId: step.groupId, parse: step.parse } })
             if (q.stopped?.()) return stayed
             if (r && r !== 'unknown') return r
             if (r === 'unknown') return go(q, g, true)

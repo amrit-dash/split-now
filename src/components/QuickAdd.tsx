@@ -8,7 +8,12 @@ import { errText } from '@/lib/errors'
 import { marqueeFor } from '@/lib/fit'
 import { primeAudio } from '@/lib/mic'
 import { groupInText, lineFor } from '@/lib/quick-group'
-import { micRelease } from '@/lib/voice'
+import { aiVoiceStep, micRelease } from '@/lib/voice'
+import { NO_SERVICE_TEXT } from '@/lib/speech'
+import { savePrefs } from '@/lib/push'
+import { useNavigate } from 'react-router-dom'
+import { useMe } from '@/hooks/auth'
+import { useToast } from '@/components/Toast'
 import { GroupIcon } from '@/components/GroupIcon'
 import { Select } from '@/components/Select'
 import { activeMembers } from '@/lib/members'
@@ -82,7 +87,23 @@ export function QuickAdd({
   const voiced = useRef(false)
   /** when the finger went down on the mic (null: not a press that started listening) */
   const pressed = useRef<number | null>(null)
-  const { engine } = useVoiceSetup()
+  const { engine, offer } = useVoiceSetup()
+  const transcribeFlag = useFlag('aiTranscribe')
+  const navigate = useNavigate()
+  const { user } = useMe()
+  const toast = useToast()
+  // "This browser can't turn speech into text" (Opera, Brave): a way to voice with AI, right there.
+  const aiStep = aiVoiceStep({ flag: transcribeFlag, offerAi: offer.ai })
+  const useAiVoice = () => {
+    if (aiStep === 'turn-on') {
+      void savePrefs(user.uid, { aiTranscribe: true })
+        .then(() => {
+          setProblem(null)
+          toast('Voice now uses AI. Tap the mic and speak.')
+        })
+        .catch((e) => toast(errText(e), 'err'))
+    } else navigate('/settings/ai')
+  }
   const voice = useVoice({
     engine,
     onText: (t) => {
@@ -353,7 +374,17 @@ export function QuickAdd({
             data-testid={`${testId}-problem`}
           >
             <AlertCircle size={16} className="shrink-0" aria-hidden />
-            {problem}
+            <span className="min-w-0 flex-1">{problem}</span>
+            {problem === NO_SERVICE_TEXT && aiStep && (
+              <button
+                type="button"
+                onClick={useAiVoice}
+                className="-my-1 min-h-11 shrink-0 rounded-full bg-white px-3 text-xs font-semibold text-rose-800 shadow-sm active:scale-95 dark:bg-ink-900 dark:text-rose-200"
+                data-testid={`${testId}-use-ai-voice`}
+              >
+                Use AI for voice
+              </button>
+            )}
           </span>
         ) : answer ? (
           <span
