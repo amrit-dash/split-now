@@ -37,6 +37,7 @@ import {
   transcribeFailText,
   transcribeOffer,
   voiceEngine,
+  voiceWhyNot,
   type TranscribeOffer,
   type VoiceEngine,
 } from '@/lib/voice'
@@ -51,7 +52,13 @@ const LANG = 'en-IN'
  * admin's flags, their AI settings, the transcription key, the phone's own recognition and the
  * microphone permission. `engine` null means no voice here (no mic, no hold-for-voice on +).
  */
-export function useVoiceSetup(): { engine: VoiceEngine | null; offer: TranscribeOffer; aiChosen: boolean; nativeOk: boolean } {
+export function useVoiceSetup(): {
+  engine: VoiceEngine | null
+  offer: TranscribeOffer
+  aiChosen: boolean
+  nativeOk: boolean
+  whyNot: ReturnType<typeof voiceWhyNot>
+} {
   const quickAdd = useFlag('quickAdd')
   const flag = useFlag('aiTranscribe')
   const sharedFlag = useFlag('aiTranscribeShared')
@@ -77,7 +84,9 @@ export function useVoiceSetup(): { engine: VoiceEngine | null; offer: Transcribe
   // AI's answer still loading (transcribeOffer says neither yes nor why not).
   const aiPending = !offer.ai && offer.why === null && online
   const engine = quickAdd ? voiceEngine({ native, aiChosen, aiReady: offer.ai && online, aiPending, recorder }) : null
-  return { engine, offer, aiChosen, nativeOk: native }
+  // No engine: why not, so the mic stays and a tap says so (src/lib/voice.ts voiceWhyNot).
+  const whyNot = engine ? null : voiceWhyNot({ quickAdd, native, recorder, aiChosen, offer, online })
+  return { engine, offer, aiChosen, nativeOk: native, whyNot }
 }
 
 export type VoiceState = 'idle' | 'listening' | 'transcribing'

@@ -139,3 +139,33 @@ describe('a group named the way speech hears it', () => {
     expect(oneOff('kerala', 'kodai')).toBe(false)
   })
 })
+
+describe('outside a group: a distinctive word of a group’s name picks it (owner, 24 Oct 2026)', () => {
+  const groups = [
+    { id: 'k', name: 'Kodai Trip - Gandhi Birthday', type: 'trip' },
+    { id: 'g', name: 'Goa Trip', type: 'trip' },
+    { id: 'a', name: 'Akash Agrawal', type: 'direct' },
+    { id: 'f', name: 'Indiranagar Flat', type: 'home' },
+  ]
+  const loose = { loose: true }
+  it('anywhere in the line, misheard or not, with its lead-in taken out', () => {
+    expect(groupInText('when we were in Kodai on 3rd October I paid 1200 for lunch', groups, [], loose)).toMatchObject({ kind: 'match', id: 'k' })
+    expect(groupInText('during the Kodai trip I paid 900 for the cab', groups, [], loose)).toMatchObject({
+      kind: 'match',
+      id: 'k',
+      text: 'I paid 900 for the cab',
+    })
+    expect(groupInText('codai lunch 600', groups, [], loose)).toMatchObject({ kind: 'match', id: 'k' })
+    expect(groupInText('indiranagar groceries 640', groups, [], loose)).toMatchObject({ kind: 'match', id: 'f' })
+  })
+  it('a common word alone never picks one ("the trip", "birthday dinner"), and a 1:1 is left to the people named', () => {
+    expect(groupInText('dinner on the trip 900', groups, [], loose)).toEqual({ kind: 'none' })
+    expect(groupInText('birthday dinner 900', groups, [], loose)).toEqual({ kind: 'none' })
+    expect(groupInText('lunch with Akash 600', groups, ['Akash Agrawal'], loose)).toEqual({ kind: 'none' })
+  })
+  it('inside a group the line stays unless it names another one: "during the …", "in …"', () => {
+    expect(groupInText('when we were at Kodai lunch 600', groups)).toEqual({ kind: 'none' })
+    expect(groupInText('during the Kodai trip lunch 600', groups)).toMatchObject({ kind: 'match', id: 'k' })
+    expect(groupInText('lunch 600 in Kodai', groups)).toMatchObject({ kind: 'match', id: 'k' })
+  })
+})

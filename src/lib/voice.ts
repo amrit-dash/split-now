@@ -399,3 +399,31 @@ export function aiVoiceStep(o: { flag: boolean; offerAi: boolean }): 'turn-on' |
   if (!o.flag) return null
   return o.offerAi ? 'turn-on' : 'settings'
 }
+
+/**
+ * Why voice can't listen here, when it can't (voiceEngine gave null): the mic stays and a tap says
+ * this, instead of the mic disappearing (owner's Opera GX, 24 Oct 2026: AI chosen, no mic, no word
+ * why). null when there's no microphone to offer at all (no recording, no recognition) or Quick add
+ * is off. `fix`: what the message's button does (Use AI for voice, or open AI features).
+ */
+export function voiceWhyNot(o: {
+  quickAdd: boolean
+  native: boolean
+  recorder: boolean
+  aiChosen: boolean
+  offer: { ai: boolean; why: string | null }
+  online: boolean
+}): { text: string; fix: 'use-ai' | 'settings' | null } | null {
+  if (!o.quickAdd || (!o.recorder && !o.native)) return null
+  if (o.aiChosen) {
+    if (!o.online) return { text: 'Voice with AI needs a connection. Try again when you’re online, or type it.', fix: null }
+    if (!o.offer.ai) return { text: o.offer.why ?? 'AI transcription isn’t available right now. Try again in a moment.', fix: o.offer.why ? 'settings' : null }
+    if (!o.recorder) return { text: 'This browser can’t record audio for AI. Type it instead.', fix: null }
+  }
+  if (!o.native) return { text: NO_SERVICE_TEXT_VOICE, fix: 'use-ai' }
+  return null
+}
+
+/** The browser has no speech service (src/lib/speech.ts NO_SERVICE_TEXT is this). */
+export const NO_SERVICE_TEXT_VOICE =
+  'This browser can’t turn speech into text. Chrome, Edge and Safari can, or turn on Transcribe with AI in Settings → AI features.'

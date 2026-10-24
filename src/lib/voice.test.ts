@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  voiceWhyNot,
   aiVoiceStep,
   browserName,
   speechRefusedText,
@@ -346,5 +347,23 @@ describe('aiVoiceStep: the button on “This browser can’t turn speech into te
     expect(aiVoiceStep({ flag: true, offerAi: true })).toBe('turn-on')
     expect(aiVoiceStep({ flag: true, offerAi: false })).toBe('settings')
     expect(aiVoiceStep({ flag: false, offerAi: true })).toBeNull()
+  })
+})
+
+describe('voiceWhyNot: the mic stays and says why voice can’t listen here', () => {
+  const base = { quickAdd: true, native: false, recorder: true, aiChosen: false, offer: { ai: false, why: null }, online: true }
+  it('no speech service and AI not chosen: Use AI for voice', () => {
+    expect(voiceWhyNot(base)).toEqual({ text: expect.stringMatching(/can’t turn speech into text/), fix: 'use-ai' })
+  })
+  it('AI chosen but no key can serve them: the reason, and AI features', () => {
+    expect(voiceWhyNot({ ...base, aiChosen: true, offer: { ai: false, why: 'Needs your own Gemini key, added in Settings → AI features.' } })).toEqual({
+      text: 'Needs your own Gemini key, added in Settings → AI features.',
+      fix: 'settings',
+    })
+    expect(voiceWhyNot({ ...base, aiChosen: true, offer: { ai: true, why: null }, online: false })?.text).toMatch(/needs a connection/)
+  })
+  it('nothing to offer: no microphone at all, or Quick add off', () => {
+    expect(voiceWhyNot({ ...base, recorder: false })).toBeNull()
+    expect(voiceWhyNot({ ...base, quickAdd: false })).toBeNull()
   })
 })
