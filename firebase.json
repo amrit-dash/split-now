@@ -66,7 +66,7 @@
             },
             {
               "key": "Permissions-Policy",
-              "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+              "value": "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
             },
             {
               "key": "Cross-Origin-Opener-Policy",
@@ -209,7 +209,7 @@
             },
             {
               "key": "Permissions-Policy",
-              "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+              "value": "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
             },
             {
               "key": "Cross-Origin-Opener-Policy",
@@ -352,7 +352,7 @@
             },
             {
               "key": "Permissions-Policy",
-              "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+              "value": "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
             },
             {
               "key": "Cross-Origin-Opener-Policy",

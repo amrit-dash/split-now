@@ -12,11 +12,19 @@ function insetBottom(): number {
   return px
 }
 
-/** The first element whose right edge is past the page's width, as tag.class, for the 'wide' case. */
+/** Inside a box that clips it, so it can't widen the page (a card's background glow). */
+function clipped(el: HTMLElement): boolean {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (getComputedStyle(p).overflowX !== 'visible') return true
+  }
+  return false
+}
+
+/** The first element whose right edge is past the page's width and nothing clips, as tag.class. */
 function widest(limit: number): string | undefined {
   for (const el of document.body.querySelectorAll<HTMLElement>('*')) {
     const r = el.getBoundingClientRect()
-    if (r.width && r.right > limit + 1) {
+    if (r.width && r.right > limit + 1 && !clipped(el)) {
       const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 4).join('.') : ''
       return `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}${el.dataset.testid ? `[${el.dataset.testid}]` : ''}`.slice(0, 120)
     }
@@ -50,7 +58,7 @@ function measure(route: string, from: string | undefined, when: string): LayoutS
     s.navBottom = nr.bottom
     s.navHeight = nr.height
   }
-  if (s.scrollW > s.clientW + 1) s.wide = widest(s.clientW)
+  if (s.scrollW > s.clientW + 1 || s.innerW > s.clientW + 1) s.wide = widest(s.clientW)
   return s
 }
 

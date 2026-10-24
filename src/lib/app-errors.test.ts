@@ -34,5 +34,9 @@ describe('voiceProblem', () => {
     expect(voiceProblem({ stage: 'speech', engine: null, perm: 'unknown', native: false, recorder: false, okBefore: true })).toMatch(
       /^voice speech: unknown \| engine=none/,
     )
+    // the site's own Permissions-Policy, where the browser can say
+    expect(voiceProblem({ stage: 'mic', code: 'policy', engine: 'ai', perm: 'denied', native: true, recorder: true, okBefore: false, policy: false })).toMatch(
+      / policy=0$/,
+    )
   })
 })

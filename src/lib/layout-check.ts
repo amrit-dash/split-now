@@ -38,6 +38,9 @@ const r = (n: number) => Math.round(n * 10) / 10
 export function layoutProblem(s: LayoutSample): string | null {
   const off: string[] = []
   if (s.scrollW > s.clientW + 1) off.push('wide')
+  // Chrome on Android widened the layout viewport to fit stray overflow (innerWidth past the page's
+  // width): the zoom-out behind the owner's glitch, even where the overflow itself is clipped.
+  if (s.innerW > s.clientW + 1) off.push('widened')
   if (Math.abs(s.vvScale - 1) > 0.02) off.push('zoomed')
   if (s.vvLeft > 1 || s.scrollX > 1) off.push('shifted')
   if (s.navBottom !== undefined && Math.abs(s.navBottom - s.innerH) > 2) off.push('nav-off-bottom')

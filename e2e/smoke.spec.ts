@@ -709,6 +709,33 @@ test('Voice: a blocked microphone keeps the mic and says where to allow it; an o
   await expect(page).toHaveURL(/\/groups\/g_goa$/)
 })
 
+test('Voice: a site whose own policy turns the microphone off says so, and sends no one to settings', async ({ page }) => {
+  await fakeSpeech(page)
+  await page.addInitScript(() => {
+    Object.defineProperty(document, 'featurePolicy', { value: { allowsFeature: (f: string) => f !== 'microphone' }, configurable: true })
+  })
+  await page.goto('/groups/g_goa')
+  const plus = page.getByTestId('nav-create')
+  await plus.hover()
+  await page.mouse.down()
+  await expect(page.getByTestId('toasts')).toContainText('Voice is switched off on this site')
+  await expect(page.getByTestId('toasts')).not.toContainText(/Settings/)
+  await page.mouse.up()
+})
+
+test('Layout: something a few px too wide never widens the page (Android zoomed the app out)', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('home-greeting')).toBeVisible()
+  await page.evaluate(() => {
+    const d = document.createElement('div')
+    d.style.cssText = `width:${innerWidth + 8}px;height:4px`
+    document.body.prepend(d)
+  })
+  const m = await page.evaluate(() => ({ inner: innerWidth, client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
+  expect(m.inner).toBe(m.client)
+  expect(m.scroll).toBe(m.client)
+})
+
 test('Voice: a device that keeps the microphone from the browser is named, not the site', async ({ page }) => {
   await fakeSpeech(page)
   await fakeMicPermission(page, 'deniedBySystem')

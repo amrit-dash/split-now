@@ -12,6 +12,23 @@ const permSubs = new Set<() => void>()
 let watching = false
 
 /** The site's microphone permission, watched once (some browsers can't say: 'unknown'). */
+/**
+ * Whether the site's own Permissions-Policy lets it use the microphone (Chromium's
+ * document.featurePolicy / permissionsPolicy; undefined elsewhere). When it doesn't, the browser
+ * refuses at once and reports "denied" whatever the person allowed: 9.0–9.6.0 shipped
+ * `microphone=()` in firebase.json, so voice never asked anywhere (fixed in 9.6.1).
+ */
+export function micPolicyAllows(): boolean | undefined {
+  if (typeof document === 'undefined') return undefined
+  const d = document as unknown as { permissionsPolicy?: { allowsFeature(f: string): boolean }; featurePolicy?: { allowsFeature(f: string): boolean } }
+  const p = d.permissionsPolicy ?? d.featurePolicy
+  try {
+    return p ? p.allowsFeature('microphone') : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function micPermission(): Perm {
   if (!watching && typeof navigator !== 'undefined' && navigator.permissions?.query) {
     watching = true

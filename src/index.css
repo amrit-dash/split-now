@@ -161,6 +161,11 @@
 @layer base {
   /* No rubber-band overscroll on the page: on iOS it dragged the frosted tab bar's backdrop along
      and the bar briefly went see-through. */
+  /* Nothing may widen the page: on Android a few px of stray overflow made Chrome widen the layout
+     viewport and zoom the whole app out (tab bar off the bottom, Home scrolling sideways; owner's
+     phone, 24 Oct 2026, Admin → Logs → Layout). Clipped here, and minimum-scale=1 in index.html. */
+  html { overflow-x: hidden; }
+  body { overflow-x: clip; }
   html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; @apply bg-slate-50 dark:bg-ink-950 dark:[color-scheme:dark]; }
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;

@@ -97,6 +97,9 @@ export function voiceProblem(o: {
   native: boolean
   recorder: boolean
   okBefore: boolean
+  /** the site's Permissions-Policy allows the microphone (undefined where the browser can't say) */
+  policy?: boolean
 }): string {
-  return `voice ${o.stage}: ${o.code || 'unknown'} | engine=${o.engine ?? 'none'} perm=${o.perm} native=${o.native ? 1 : 0} rec=${o.recorder ? 1 : 0} ok=${o.okBefore ? 1 : 0}`
+  const policy = o.policy === undefined ? '' : ` policy=${o.policy ? 1 : 0}`
+  return `voice ${o.stage}: ${o.code || 'unknown'} | engine=${o.engine ?? 'none'} perm=${o.perm} native=${o.native ? 1 : 0} rec=${o.recorder ? 1 : 0} ok=${o.okBefore ? 1 : 0}${policy}`
 }

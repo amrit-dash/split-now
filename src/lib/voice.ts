@@ -122,6 +122,9 @@ export function micFailure(name: string | undefined, message?: string): MicFailu
  * permission for the site (and keeps it when the app is removed), and Android holds Chrome's own;
  * the browser reports either as blocked, so the steps name both (owner's phone, 24 Oct 2026: Chrome's).
  */
+/** The site's own Permissions-Policy turns the microphone off: nothing the person can switch on. */
+export const MIC_POLICY_TEXT = 'Voice is switched off on this site right now. Type it instead.'
+
 export interface MicWhere {
   android: boolean
   ios: boolean

@@ -24,6 +24,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '9.6.1',
+    date: 'October 2026',
+    items: [{ text: 'Voice works again: your browser asks for the microphone the first time', section: 'voice' }],
+  },
+  {
     version: '9.6.0',
     date: 'October 2026',
     items: [
